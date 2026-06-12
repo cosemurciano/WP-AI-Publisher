@@ -46,7 +46,7 @@ class Classic_Content_Builder {
 			$this->build_intro( $dry_run_output ),
 			$context_notes,
 			$this->build_outline_sections( $dry_run_output ),
-			$this->build_conclusion( $dry_run_output ),
+			$this->outline_has_conclusion_section( $dry_run_output ) ? '' : $this->build_conclusion( $dry_run_output ),
 		);
 
 		if ( 'classic' !== $this->site_context['default_editor'] ) {
@@ -197,6 +197,27 @@ class Classic_Content_Builder {
 		}
 
 		return $html;
+	}
+
+	/**
+	 * Detect whether the outline already contains a final conclusion section.
+	 *
+	 * @param array<string,mixed> $dry_run_output Structured dry-run output.
+	 * @return bool
+	 */
+	private function outline_has_conclusion_section( $dry_run_output ) {
+		$outline = isset( $dry_run_output['content_outline'] ) && is_array( $dry_run_output['content_outline'] ) ? $dry_run_output['content_outline'] : array();
+		foreach ( $outline as $section ) {
+			$heading = is_array( $section ) ? (string) ( $section['heading'] ?? '' ) : (string) $section;
+			$heading = strtolower( remove_accents( sanitize_text_field( $heading ) ) );
+			foreach ( array( 'conclusione', 'conclusioni', 'prossimi passi', 'riepilogo finale' ) as $needle ) {
+				if ( false !== strpos( $heading, $needle ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**

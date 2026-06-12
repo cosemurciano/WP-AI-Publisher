@@ -505,6 +505,41 @@ class Content_Ideas {
 	}
 
 	/**
+	 * Return non-blocking quality notes for editorial review.
+	 *
+	 * @param array<string,mixed> $output Normalized dry-run output.
+	 * @return array<int,string>
+	 */
+	private function get_quality_review_notes( $output ) {
+		$notes  = array();
+		$checks = array(
+			'title'            => array( 70, __( 'Nota lieve: title supera 70 caratteri. Da revisionare.', 'wp-ai-publisher' ) ),
+			'meta_title'       => array( 60, __( 'Nota lieve: meta_title supera 60 caratteri. Da revisionare.', 'wp-ai-publisher' ) ),
+			'meta_description' => array( 160, __( 'Nota lieve: meta_description supera 160 caratteri. Da revisionare.', 'wp-ai-publisher' ) ),
+			'slug'             => array( 75, __( 'Nota lieve: slug supera 75 caratteri. Da revisionare.', 'wp-ai-publisher' ) ),
+			'excerpt'          => array( 300, __( 'Nota lieve: excerpt supera 300 caratteri. Da revisionare.', 'wp-ai-publisher' ) ),
+		);
+
+		foreach ( $checks as $field => $check ) {
+			$value  = isset( $output[ $field ] ) ? (string) $output[ $field ] : '';
+			$length = function_exists( 'mb_strlen' ) ? mb_strlen( $value ) : strlen( $value );
+			if ( $length > $check[0] ) {
+				$notes[] = $check[1];
+			}
+		}
+
+		if ( isset( $output['tags'] ) && is_array( $output['tags'] ) && count( $output['tags'] ) > 12 ) {
+			$notes[] = __( 'Nota lieve: sono presenti più di 12 tag. Da revisionare.', 'wp-ai-publisher' );
+		}
+
+		if ( isset( $output['categories'] ) && is_array( $output['categories'] ) && count( $output['categories'] ) > 4 ) {
+			$notes[] = __( 'Nota lieve: sono presenti più di 4 categorie. Da revisionare.', 'wp-ai-publisher' );
+		}
+
+		return $notes;
+	}
+
+	/**
 	 * Validate the Classic Editor preview contract.
 	 *
 	 * @param mixed $preview Preview array.

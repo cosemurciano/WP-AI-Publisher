@@ -24,9 +24,9 @@ Questa versione non crea post, non pubblica contenuti, non genera immagini reali
 2. Attiva WP AI Publisher dalla schermata Plugin.
 3. Apri WP AI Publisher > Bacheca.
 4. Apri WP AI Publisher > Idee contenuto per salvare un argomento editoriale ed eseguire un dry-run.
-5. Controlla WP AI Publisher > Coda job.
-6. Controlla WP AI Publisher > Impostazioni.
-7. Apri WP AI Publisher > Diagnostica AI per analizzare il runtime AI.
+5. Apri WP AI Publisher > Diagnostica AI per analizzare il runtime AI.
+6. Controlla WP AI Publisher > Coda job.
+7. Controlla WP AI Publisher > Impostazioni.
 8. Controlla WP AI Publisher > Stato sistema.
 
 == Note sviluppo ==

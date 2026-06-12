@@ -39,7 +39,7 @@ $settings_context_url      = admin_url( 'admin.php?page=wp-ai-publisher-settings
 
 
 $source_labels = array(
-	'wordpress_ai'   => __( 'WordPress AI', 'wp-ai-publisher' ),
+	'wordpress_ai'   => __( 'AI WordPress', 'wp-ai-publisher' ),
 	'local_fallback' => __( 'Fallback locale', 'wp-ai-publisher' ),
 	'unknown'        => __( 'Non disponibile', 'wp-ai-publisher' ),
 );
@@ -192,26 +192,29 @@ $render_list = static function ( $items ) {
 		$classic_preview = isset( $dry_run_data['classic_editor_preview'] ) && is_array( $dry_run_data['classic_editor_preview'] ) ? $dry_run_data['classic_editor_preview'] : array();
 		$classic_html    = isset( $classic_preview['html'] ) ? (string) $classic_preview['html'] : '';
 		$classic_notes   = isset( $classic_preview['validation_notes'] ) && is_array( $classic_preview['validation_notes'] ) ? $classic_preview['validation_notes'] : array();
-		$quality_label   = __( 'Da revisionare', 'wp-ai-publisher' );
-		$quality_class   = 'wpai-badge wpai-badge--not-verified';
-		$has_review_notes = false;
-		foreach ( $classic_notes as $classic_note ) {
-			$classic_note_text = strtolower( remove_accents( (string) $classic_note ) );
-			if ( false !== strpos( $classic_note_text, 'placeholder' ) || false !== strpos( $classic_note_text, 'grave' ) || false !== strpos( $classic_note_text, 'vuot' ) ) {
-				$has_review_notes = true;
-				break;
+		$all_notes       = array_values( array_unique( array_filter( array_merge( (array) $notes_data, $classic_notes ) ) ) );
+		$review_notes    = array();
+		$blocking_notes  = array();
+		foreach ( $all_notes as $note ) {
+			$note_text = strtolower( remove_accents( (string) $note ) );
+			if ( false !== strpos( $note_text, 'nota grave' ) || false !== strpos( $note_text, 'campo critico' ) || false !== strpos( $note_text, 'gravemente' ) || false !== strpos( $note_text, 'gutenberg' ) || false !== strpos( $note_text, 'script non consentiti' ) || false !== strpos( $note_text, 'iframe non consentiti' ) || false !== strpos( $note_text, 'vuoto' ) || false !== strpos( $note_text, 'mancante' ) ) {
+				$blocking_notes[] = (string) $note;
+			} elseif ( false !== strpos( $note_text, 'nota lieve' ) || false !== strpos( $note_text, 'da revisionare' ) ) {
+				$review_notes[] = (string) $note;
 			}
 		}
+		$review_notes   = array_values( array_unique( $review_notes ) );
+		$blocking_notes = array_values( array_unique( $blocking_notes ) );
+		$is_ready       = empty( $blocking_notes );
+		$quality_label  = __( 'Da revisionare', 'wp-ai-publisher' );
+		$quality_class  = 'wpai-badge wpai-badge--warning';
 
 		if ( 'local_fallback' === $generation_source ) {
 			$quality_label = __( 'Simulazione locale', 'wp-ai-publisher' );
 			$quality_class = 'wpai-badge wpai-badge--warning';
-		} elseif ( 'wordpress_ai' === $generation_source && ! $has_review_notes ) {
+		} elseif ( 'wordpress_ai' === $generation_source && empty( $review_notes ) ) {
 			$quality_label = __( 'Output AI reale', 'wp-ai-publisher' );
 			$quality_class = 'wpai-badge wpai-badge--ok';
-		} elseif ( 'wordpress_ai' === $generation_source ) {
-			$quality_label = __( 'Output AI reale da revisionare', 'wp-ai-publisher' );
-			$quality_class = 'wpai-badge wpai-badge--warning';
 		}
 		?>
 		<section class="wpai-card" style="margin-top:20px;">
@@ -224,6 +227,7 @@ $render_list = static function ( $items ) {
 					<li><strong><?php echo esc_html__( 'Origine:', 'wp-ai-publisher' ); ?></strong> <span class="<?php echo esc_attr( $source_badge_class ); ?>"><?php echo esc_html( $source_badges[ $generation_source ] ); ?></span> <?php echo esc_html( $source_labels[ $generation_source ] ); ?></li>
 					<li><strong><?php echo esc_html__( 'Compatibilità:', 'wp-ai-publisher' ); ?></strong> <span class="wpai-badge wpai-badge--ok"><?php echo esc_html__( 'Editor Classico', 'wp-ai-publisher' ); ?></span></li>
 					<li><strong><?php echo esc_html__( 'Qualità anteprima:', 'wp-ai-publisher' ); ?></strong> <span class="<?php echo esc_attr( $quality_class ); ?>"><?php echo esc_html( $quality_label ); ?></span></li>
+					<li><strong><?php echo esc_html__( 'Stato:', 'wp-ai-publisher' ); ?></strong> <span class="<?php echo esc_attr( $is_ready ? 'wpai-badge wpai-badge--ok' : 'wpai-badge wpai-badge--error' ); ?>"><?php echo esc_html( $is_ready ? __( 'PRONTO', 'wp-ai-publisher' ) : __( 'BLOCCATO', 'wp-ai-publisher' ) ); ?></span></li>
 				</ul>
 				<?php if ( 'local_fallback' === $generation_source ) : ?>
 					<div class="notice notice-warning inline">
@@ -300,7 +304,21 @@ $render_list = static function ( $items ) {
 					<?php $render_list( $classic_notes ); ?>
 				<?php endif; ?>
 
-				<h3><?php echo esc_html__( 'Note di validazione', 'wp-ai-publisher' ); ?></h3>
+				<h3><?php echo esc_html__( 'Note di revisione', 'wp-ai-publisher' ); ?></h3>
+				<?php if ( empty( $review_notes ) ) : ?>
+					<div class="notice notice-success inline"><p><?php echo esc_html__( 'Nessuna nota lieve di revisione rilevata.', 'wp-ai-publisher' ); ?></p></div>
+				<?php else : ?>
+					<div class="notice notice-warning inline"><?php $render_list( $review_notes ); ?></div>
+				<?php endif; ?>
+
+				<h3><?php echo esc_html__( 'Problemi bloccanti', 'wp-ai-publisher' ); ?></h3>
+				<?php if ( empty( $blocking_notes ) ) : ?>
+					<div class="notice notice-success inline"><p><?php echo esc_html__( 'Nessun problema bloccante: dry-run PRONTO.', 'wp-ai-publisher' ); ?></p></div>
+				<?php else : ?>
+					<div class="notice notice-error inline"><?php $render_list( $blocking_notes ); ?></div>
+				<?php endif; ?>
+
+				<h3><?php echo esc_html__( 'Note di validazione complete', 'wp-ai-publisher' ); ?></h3>
 				<?php $render_list( $notes_data ); ?>
 
 				<h3><?php echo esc_html__( 'JSON grezzo per debug', 'wp-ai-publisher' ); ?></h3>

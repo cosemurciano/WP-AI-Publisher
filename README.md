@@ -64,6 +64,14 @@ Per compatibilità con integrazioni create nella versione **0.3.0**, resta suppo
 
 Il filtro legacy riceve un payload compatibile con la versione 0.3.0: se il chiamante moderno non include `idea`, WP AI Publisher ricostruisce `idea.topic`, `idea.keyword`, `idea.language`, `idea.target_audience`, `idea.tutorial_level` e `idea.notes` a partire dal payload normalizzato. Entrambi gli hook devono restituire solo dati strutturati per anteprima e validazione: il plugin non crea post, non crea bozze, non pubblica contenuti e non chiama OpenAI direttamente.
 
+## WordPress Abilities API
+
+Dalla versione **0.3.6**, WP AI Publisher consolida l’integrazione con la WordPress Abilities API quando disponibile nel runtime WordPress 7. Il plugin usa `wp_get_abilities()` per leggere le ability registrate e `wp_get_ability()` per ottenere l’istanza invocabile, sempre con chiamate protette e senza generare fatal error.
+
+Le istanze `WP_Ability` vengono lette tramite getter (`get_name()`, `get_label()`, `get_description()`, `get_category()`, `get_input_schema()`, `get_output_schema()` e `get_meta()`) quando disponibili, con fallback difensivo su array o proprietà pubbliche solo per metadati scalari sicuri. Gli schema vengono usati solo per dedurre parole chiave e input compatibili; non vengono mostrati completi nella diagnostica.
+
+WP AI Publisher non chiama API OpenAI dirette, non salva chiavi e non contiene un client OpenAI custom. L’output generato da un’ability reale è marcato come `source: wordpress_ai` e viene distinto dal fallback locale (`source: local_fallback`) nell’admin, nella qualità anteprima e nelle note di revisione.
+
 ## Diagnostica AI
 
 La sezione **WP AI Publisher > Diagnostica AI** serve a scoprire cosa espone davvero il sistema AI WordPress installato sul sito prima di implementare un’integrazione definitiva con il connector OpenAI già configurato. È una pagina di debugging runtime: non inventa un’integrazione, ma elenca ciò che WordPress, plugin AI, connector, abilities, classi PHP e route REST rendono disponibile nel processo corrente.
