@@ -81,7 +81,9 @@ final class Plugin {
 	 * Constructor.
 	 */
 	private function __construct() {
-		$this->db          = new DB();
+		$this->db = new DB();
+		$this->maybe_upgrade_database();
+
 		$this->logger      = new Logger( $this->db );
 		$this->settings    = new Settings();
 		$this->job_queue   = new Job_Queue( $this->db );
@@ -92,6 +94,25 @@ final class Plugin {
 		add_action( 'admin_init', array( $this->settings, 'register' ) );
 		add_action( 'admin_menu', array( $this->admin, 'register_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+	}
+
+	/**
+	 * Run lightweight database migrations on normal plugin updates.
+	 *
+	 * WordPress does not rerun activation hooks after one-click plugin updates,
+	 * so schema upgrades must be checked during bootstrap before admin pages query tables.
+	 *
+	 * @return void
+	 */
+	private function maybe_upgrade_database() {
+		$stored_schema  = $this->db->get_schema_version();
+		$stored_version = (string) get_option( 'wpai_publisher_version', '' );
+
+		if ( version_compare( $stored_schema, WPAIP_DB_SCHEMA_VERSION, '<' ) || $stored_version !== WPAIP_VERSION ) {
+			$this->db->create_tables();
+			$this->db->set_schema_version( WPAIP_DB_SCHEMA_VERSION );
+			update_option( 'wpai_publisher_version', WPAIP_VERSION, false );
+		}
 	}
 
 	/**
