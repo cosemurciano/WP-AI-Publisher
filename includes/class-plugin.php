@@ -51,6 +51,13 @@ final class Plugin {
 	private $job_queue;
 
 	/**
+	 * Content ideas service.
+	 *
+	 * @var Content_Ideas
+	 */
+	private $content_ideas;
+
+	/**
 	 * Admin service.
 	 *
 	 * @var Admin
@@ -87,8 +94,9 @@ final class Plugin {
 		$this->logger      = new Logger( $this->db );
 		$this->settings    = new Settings();
 		$this->job_queue   = new Job_Queue( $this->db );
-		$this->ai_provider = new AI_Provider_Adapter();
-		$this->admin       = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue );
+		$this->ai_provider   = new AI_Provider_Adapter();
+		$this->content_ideas = new Content_Ideas( $this->db, $this->ai_provider, $this->logger );
+		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas );
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 		add_action( 'admin_init', array( $this->settings, 'register' ) );

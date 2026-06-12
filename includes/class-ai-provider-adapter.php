@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Central adapter for all future AI calls.
  *
  * The plugin intentionally uses only the WordPress AI system configured on the site.
- * No custom OpenAI key, direct HTTP client, or provider fallback is handled here.
+ * No custom OpenAI key, direct HTTP client, or remote provider fallback is handled here.
  */
 class AI_Provider_Adapter {
 	/**
@@ -495,6 +495,202 @@ class AI_Provider_Adapter {
 		}
 
 		return array_values( $normalized );
+	}
+
+
+	/**
+	 * Generate a structured content dry-run through WordPress AI when available.
+	 *
+	 * This method never calls OpenAI directly and never reads or stores custom API keys.
+	 * When no usable WordPress AI function is available, a local deterministic fallback
+	 * is returned only if the caller explicitly sets allow_local_fallback to true.
+	 *
+	 * @param array<string,mixed> $payload Request payload.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	public function generate_structured_content_dry_run( $payload ) {
+		if ( ! is_array( $payload ) ) {
+			return new WP_Error( 'wpai_invalid_dry_run_payload', __( 'Payload dry-run non valido.', 'wp-ai-publisher' ) );
+		}
+
+		/**
+		 * Allows a WordPress AI integration to provide the structured dry-run output.
+		 *
+		 * Integrations must return an array, JSON string, or WP_Error. Returning null
+		 * leaves control to the adapter fallback logic.
+		 *
+		 * @param mixed $result Dry-run result.
+		 * @param array<string,mixed> $payload Request payload.
+		 */
+		$filtered = apply_filters( 'wpai_publisher_structured_content_dry_run', null, $payload );
+		if ( null !== $filtered ) {
+			return $this->normalize_structured_dry_run_result( $filtered );
+		}
+
+		$prompt = $this->build_structured_dry_run_prompt( $payload );
+		if ( '' !== $prompt && function_exists( 'wp_ai_generate_text' ) ) {
+			try {
+				$result = call_user_func(
+					'wp_ai_generate_text',
+					array(
+						'prompt'      => $prompt,
+						'temperature' => 0.2,
+						'format'      => 'json',
+					)
+				);
+
+				$normalized = $this->normalize_structured_dry_run_result( $result );
+				if ( ! is_wp_error( $normalized ) ) {
+					return $normalized;
+				}
+			} catch ( Throwable $throwable ) {
+				return new WP_Error( 'wpai_wordpress_ai_dry_run_failed', sanitize_text_field( $throwable->getMessage() ) );
+			}
+		}
+
+		if ( ! empty( $payload['allow_local_fallback'] ) ) {
+			return $this->generate_local_structured_content_dry_run( $payload );
+		}
+
+		return new WP_Error( 'wpai_wordpress_ai_dry_run_not_available', __( 'Nessuna funzione WordPress AI utilizzabile per il dry-run strutturato.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Normalize structured dry-run result.
+	 *
+	 * @param mixed $result Raw result.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private function normalize_structured_dry_run_result( $result ) {
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		if ( is_array( $result ) ) {
+			return $result;
+		}
+
+		if ( is_object( $result ) ) {
+			$encoded = wp_json_encode( $result );
+			if ( false !== $encoded ) {
+				$decoded = json_decode( $encoded, true );
+				if ( is_array( $decoded ) ) {
+					return $decoded;
+				}
+			}
+		}
+
+		if ( is_string( $result ) ) {
+			$decoded = json_decode( $result, true );
+			if ( JSON_ERROR_NONE === json_last_error() && is_array( $decoded ) ) {
+				return $decoded;
+			}
+		}
+
+		return new WP_Error( 'wpai_invalid_wordpress_ai_dry_run', __( 'La risposta WordPress AI non contiene JSON strutturato valido.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Build a strict prompt for WordPress AI integrations.
+	 *
+	 * @param array<string,mixed> $payload Request payload.
+	 * @return string
+	 */
+	private function build_structured_dry_run_prompt( $payload ) {
+		$idea = isset( $payload['idea'] ) && is_array( $payload['idea'] ) ? $payload['idea'] : array();
+		$topic = sanitize_textarea_field( (string) ( $idea['topic'] ?? '' ) );
+		if ( '' === $topic ) {
+			return '';
+		}
+
+		return sprintf(
+			"Genera solo JSON valido per un dry-run editoriale WordPress. Non creare post, non pubblicare, non generare immagini reali. Campi richiesti: title, slug, excerpt, content_outline array di sezioni con heading level summary, categories array, tags array, meta_title, meta_description, open_graph_title, open_graph_description, twitter_title, twitter_description, featured_image_prompt, internal_image_prompts array, image_alt_texts array, image_captions array, internal_link_targets array, knowledge_summary, entities array, search_intent, tutorial_level, cluster_topic, subtopic, validation_notes array. Argomento: %s. Keyword: %s. Lingua: %s. Pubblico: %s. Livello: %s. Note: %s.",
+			$topic,
+			sanitize_text_field( (string) ( $idea['keyword'] ?? '' ) ),
+			sanitize_key( (string) ( $idea['language'] ?? 'it' ) ),
+			sanitize_text_field( (string) ( $idea['target_audience'] ?? '' ) ),
+			sanitize_text_field( (string) ( $idea['tutorial_level'] ?? '' ) ),
+			sanitize_textarea_field( (string) ( $idea['notes'] ?? '' ) )
+		);
+	}
+
+	/**
+	 * Generate deterministic local dry-run output for development workflow testing.
+	 *
+	 * @param array<string,mixed> $payload Request payload.
+	 * @return array<string,mixed>
+	 */
+	private function generate_local_structured_content_dry_run( $payload ) {
+		$idea            = isset( $payload['idea'] ) && is_array( $payload['idea'] ) ? $payload['idea'] : array();
+		$topic           = sanitize_textarea_field( (string) ( $idea['topic'] ?? __( 'Idea contenuto', 'wp-ai-publisher' ) ) );
+		$keyword         = sanitize_text_field( (string) ( $idea['keyword'] ?? '' ) );
+		$language        = sanitize_key( (string) ( $idea['language'] ?? 'it' ) );
+		$target_audience = sanitize_text_field( (string) ( $idea['target_audience'] ?? '' ) );
+		$tutorial_level  = sanitize_text_field( (string) ( $idea['tutorial_level'] ?? 'base' ) );
+		$title_seed      = '' !== $keyword ? $keyword : wp_trim_words( $topic, 8, '' );
+		$title           = sprintf( __( 'Guida a %s', 'wp-ai-publisher' ), $title_seed );
+		$slug            = sanitize_title( $title );
+		$audience_text   = '' !== $target_audience ? $target_audience : __( 'lettori del sito', 'wp-ai-publisher' );
+
+		return array(
+			'title'                  => $title,
+			'slug'                   => $slug,
+			'excerpt'                => sprintf( __( 'Dry-run editoriale su %1$s pensato per %2$s.', 'wp-ai-publisher' ), $topic, $audience_text ),
+			'content_outline'        => array(
+				array(
+					'heading' => __( 'Introduzione e contesto', 'wp-ai-publisher' ),
+					'level'   => 2,
+					'summary' => sprintf( __( 'Presentare il tema “%s”, il problema che risolve e il valore per il pubblico.', 'wp-ai-publisher' ), $topic ),
+				),
+				array(
+					'heading' => __( 'Passaggi principali', 'wp-ai-publisher' ),
+					'level'   => 2,
+					'summary' => __( 'Organizzare i punti operativi in una sequenza chiara, verificabile e adatta al livello selezionato.', 'wp-ai-publisher' ),
+				),
+				array(
+					'heading' => __( 'Errori da evitare', 'wp-ai-publisher' ),
+					'level'   => 2,
+					'summary' => __( 'Evidenziare rischi, limiti e controlli prima di trasformare l’idea in bozza.', 'wp-ai-publisher' ),
+				),
+				array(
+					'heading' => __( 'Conclusione e prossimi passi', 'wp-ai-publisher' ),
+					'level'   => 2,
+					'summary' => __( 'Riassumere la proposta editoriale e indicare le azioni successive per la revisione umana.', 'wp-ai-publisher' ),
+				),
+			),
+			'categories'             => array( __( 'Guide', 'wp-ai-publisher' ) ),
+			'tags'                   => array_values( array_filter( array( $keyword, __( 'dry-run', 'wp-ai-publisher' ), __( 'contenuto editoriale', 'wp-ai-publisher' ) ) ) ),
+			'meta_title'             => wp_trim_words( $title, 10, '' ),
+			'meta_description'       => sprintf( __( 'Struttura preliminare e sicura per un articolo su %s, senza creare bozze o pubblicare contenuti.', 'wp-ai-publisher' ), $topic ),
+			'open_graph_title'       => $title,
+			'open_graph_description' => sprintf( __( 'Anteprima editoriale controllata per %s.', 'wp-ai-publisher' ), $topic ),
+			'twitter_title'          => $title,
+			'twitter_description'    => sprintf( __( 'Dry-run articolo: %s.', 'wp-ai-publisher' ), $topic ),
+			'featured_image_prompt'  => sprintf( __( 'Illustrazione editoriale concettuale su %s, senza generare immagini reali in questa fase.', 'wp-ai-publisher' ), $topic ),
+			'internal_image_prompts' => array(
+				sprintf( __( 'Schema visuale dei passaggi principali per %s.', 'wp-ai-publisher' ), $topic ),
+			),
+			'image_alt_texts'        => array(
+				sprintf( __( 'Schema editoriale per %s.', 'wp-ai-publisher' ), $topic ),
+			),
+			'image_captions'         => array(
+				sprintf( __( 'Bozza visiva concettuale per l’articolo su %s.', 'wp-ai-publisher' ), $topic ),
+			),
+			'internal_link_targets'  => array(
+				__( 'Pagina guida correlata', 'wp-ai-publisher' ),
+				__( 'Archivio articoli sul tema', 'wp-ai-publisher' ),
+			),
+			'knowledge_summary'      => sprintf( __( 'Sintesi locale basata sull’argomento inserito: %s.', 'wp-ai-publisher' ), $topic ),
+			'entities'               => array_values( array_filter( array( $keyword, $topic ) ) ),
+			'search_intent'          => __( 'Informazionale', 'wp-ai-publisher' ),
+			'tutorial_level'         => '' !== $tutorial_level ? $tutorial_level : 'base',
+			'cluster_topic'          => '' !== $keyword ? $keyword : wp_trim_words( $topic, 4, '' ),
+			'subtopic'               => $topic,
+			'language'               => $language,
+			'validation_notes'       => array(
+				__( 'Dry-run generato in modalità locale perché la chiamata WordPress AI reale non è ancora implementata.', 'wp-ai-publisher' ),
+			),
+		);
 	}
 
 	/**

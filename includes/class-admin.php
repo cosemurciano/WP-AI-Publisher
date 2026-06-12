@@ -44,6 +44,13 @@ class Admin {
 	private $job_queue;
 
 	/**
+	 * Content ideas service.
+	 *
+	 * @var Content_Ideas
+	 */
+	private $content_ideas;
+
+	/**
 	 * AI adapter.
 	 *
 	 * @var AI_Provider_Adapter
@@ -58,13 +65,18 @@ class Admin {
 	 * @param Settings            $settings Settings service.
 	 * @param AI_Provider_Adapter $ai_provider AI adapter.
 	 * @param Job_Queue           $job_queue Job queue service.
+	 * @param Content_Ideas       $content_ideas Content ideas service.
 	 */
-	public function __construct( DB $db, Logger $logger, Settings $settings, AI_Provider_Adapter $ai_provider, Job_Queue $job_queue ) {
-		$this->db          = $db;
-		$this->logger      = $logger;
-		$this->settings    = $settings;
-		$this->ai_provider = $ai_provider;
-		$this->job_queue   = $job_queue;
+	public function __construct( DB $db, Logger $logger, Settings $settings, AI_Provider_Adapter $ai_provider, Job_Queue $job_queue, Content_Ideas $content_ideas ) {
+		$this->db            = $db;
+		$this->logger        = $logger;
+		$this->settings      = $settings;
+		$this->ai_provider   = $ai_provider;
+		$this->job_queue     = $job_queue;
+		$this->content_ideas = $content_ideas;
+
+		add_action( 'admin_post_wpai_publisher_create_content_idea', array( $this, 'handle_create_content_idea' ) );
+		add_action( 'admin_post_wpai_publisher_run_content_idea_dry_run', array( $this, 'handle_run_content_idea_dry_run' ) );
 	}
 
 	/**
@@ -94,11 +106,11 @@ class Admin {
 
 		add_submenu_page(
 			'wp-ai-publisher',
-			esc_html__( 'Impostazioni', 'wp-ai-publisher' ),
-			esc_html__( 'Impostazioni', 'wp-ai-publisher' ),
+			esc_html__( 'Idee contenuto', 'wp-ai-publisher' ),
+			esc_html__( 'Idee contenuto', 'wp-ai-publisher' ),
 			'manage_options',
-			'wp-ai-publisher-settings',
-			array( $this->settings, 'render_page' )
+			'wp-ai-publisher-content-ideas',
+			array( $this, 'render_content_ideas' )
 		);
 
 		add_submenu_page(
@@ -112,12 +124,140 @@ class Admin {
 
 		add_submenu_page(
 			'wp-ai-publisher',
+			esc_html__( 'Impostazioni', 'wp-ai-publisher' ),
+			esc_html__( 'Impostazioni', 'wp-ai-publisher' ),
+			'manage_options',
+			'wp-ai-publisher-settings',
+			array( $this->settings, 'render_page' )
+		);
+
+		add_submenu_page(
+			'wp-ai-publisher',
 			esc_html__( 'Stato sistema', 'wp-ai-publisher' ),
 			esc_html__( 'Stato sistema', 'wp-ai-publisher' ),
 			'manage_options',
 			'wp-ai-publisher-system-status',
 			array( $this, 'render_system_status' )
 		);
+	}
+
+
+	/**
+	 * Handle content idea creation.
+	 *
+	 * @return void
+	 */
+	public function handle_create_content_idea() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+
+		check_admin_referer( 'wpai_publisher_create_content_idea' );
+
+		$idea_id = $this->content_ideas->create_idea(
+			array(
+				'topic'           => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
+				'keyword'         => sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) ),
+				'language'        => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
+				'target_audience' => sanitize_text_field( wp_unslash( $_POST['target_audience'] ?? '' ) ),
+				'tutorial_level'  => sanitize_text_field( wp_unslash( $_POST['tutorial_level'] ?? '' ) ),
+				'notes'           => sanitize_textarea_field( wp_unslash( $_POST['notes'] ?? '' ) ),
+			)
+		);
+
+		if ( is_wp_error( $idea_id ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_save_failed' ) );
+		}
+
+		$this->redirect_content_ideas(
+			array(
+				'wpai_notice' => 'idea_saved',
+				'idea_id'     => absint( $idea_id ),
+			)
+		);
+	}
+
+	/**
+	 * Handle dry-run execution.
+	 *
+	 * @return void
+	 */
+	public function handle_run_content_idea_dry_run() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+
+		check_admin_referer( 'wpai_publisher_run_content_idea_dry_run' );
+
+		$idea_id = absint( $_POST['idea_id'] ?? 0 );
+		if ( 0 === $idea_id || ! $this->content_ideas->get_idea( $idea_id ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_not_found' ) );
+		}
+
+		$result = $this->content_ideas->run_dry_run( $idea_id );
+		if ( is_wp_error( $result ) || empty( $result['valid'] ) ) {
+			$this->redirect_content_ideas(
+				array(
+					'wpai_notice' => 'dry_run_failed',
+					'view_idea'   => $idea_id,
+					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
+				)
+			);
+		}
+
+		$this->redirect_content_ideas(
+			array(
+				'wpai_notice' => 'dry_run_completed',
+				'view_idea'   => $idea_id,
+				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
+			)
+		);
+	}
+
+	/**
+	 * Render content ideas page.
+	 *
+	 * @return void
+	 */
+	public function render_content_ideas() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+
+		$content_ideas = $this->content_ideas;
+		$ideas         = $content_ideas->get_recent_ideas( 20 );
+		$selected_idea = null;
+		$dry_run_data  = array();
+		$notes_data    = array();
+		$view_idea_id  = absint( $_GET['view_idea'] ?? 0 );
+
+		if ( $view_idea_id > 0 && isset( $_GET['_wpnonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'wpai_publisher_view_content_idea_' . $view_idea_id ) ) {
+			$selected_idea = $content_ideas->get_idea( $view_idea_id );
+			if ( $selected_idea && ! empty( $selected_idea->dry_run_output ) ) {
+				$decoded_output = json_decode( (string) $selected_idea->dry_run_output, true );
+				$decoded_notes  = json_decode( (string) $selected_idea->validation_notes, true );
+				$dry_run_data   = is_array( $decoded_output ) ? $decoded_output : array();
+				$notes_data     = is_array( $decoded_notes ) ? $decoded_notes : array();
+			}
+		}
+
+		include WPAIP_PLUGIN_DIR . 'admin/views/content-ideas.php';
+	}
+
+	/**
+	 * Redirect to content ideas page and stop execution.
+	 *
+	 * @param array<string,mixed> $args Query args.
+	 * @return void
+	 */
+	private function redirect_content_ideas( $args = array() ) {
+		wp_safe_redirect(
+			add_query_arg(
+				$args,
+				admin_url( 'admin.php?page=wp-ai-publisher-content-ideas' )
+			)
+		);
+		exit;
 	}
 
 	/**

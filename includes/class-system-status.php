@@ -81,7 +81,8 @@ class System_Status {
 			array(
 				$this->row( __( 'Database principale', 'wp-ai-publisher' ), ! empty( $db_tables['logs'] ) ? __( 'Tabella log disponibile', 'wp-ai-publisher' ) : __( 'Tabella log mancante', 'wp-ai-publisher' ), ! empty( $db_tables['logs'] ) ? 'ok' : 'error' ),
 				$this->row( __( 'Database secondario', 'wp-ai-publisher' ), __( 'Opzionale / non configurato', 'wp-ai-publisher' ), 'not-configured' ),
-				$this->row( __( 'Cron / coda job', 'wp-ai-publisher' ), ! empty( $db_tables['jobs'] ) ? __( 'Tabella job disponibile', 'wp-ai-publisher' ) : __( 'Tabella job mancante', 'wp-ai-publisher' ), ! empty( $db_tables['jobs'] ) ? 'ok' : 'error' ),
+				$this->row( __( 'Cron / coda job', 'wp-ai-publisher' ), ! empty( $db_tables['jobs'] ) ? __( 'Tabella job disponibile; processor cron non ancora implementato', 'wp-ai-publisher' ) : __( 'Tabella job mancante', 'wp-ai-publisher' ), ! empty( $db_tables['jobs'] ) ? 'ok' : 'error' ),
+				$this->row( __( 'Idee contenuto', 'wp-ai-publisher' ), ! empty( $db_tables['content_ideas'] ) ? __( 'Tabella disponibile', 'wp-ai-publisher' ) : __( 'Tabella mancante', 'wp-ai-publisher' ), ! empty( $db_tables['content_ideas'] ) ? 'ok' : 'error' ),
 				$this->row( __( 'Permessi file', 'wp-ai-publisher' ), $uploads_writable ? __( 'Cartella uploads scrivibile', 'wp-ai-publisher' ) : __( 'Cartella uploads non scrivibile', 'wp-ai-publisher' ), $uploads_writable ? 'ok' : 'error' ),
 				$this->row( __( 'Media Library', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? __( 'Disponibile', 'wp-ai-publisher' ) : __( 'Non disponibile', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? 'ok' : 'warning' ),
 				$this->row( __( 'Knowledge Index', 'wp-ai-publisher' ), __( 'Non ancora implementato', 'wp-ai-publisher' ), 'not-implemented' ),

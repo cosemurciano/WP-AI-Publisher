@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.2.2
+Stable tag: 0.3.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -12,26 +12,27 @@ Base modulare per la pubblicazione assistita da AI in WordPress.
 
 == Descrizione ==
 
-WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita.
+WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.3.0 introduce la prima area operativa “Idee contenuto” per salvare argomenti editoriali e ottenere un dry-run strutturato, senza creare post WordPress.
 
 Il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie. Include diagnostica difensiva per plugin terzi richiesti o consigliati, senza creare dipendenze rigide.
 
-Questa versione non genera ancora articoli, immagini o embedding. Tutte le future funzioni AI passeranno dall’adapter centrale collegato al sistema AI di WordPress.
+Questa versione non crea post, non pubblica contenuti, non genera immagini reali e non scrive metadati SEO. Il dry-run delle idee contenuto salva solo un output JSON validabile e leggibile nell’admin. Tutte le funzioni AI passano dall’adapter centrale collegato al sistema AI di WordPress.
 
 == Installazione ==
 
 1. Carica la cartella del plugin in `/wp-content/plugins/` oppure installa lo ZIP da Plugin > Aggiungi plugin > Carica plugin.
 2. Attiva WP AI Publisher dalla schermata Plugin.
 3. Apri WP AI Publisher > Bacheca.
-4. Controlla WP AI Publisher > Coda job.
-5. Controlla WP AI Publisher > Impostazioni.
-6. Controlla WP AI Publisher > Stato sistema.
+4. Apri WP AI Publisher > Idee contenuto per salvare un argomento editoriale ed eseguire un dry-run.
+5. Controlla WP AI Publisher > Coda job.
+6. Controlla WP AI Publisher > Impostazioni.
+7. Controlla WP AI Publisher > Stato sistema.
 
 == Note sviluppo ==
 
 Durante tutto lo sviluppo, `readme.txt`, `README.md` e versione del plugin devono restare aggiornati. Le voci “Impostazioni” e “Stato sistema” devono restare sempre alla fine del menu del plugin; le altre voci vanno ordinate per importanza d’uso.
 
-Dalla versione 0.2.2 le migrazioni database vengono controllate anche durante il bootstrap del plugin, perché WordPress non riesegue automaticamente l’hook di attivazione dopo un aggiornamento one-click. Questo evita errori quando una nuova pagina admin interroga tabelle create in versioni successive.
+Dalla versione 0.2.2 le migrazioni database vengono controllate anche durante il bootstrap del plugin, perché WordPress non riesegue automaticamente l’hook di attivazione dopo un aggiornamento one-click. In 0.3.0 questo flusso crea anche la tabella delle idee contenuto durante gli upgrade normali.
 
 == Plugin terzi consigliati ==
 
@@ -66,6 +67,16 @@ No. La generazione articoli sarà implementata in una fase successiva.
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.3.0 =
+* Aggiunta sezione Idee contenuto.
+* Aggiunta tabella database per idee editoriali.
+* Aggiunto primo dry-run strutturato articolo.
+* Aggiunto output JSON validabile.
+* Nessuna creazione automatica di post.
+* Nessuna pubblicazione automatica.
+* Nessuna chiamata OpenAI diretta.
+* Aggiornato ordine menu operativo.
 
 = 0.2.2 =
 * Corretto il flusso di upgrade database: le migrazioni vengono eseguite anche dopo aggiornamento plugin, non solo in attivazione.
