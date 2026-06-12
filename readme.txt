@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -14,7 +14,7 @@ Base modulare per la pubblicazione assistita da AI in WordPress.
 
 WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita.
 
-Dalla versione 0.2.0 il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie.
+Dalla versione 0.2.0 il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie. Dalla versione 0.2.1 aggiunge diagnostica difensiva per plugin terzi richiesti o consigliati, senza creare dipendenze rigide.
 
 Questa versione non genera ancora articoli, immagini o embedding. Tutte le future funzioni AI passeranno dall’adapter centrale collegato al sistema AI di WordPress.
 
@@ -26,6 +26,24 @@ Questa versione non genera ancora articoli, immagini o embedding. Tutte le futur
 4. Controlla WP AI Publisher > Impostazioni.
 5. Controlla WP AI Publisher > Coda job.
 6. Controlla WP AI Publisher > Stato sistema.
+
+== Plugin terzi consigliati ==
+
+WP AI Publisher controlla in modo difensivo la presenza di plugin e integrazioni terze. Il plugin resta attivabile e funzionante anche se queste integrazioni non sono installate, non sono attive o vengono disattivate.
+
+Plugin e integrazioni controllati:
+
+* Git Updater
+* Git Remote Updater
+* AI Services / WordPress AI
+* AI Request Logging
+* Connector Approval
+* Abilities Explorer
+* AIOSEO
+
+Git Updater è consigliato per gli aggiornamenti del plugin da GitHub. AI Services / WordPress AI è il layer AI previsto per le funzioni future di WP AI Publisher. Gli altri plugin sono consigliati per diagnostica, sicurezza, sviluppo e integrazioni SEO future.
+
+La chiave REST di Git Remote Updater deve essere gestita nel pannello Git Updater / Git Remote Updater. WP AI Publisher non salva né replica questa chiave.
 
 == Domande frequenti ==
 
@@ -42,6 +60,13 @@ No. La generazione articoli sarà implementata in una fase successiva.
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.2.1 =
+* Aggiunto controllo dei plugin terzi richiesti e consigliati.
+* Aggiunto box “Plugin terzi e integrazioni” nella Bacheca.
+* Migliorata la diagnostica dello Stato sistema.
+* Aggiunti controlli difensivi per Git Updater, Git Remote Updater, WordPress AI, AI Request Logging, Connector Approval, Abilities Explorer e AIOSEO.
+* Nessuna chiave REST o API viene salvata da WP AI Publisher.
 
 = 0.2.0 =
 * Aggiunta fondazione Job Queue.
