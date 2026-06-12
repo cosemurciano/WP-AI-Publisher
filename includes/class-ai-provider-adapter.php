@@ -583,10 +583,11 @@ class AI_Provider_Adapter {
 			return new WP_Error( 'wpai_invalid_dry_run_payload', __( 'Payload dry-run non valido.', 'wp-ai-publisher' ) );
 		}
 
-		$payload = $this->normalize_dry_run_payload( $payload );
-		$schema  = ! empty( $payload['required_schema'] ) && is_array( $payload['required_schema'] ) ? $payload['required_schema'] : $this->get_content_dry_run_schema();
-		$prompt  = $this->build_structured_dry_run_prompt( $payload, $schema );
-		$errors  = array();
+		$original_payload = $payload;
+		$payload          = $this->normalize_dry_run_payload( $payload );
+		$schema           = ! empty( $payload['required_schema'] ) && is_array( $payload['required_schema'] ) ? $payload['required_schema'] : $this->get_content_dry_run_schema();
+		$prompt           = $this->build_structured_dry_run_prompt( $payload, $schema );
+		$errors           = array();
 
 		/**
 		 * Allows a WordPress AI integration to provide the structured dry-run output.
@@ -615,13 +616,25 @@ class AI_Provider_Adapter {
 		 * null or unusable output, so a valid new integration is never invoked twice.
 		 *
 		 * @param mixed               $result  Dry-run result.
-		 * @param array<string,mixed> $payload Request payload.
+		 * @param array<string,mixed> $payload 0.3.0-compatible legacy payload.
 		 */
-		$legacy_filtered = apply_filters( 'wpai_publisher_structured_content_dry_run', null, $payload );
+		$legacy_payload = $original_payload;
+		if ( empty( $legacy_payload['idea'] ) || ! is_array( $legacy_payload['idea'] ) ) {
+			$legacy_payload['idea'] = array(
+				'topic'           => $payload['topic'],
+				'keyword'         => $payload['keyword'],
+				'language'        => $payload['language'],
+				'target_audience' => $payload['target_audience'],
+				'tutorial_level'  => $payload['tutorial_level'],
+				'notes'           => $payload['notes'],
+			);
+		}
+
+		$legacy_filtered = apply_filters( 'wpai_publisher_structured_content_dry_run', null, $legacy_payload );
 		if ( null !== $legacy_filtered ) {
 			$legacy_normalized = $this->normalize_real_ai_candidate( $legacy_filtered );
 			if ( ! is_wp_error( $legacy_normalized ) && $this->is_usable_dry_run_candidate( $legacy_normalized ) ) {
-				$legacy_normalized['source'] = ! empty( $legacy_normalized['source'] ) ? $legacy_normalized['source'] : 'wordpress_ai';
+				$legacy_normalized['source']           = ! empty( $legacy_normalized['source'] ) ? $legacy_normalized['source'] : 'wordpress_ai';
 				$legacy_normalized['validation_notes'] = isset( $legacy_normalized['validation_notes'] ) && is_array( $legacy_normalized['validation_notes'] ) ? $legacy_normalized['validation_notes'] : array();
 				$legacy_normalized['validation_notes'][] = __( 'Output generato tramite filtro legacy wpai_publisher_structured_content_dry_run.', 'wp-ai-publisher' );
 
@@ -629,6 +642,12 @@ class AI_Provider_Adapter {
 			}
 			$errors[] = is_wp_error( $legacy_normalized ) ? $legacy_normalized->get_error_message() : __( 'Il filtro legacy ha restituito un output non utilizzabile.', 'wp-ai-publisher' );
 		}
+
+		$wp_abilities_result = $this->try_generate_with_wp_abilities_api( $payload, $schema, $prompt );
+		if ( ! is_wp_error( $wp_abilities_result ) ) {
+			return $wp_abilities_result;
+		}
+		$errors[] = $wp_abilities_result->get_error_message();
 
 		$abilities_result = $this->try_generate_with_abilities( $payload, $schema, $prompt );
 		if ( ! is_wp_error( $abilities_result ) ) {
@@ -684,6 +703,125 @@ class AI_Provider_Adapter {
 			'allow_local_fallback' => ! empty( $payload['allow_local_fallback'] ),
 			'safety'               => isset( $payload['safety'] ) && is_array( $payload['safety'] ) ? $payload['safety'] : array(),
 		);
+	}
+
+	/**
+	 * Try WordPress 7 Abilities API through wp_get_abilities/wp_get_ability.
+	 *
+	 * @param array<string,mixed> $payload Request payload.
+	 * @param array<string,mixed> $schema Required schema.
+	 * @param string              $prompt Prompt.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private function try_generate_with_wp_abilities_api( $payload, $schema, $prompt ) {
+		if ( ! function_exists( 'wp_get_abilities' ) ) {
+			return new WP_Error( 'wpai_wp_abilities_api_unavailable', __( 'wp_get_abilities non è disponibile nel runtime WordPress.', 'wp-ai-publisher' ) );
+		}
+
+		try {
+			$abilities = wp_get_abilities();
+		} catch ( Throwable $error ) {
+			return new WP_Error( 'wpai_wp_abilities_read_failed', $error->getMessage() );
+		}
+
+		$candidates = $this->filter_wp_abilities_api_generation_candidates( $abilities );
+		if ( empty( $candidates ) ) {
+			return new WP_Error( 'wpai_wp_abilities_no_candidate', __( 'Nessuna ability candidata per generazione contenuti trovata tramite wp_get_abilities.', 'wp-ai-publisher' ) );
+		}
+
+		if ( ! function_exists( 'wp_get_ability' ) ) {
+			return new WP_Error( 'wpai_wp_get_ability_unavailable', __( 'wp_get_ability non è disponibile per invocare le ability candidate.', 'wp-ai-publisher' ) );
+		}
+
+		$input = array(
+			'prompt'  => $prompt,
+			'input'   => $prompt,
+			'content' => $prompt,
+			'payload' => $payload,
+			'schema'  => $schema,
+			'format'  => 'json',
+		);
+
+		foreach ( $candidates as $name ) {
+			try {
+				$ability = wp_get_ability( $name );
+			} catch ( Throwable $error ) {
+				unset( $error );
+				continue;
+			}
+
+			if ( ! is_object( $ability ) ) {
+				continue;
+			}
+
+			foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $method ) {
+				if ( ! method_exists( $ability, $method ) || ! is_callable( array( $ability, $method ) ) ) {
+					continue;
+				}
+
+				foreach ( array( $input, $prompt ) as $arguments ) {
+					try {
+						$result     = $ability->{$method}( $arguments );
+						$normalized = $this->normalize_real_ai_candidate( $result );
+						if ( ! is_wp_error( $normalized ) && $this->is_usable_dry_run_candidate( $normalized ) ) {
+							$normalized['source']           = 'wordpress_ai';
+							$normalized['validation_notes'] = isset( $normalized['validation_notes'] ) && is_array( $normalized['validation_notes'] ) ? $normalized['validation_notes'] : array();
+							$normalized['validation_notes'][] = __( 'Output generato tramite WordPress Abilities API.', 'wp-ai-publisher' );
+							return $normalized;
+						}
+					} catch ( Throwable $error ) {
+						unset( $error );
+					}
+				}
+			}
+		}
+
+		return new WP_Error( 'wpai_wp_abilities_generation_unusable', __( 'Le ability candidate ottenute con wp_get_ability non hanno restituito output JSON utilizzabile.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Filter raw wp_get_abilities output to text/content generation ability names.
+	 *
+	 * @param mixed $abilities Raw abilities.
+	 * @return array<int,string>
+	 */
+	private function filter_wp_abilities_api_generation_candidates( $abilities ) {
+		$keywords   = array( 'generate', 'generation', 'text', 'content', 'title', 'excerpt', 'summary', 'editorial', 'seo', 'meta', 'classification', 'complete', 'completion' );
+		$candidates = array();
+
+		foreach ( (array) $abilities as $key => $ability ) {
+			$name     = is_string( $key ) ? $key : '';
+			$haystack = $name;
+			if ( is_array( $ability ) ) {
+				$name = '' !== $name ? $name : (string) ( $ability['name'] ?? $ability['id'] ?? $ability['slug'] ?? '' );
+				foreach ( array( 'name', 'id', 'slug', 'label', 'title', 'description', 'category' ) as $field ) {
+					if ( isset( $ability[ $field ] ) && is_scalar( $ability[ $field ] ) ) {
+						$haystack .= ' ' . (string) $ability[ $field ];
+					}
+				}
+			} elseif ( is_object( $ability ) ) {
+				$name = '' !== $name ? $name : (string) ( $ability->name ?? $ability->id ?? $ability->slug ?? '' );
+				foreach ( array( 'name', 'id', 'slug', 'label', 'title', 'description', 'category' ) as $property ) {
+					if ( isset( $ability->{$property} ) && is_scalar( $ability->{$property} ) ) {
+						$haystack .= ' ' . (string) $ability->{$property};
+					}
+				}
+			}
+
+			if ( '' === $name ) {
+				continue;
+			}
+
+			$haystack = strtolower( $haystack );
+			foreach ( $keywords as $keyword ) {
+				if ( false !== strpos( $haystack, $keyword ) ) {
+					$candidates[] = $name;
+					break;
+				}
+			}
+		}
+
+		return array_values( array_unique( $candidates ) );
 	}
 
 	/**

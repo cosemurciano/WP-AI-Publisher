@@ -32,6 +32,7 @@ $confidence_labels = array(
 			<tr><th scope="row"><?php echo esc_html__( 'Classi AI trovate', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( (string) $report['summary']['classes_found'] ); ?></td></tr>
 			<tr><th scope="row"><?php echo esc_html__( 'REST route AI trovate', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( (string) $report['summary']['rest_routes_found'] ); ?></td></tr>
 			<tr><th scope="row"><?php echo esc_html__( 'Options AI rilevate', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( (string) $report['summary']['options_found'] ); ?></td></tr>
+			<tr><th scope="row"><?php echo esc_html__( 'Abilities WordPress rilevate', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( (string) ( $report['summary']['abilities_found'] ?? 0 ) ); ?></td></tr>
 			<tr><th scope="row"><?php echo esc_html__( 'Plugin AI attivi rilevati', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( (string) $report['summary']['plugins_found'] ); ?></td></tr>
 			<tr><th scope="row"><?php echo esc_html__( 'Esperimenti AI rilevati', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( (string) $report['summary']['experiments_detected'] ); ?></td></tr>
 		</tbody>
@@ -116,21 +117,47 @@ $confidence_labels = array(
 		<p><?php echo esc_html__( 'Nessuna option AI rilevata.', 'wp-ai-publisher' ); ?></p>
 	<?php else : ?>
 		<table class="widefat striped wpai-status-table">
-			<thead><tr><th><?php echo esc_html__( 'Option name', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Autoload', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Valore mascherato / tipo', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Sensibile', 'wp-ai-publisher' ); ?></th></tr></thead>
+			<thead><tr><th><?php echo esc_html__( 'Option name', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Autoload', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Tipo', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Lunghezza', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Anteprima', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Sensibile', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Mascherata', 'wp-ai-publisher' ); ?></th></tr></thead>
 			<tbody>
 				<?php foreach ( $report['options'] as $option ) : ?>
 					<tr>
 						<td><code><?php echo esc_html( $option['option_name'] ); ?></code></td>
 						<td><?php echo esc_html( $option['autoload'] ); ?></td>
-						<td><code><?php echo esc_html( is_scalar( $option['value'] ) ? (string) $option['value'] : wp_json_encode( $option['value'] ) ); ?></code></td>
+						<td><?php echo esc_html( $option['type'] ); ?></td>
+						<td><?php echo esc_html( (string) $option['length'] ); ?></td>
+						<td><code><?php echo esc_html( $option['preview'] ); ?></code></td>
 						<td><?php echo ! empty( $option['sensitive'] ) ? esc_html__( 'Sì', 'wp-ai-publisher' ) : esc_html__( 'No', 'wp-ai-publisher' ); ?></td>
+						<td><?php echo ! empty( $option['masked'] ) ? esc_html__( 'Sì', 'wp-ai-publisher' ) : esc_html__( 'No', 'wp-ai-publisher' ); ?></td>
 					</tr>
 				<?php endforeach; ?>
 			</tbody>
 		</table>
 	<?php endif; ?>
 
-	<h2><?php echo esc_html__( '7. Plugin AI rilevati', 'wp-ai-publisher' ); ?></h2>
+	<h2><?php echo esc_html__( '7. Abilities WordPress rilevate', 'wp-ai-publisher' ); ?></h2>
+	<p><?php echo esc_html__( 'Se una ability sembra adatta alla generazione testo, indicarne il nome nelle impostazioni future o nel bridge manuale.', 'wp-ai-publisher' ); ?></p>
+	<?php if ( empty( $report['abilities'] ) ) : ?>
+		<p><?php echo esc_html__( 'Nessuna ability WordPress rilevata tramite wp_get_abilities.', 'wp-ai-publisher' ); ?></p>
+	<?php else : ?>
+		<table class="widefat striped wpai-status-table">
+			<thead><tr><th><?php echo esc_html__( 'Name', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Label/title', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Description', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Category', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Input schema', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Output schema', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Invocabile', 'wp-ai-publisher' ); ?></th></tr></thead>
+			<tbody>
+				<?php foreach ( $report['abilities'] as $ability ) : ?>
+					<tr>
+						<td><code><?php echo esc_html( $ability['name'] ); ?></code></td>
+						<td><?php echo esc_html( $ability['label'] ); ?></td>
+						<td><?php echo esc_html( $ability['description'] ); ?></td>
+						<td><?php echo esc_html( $ability['category'] ); ?></td>
+						<td><?php echo esc_html( $ability['input_schema'] ); ?></td>
+						<td><?php echo esc_html( $ability['output_schema'] ); ?></td>
+						<td><?php echo esc_html( $ability['invocable'] ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+			</tbody>
+		</table>
+	<?php endif; ?>
+
+	<h2><?php echo esc_html__( '8. Plugin AI rilevati', 'wp-ai-publisher' ); ?></h2>
 	<?php if ( empty( $report['plugins'] ) ) : ?>
 		<p><?php echo esc_html__( 'Nessun plugin AI attivo rilevato con le keyword note.', 'wp-ai-publisher' ); ?></p>
 	<?php else : ?>
@@ -149,7 +176,7 @@ $confidence_labels = array(
 		</table>
 	<?php endif; ?>
 
-	<h2><?php echo esc_html__( '8. Esperimenti AI rilevati', 'wp-ai-publisher' ); ?></h2>
+	<h2><?php echo esc_html__( '9. Esperimenti AI rilevati', 'wp-ai-publisher' ); ?></h2>
 	<table class="widefat striped wpai-status-table">
 		<thead><tr><th><?php echo esc_html__( 'Esperimento', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Rilevato', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Attivo', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Fonte rilevamento', 'wp-ai-publisher' ); ?></th></tr></thead>
 		<tbody>
@@ -164,7 +191,7 @@ $confidence_labels = array(
 		</tbody>
 	</table>
 
-	<h2><?php echo esc_html__( '9. Test AI controllato', 'wp-ai-publisher' ); ?></h2>
+	<h2><?php echo esc_html__( '10. Test AI controllato', 'wp-ai-publisher' ); ?></h2>
 	<p><?php echo esc_html__( 'Il test viene eseguito solo quando premi il pulsante. Usa esclusivamente funzioni o client locali rilevati dal sistema AI WordPress e non chiama OpenAI direttamente.', 'wp-ai-publisher' ); ?></p>
 	<form method="post">
 		<?php wp_nonce_field( 'wpai_publisher_ai_diagnostics_test', 'wpai_publisher_ai_diagnostics_nonce' ); ?>
@@ -175,7 +202,10 @@ $confidence_labels = array(
 		<table class="widefat striped wpai-status-table wpai-test-result">
 			<tbody>
 				<tr><th scope="row"><?php echo esc_html__( 'Path usato', 'wp-ai-publisher' ); ?></th><td><code><?php echo esc_html( $test_result['path'] ); ?></code></td></tr>
-				<tr><th scope="row"><?php echo esc_html__( 'Esito', 'wp-ai-publisher' ); ?></th><td><?php echo ! empty( $test_result['success'] ) ? esc_html__( 'Successo', 'wp-ai-publisher' ) : esc_html__( 'Errore', 'wp-ai-publisher' ); ?></td></tr>
+				<?php if ( ! empty( $test_result['ability'] ) ) : ?>
+					<tr><th scope="row"><?php echo esc_html__( 'Ability usata', 'wp-ai-publisher' ); ?></th><td><code><?php echo esc_html( $test_result['ability'] ); ?></code></td></tr>
+				<?php endif; ?>
+					<tr><th scope="row"><?php echo esc_html__( 'Esito', 'wp-ai-publisher' ); ?></th><td><?php echo ! empty( $test_result['success'] ) ? esc_html__( 'Successo', 'wp-ai-publisher' ) : esc_html__( 'Errore', 'wp-ai-publisher' ); ?></td></tr>
 				<tr><th scope="row"><?php echo esc_html__( 'Tipo risposta', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( $test_result['response_type'] ); ?></td></tr>
 				<?php if ( empty( $test_result['success'] ) ) : ?>
 					<tr><th scope="row"><?php echo esc_html__( 'Errore', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( $test_result['error'] ); ?></td></tr>
@@ -187,7 +217,7 @@ $confidence_labels = array(
 		<p><?php echo esc_html__( 'Nessun test eseguito in questa visualizzazione.', 'wp-ai-publisher' ); ?></p>
 	<?php endif; ?>
 
-	<h2><?php echo esc_html__( '10. Bridge manuale consigliato', 'wp-ai-publisher' ); ?></h2>
+	<h2><?php echo esc_html__( '11. Bridge manuale consigliato', 'wp-ai-publisher' ); ?></h2>
 	<p><?php echo esc_html__( 'WP AI Publisher supporta un bridge manuale tramite filtri. Usa questo approccio quando la diagnostica mostra che il sistema AI è installato ma non espone una funzione di generazione direttamente invocabile dal plugin.', 'wp-ai-publisher' ); ?></p>
 	<ul class="ul-disc">
 		<li><?php echo esc_html__( 'Nuovo filtro:', 'wp-ai-publisher' ); ?> <code>wpai_publisher_generate_structured_content_dry_run</code></li>

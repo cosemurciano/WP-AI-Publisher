@@ -28,6 +28,26 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
+	/**
+	 * Normalize settings and remove obsolete direct-provider keys.
+	 *
+	 * @param mixed $settings Raw settings.
+	 * @return array<string,mixed>
+	 */
+	function wpai_publisher_normalize_settings( $settings ) {
+		$settings = is_array( $settings ) ? $settings : array();
+		$settings = wp_parse_args( $settings, wpai_publisher_default_settings() );
+
+		// Migrazione leggera: da 0.3.5 il plugin usa solo il sistema AI di WordPress.
+		$settings['ai_provider_preference'] = 'wordpress_ai_client_only';
+		unset( $settings['fallback_to_openai_direct'], $settings['default_image_model'] );
+
+		$allowed = array_keys( wpai_publisher_default_settings() );
+		return array_intersect_key( $settings, array_flip( $allowed ) );
+	}
+}
+
 if ( ! function_exists( 'wpai_publisher_get_settings' ) ) {
 	/**
 	 * Return merged plugin settings.
@@ -35,17 +55,12 @@ if ( ! function_exists( 'wpai_publisher_get_settings' ) ) {
 	 * @return array<string,mixed>
 	 */
 	function wpai_publisher_get_settings() {
-		$settings = get_option( 'wpai_publisher_settings', array() );
+		$raw_settings = get_option( 'wpai_publisher_settings', array() );
+		$settings     = wpai_publisher_normalize_settings( $raw_settings );
 
-		if ( ! is_array( $settings ) ) {
-			$settings = array();
+		if ( is_array( $raw_settings ) && $settings !== $raw_settings ) {
+			update_option( 'wpai_publisher_settings', $settings, false );
 		}
-
-		$settings = wp_parse_args( $settings, wpai_publisher_default_settings() );
-
-		// Migrazione leggera delle vecchie impostazioni di fase 1: da ora il plugin usa solo il sistema AI di WordPress.
-		$settings['ai_provider_preference'] = 'wordpress_ai_client_only';
-		unset( $settings['fallback_to_openai_direct'], $settings['default_image_model'] );
 
 		return $settings;
 	}

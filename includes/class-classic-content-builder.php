@@ -47,9 +47,13 @@ class Classic_Content_Builder {
 			'<script'  => __( 'Rilevato tag script non consentito nell’anteprima.', 'wp-ai-publisher' ),
 			'<iframe'  => __( 'Rilevato tag iframe non consentito nell’anteprima.', 'wp-ai-publisher' ),
 			' style='  => __( 'Rilevato attributo style inline non consentito nell’anteprima.', 'wp-ai-publisher' ),
-			'descrivere in modo' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
-			'passaggio' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+			'descrivere in modo pratico' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+			'descrivere in modo verificabile' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+			'descrivere il passaggio' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
 			'nel contesto di' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+			'evitando dettagli tecnici non confermati' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+			'passaggio “' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+			'passaggio "' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
 		);
 
 		$lower_html = strtolower( $html );
@@ -236,7 +240,7 @@ class Classic_Content_Builder {
 	 */
 	private function looks_like_placeholder_summary( $summary ) {
 		$summary = strtolower( remove_accents( (string) $summary ) );
-		foreach ( array( 'descrivere in modo', 'passaggio', 'nel contesto di' ) as $needle ) {
+		foreach ( array( 'descrivere in modo pratico', 'descrivere in modo verificabile', 'descrivere il passaggio', 'nel contesto di', 'evitando dettagli tecnici non confermati', 'passaggio “', 'passaggio "' ) as $needle ) {
 			if ( false !== strpos( $summary, $needle ) ) {
 				return true;
 			}

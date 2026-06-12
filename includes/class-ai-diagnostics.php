@@ -109,10 +109,15 @@ class AI_Diagnostics {
 	 * @return array<string,mixed>
 	 */
 	public function get_report() {
+		if ( function_exists( 'wpai_publisher_get_settings' ) ) {
+			wpai_publisher_get_settings();
+		}
+
 		$functions = $this->get_detected_functions();
 		$classes   = $this->get_detected_classes();
 		$routes    = $this->get_detected_rest_routes();
 		$options   = $this->get_detected_options();
+		$abilities = $this->get_detected_wp_abilities();
 		$plugins   = $this->get_detected_plugins();
 		$experiments = $this->get_detected_ai_experiments();
 		$paths       = $this->get_possible_generation_paths();
@@ -137,6 +142,7 @@ class AI_Diagnostics {
 				'classes_found'          => count( array_filter( $classes, array( $this, 'item_exists' ) ) ),
 				'rest_routes_found'      => count( $routes ),
 				'options_found'          => count( $options ),
+				'abilities_found'        => count( $abilities ),
 				'plugins_found'          => count( $plugins ),
 				'experiments_detected'   => count(
 					array_filter(
@@ -154,6 +160,7 @@ class AI_Diagnostics {
 			'classes'                   => $classes,
 			'rest_routes'               => $routes,
 			'options'                   => $options,
+			'abilities'                 => $abilities,
 			'plugins'                   => $plugins,
 			'experiments'               => $experiments,
 			'possible_generation_paths' => $paths,
@@ -342,16 +349,58 @@ class AI_Diagnostics {
 		$rows    = array();
 
 		foreach ( (array) $results as $option ) {
-			$name      = (string) $option->option_name;
-			$sensitive = $this->is_sensitive_key( $name );
-			$value     = $sensitive ? '[nascosto]' : $this->mask_sensitive_value( maybe_unserialize( $option->option_value ) );
+			$name        = (string) $option->option_name;
+			$raw_value   = maybe_unserialize( $option->option_value );
+			$sensitive   = $this->is_sensitive_key( $name );
+			$type        = is_object( $raw_value ) ? 'object:' . get_class( $raw_value ) : gettype( $raw_value );
+			$length      = $this->estimate_value_length( $raw_value );
+			$preview_row = $this->build_option_preview( $raw_value, $sensitive );
 
 			$rows[] = array(
 				'option_name' => $name,
 				'autoload'    => (string) $option->autoload,
-				'value'       => $value,
+				'type'        => $type,
+				'length'      => $length,
+				'preview'     => $preview_row['preview'],
 				'sensitive'   => $sensitive,
+				'masked'      => $preview_row['masked'],
 			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Detect WordPress Abilities API registrations without exposing large payloads.
+	 *
+	 * @return array<int,array<string,string>>
+	 */
+	public function get_detected_wp_abilities() {
+		if ( ! function_exists( 'wp_get_abilities' ) ) {
+			return array();
+		}
+
+		try {
+			$abilities = wp_get_abilities();
+		} catch ( \Throwable $error ) {
+			unset( $error );
+			return array();
+		}
+
+		$rows  = array();
+		$count = 0;
+		foreach ( (array) $abilities as $key => $ability ) {
+			if ( $count >= 50 ) {
+				break;
+			}
+
+			$row = $this->summarize_ability( $key, $ability );
+			if ( '' === $row['name'] ) {
+				continue;
+			}
+
+			$rows[] = $row;
+			++$count;
 		}
 
 		return $rows;
@@ -427,14 +476,14 @@ class AI_Diagnostics {
 			$needles  = $this->experiment_needles( $slug );
 
 			foreach ( $options as $option ) {
-				$source_text = strtolower( (string) $option['option_name'] . ' ' . ( is_scalar( $option['value'] ) ? (string) $option['value'] : wp_json_encode( $option['value'] ) ) );
+				$source_text = strtolower( (string) $option['option_name'] . ' ' . ( is_scalar( $option['preview'] ) ? (string) $option['preview'] : wp_json_encode( $option['preview'] ) ) );
 				if ( ! $this->contains_keyword( $source_text, $needles ) ) {
 					continue;
 				}
 
 				$detected  = true;
 				$sources[] = $option['option_name'];
-				$deduced   = $this->deduce_bool_from_option_value( $option['value'] );
+				$deduced   = $this->deduce_bool_from_option_value( $option['preview'] );
 				if ( null !== $deduced ) {
 					$active = $deduced;
 				}
@@ -522,7 +571,35 @@ class AI_Diagnostics {
 	 * @return array<string,mixed>
 	 */
 	public function run_safe_generation_test() {
-		$prompt = 'Rispondi solo con JSON valido: {"ok":true,"message":"test"}';
+		$prompt  = 'Rispondi solo con JSON valido: {"ok":true,"message":"test"}';
+		$payload = array(
+			'prompt' => $prompt,
+			'task'   => 'safe_generation_test',
+			'format' => 'json',
+		);
+		$schema  = array(
+			'ok'      => 'boolean',
+			'message' => 'string',
+		);
+
+		if ( function_exists( 'has_filter' ) && has_filter( 'wpai_publisher_generate_structured_content_dry_run' ) ) {
+			$result = $this->run_filter_generation_test( 'wpai_publisher_generate_structured_content_dry_run', $payload, $schema );
+			if ( ! empty( $result['attempted'] ) ) {
+				return $result;
+			}
+		}
+
+		if ( function_exists( 'has_filter' ) && has_filter( 'wpai_publisher_structured_content_dry_run' ) ) {
+			$result = $this->run_filter_generation_test( 'wpai_publisher_structured_content_dry_run', array( 'idea' => $payload ), $schema );
+			if ( ! empty( $result['attempted'] ) ) {
+				return $result;
+			}
+		}
+
+		$result = $this->run_wp_ability_generation_test( $prompt );
+		if ( ! empty( $result['attempted'] ) ) {
+			return $result;
+		}
 
 		if ( function_exists( 'wp_ai_generate_text' ) && is_callable( 'wp_ai_generate_text' ) ) {
 			return $this->run_generation_function_test( 'wp_ai_generate_text', $prompt );
@@ -541,12 +618,221 @@ class AI_Diagnostics {
 
 		return array(
 			'path'          => '',
+			'ability'       => '',
 			'success'       => false,
 			'error'         => __( 'Nessun percorso di generazione AI invocabile è stato rilevato. Usa Abilities Explorer per individuare la callback o registra un bridge tramite filtro WP AI Publisher.', 'wp-ai-publisher' ),
 			'response_type' => '',
 			'excerpt'       => '',
 			'attempted'     => false,
 		);
+	}
+
+	/**
+	 * Estimate display length of a value without exposing its content.
+	 *
+	 * @param mixed $value Value.
+	 * @return int
+	 */
+	private function estimate_value_length( $value ) {
+		if ( is_scalar( $value ) || null === $value ) {
+			return strlen( (string) $value );
+		}
+
+		$encoded = wp_json_encode( $value );
+		return false === $encoded ? 0 : strlen( $encoded );
+	}
+
+	/**
+	 * Build a safe option preview with maximum 120 characters.
+	 *
+	 * @param mixed $value Raw value.
+	 * @param bool  $sensitive Whether option name is sensitive.
+	 * @return array{preview:string,masked:bool}
+	 */
+	private function build_option_preview( $value, $sensitive ) {
+		if ( $sensitive ) {
+			return array(
+				'preview' => '[nascosto]',
+				'masked'  => true,
+			);
+		}
+
+		if ( is_array( $value ) || is_object( $value ) ) {
+			return array(
+				'preview' => sprintf(
+					/* translators: %s: estimated serialized value length. */
+					__( 'array, lunghezza stimata %s caratteri', 'wp-ai-publisher' ),
+					(string) $this->estimate_value_length( $value )
+				),
+				'masked'  => true,
+			);
+		}
+
+		$text   = sanitize_text_field( (string) $value );
+		$masked = false;
+		if ( preg_match( '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', $text ) ) {
+			$text   = preg_replace( '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', '[email nascosta]', $text );
+			$masked = true;
+		}
+
+		$text = (string) $this->mask_sensitive_value( $text );
+		if ( false !== strpos( $text, '[nascosto]' ) ) {
+			$masked = true;
+		}
+
+		$preview = function_exists( 'mb_substr' ) ? mb_substr( $text, 0, 120 ) : substr( $text, 0, 120 );
+		return array(
+			'preview' => $preview,
+			'masked'  => $masked || strlen( $text ) > strlen( $preview ),
+		);
+	}
+
+	/**
+	 * Summarize one ability row defensively.
+	 *
+	 * @param mixed $key Ability array key.
+	 * @param mixed $ability Ability data.
+	 * @return array<string,string>
+	 */
+	private function summarize_ability( $key, $ability ) {
+		$data = array();
+		if ( is_array( $ability ) ) {
+			$data = $ability;
+		} elseif ( is_object( $ability ) ) {
+			foreach ( array( 'name', 'id', 'slug', 'label', 'title', 'description', 'category', 'input_schema', 'output_schema' ) as $property ) {
+				if ( isset( $ability->{$property} ) ) {
+					$data[ $property ] = $ability->{$property};
+				}
+			}
+		}
+
+		$name        = is_string( $key ) ? $key : (string) ( $data['name'] ?? $data['id'] ?? $data['slug'] ?? '' );
+		$label       = (string) ( $data['label'] ?? $data['title'] ?? '' );
+		$description = (string) ( $data['description'] ?? '' );
+		$category    = (string) ( $data['category'] ?? '' );
+
+		$invocable = __( 'Non deducibile', 'wp-ai-publisher' );
+		if ( is_object( $ability ) ) {
+			foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $method ) {
+				if ( method_exists( $ability, $method ) && is_callable( array( $ability, $method ) ) ) {
+					$invocable = __( 'Sì', 'wp-ai-publisher' );
+					break;
+				}
+			}
+		} elseif ( is_callable( $ability ) ) {
+			$invocable = __( 'Sì', 'wp-ai-publisher' );
+		} elseif ( is_array( $ability ) && empty( $ability['callback'] ) ) {
+			$invocable = __( 'No', 'wp-ai-publisher' );
+		}
+
+		return array(
+			'name'          => sanitize_text_field( $name ),
+			'label'         => wp_trim_words( sanitize_text_field( $label ), 12, '…' ),
+			'description'   => wp_trim_words( sanitize_text_field( $description ), 20, '…' ),
+			'category'      => sanitize_text_field( $category ),
+			'input_schema'  => ! empty( $data['input_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
+			'output_schema' => ! empty( $data['output_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
+			'invocable'     => $invocable,
+		);
+	}
+
+	/**
+	 * Run a registered WP AI Publisher filter bridge test.
+	 *
+	 * @param string              $filter Filter name.
+	 * @param array<string,mixed> $payload Test payload.
+	 * @param array<string,mixed> $schema Test schema.
+	 * @return array<string,mixed>
+	 */
+	private function run_filter_generation_test( $filter, $payload, $schema ) {
+		try {
+			if ( 'wpai_publisher_generate_structured_content_dry_run' === $filter ) {
+				$result = apply_filters( $filter, null, $payload, $schema );
+			} else {
+				$result = apply_filters( $filter, null, $payload );
+			}
+
+			if ( null === $result ) {
+				return array(
+					'path'          => 'filter:' . $filter,
+					'ability'       => '',
+					'success'       => false,
+					'error'         => __( 'Il filtro è registrato ma non ha restituito risposta per il test controllato.', 'wp-ai-publisher' ),
+					'response_type' => 'null',
+					'excerpt'       => '',
+					'attempted'     => true,
+				);
+			}
+
+			return $this->format_test_result( 'filter:' . $filter, $result, true );
+		} catch ( \Throwable $error ) {
+			return $this->format_test_error( 'filter:' . $filter, $error );
+		}
+	}
+
+	/**
+	 * Run a test through wp_get_abilities/wp_get_ability when possible.
+	 *
+	 * @param string $prompt Prompt.
+	 * @return array<string,mixed>
+	 */
+	private function run_wp_ability_generation_test( $prompt ) {
+		if ( ! function_exists( 'wp_get_abilities' ) || ! function_exists( 'wp_get_ability' ) ) {
+			return array( 'attempted' => false );
+		}
+
+		try {
+			$abilities = wp_get_abilities();
+		} catch ( \Throwable $error ) {
+			return $this->format_test_error( 'wp_get_abilities()', $error );
+		}
+
+		foreach ( (array) $abilities as $key => $ability_data ) {
+			$row      = $this->summarize_ability( $key, $ability_data );
+			$name     = $row['name'];
+			$haystack = strtolower( $name . ' ' . $row['label'] . ' ' . $row['description'] . ' ' . $row['category'] );
+			if ( '' === $name || ! $this->contains_keyword( $haystack, array( 'generate', 'generation', 'text', 'content', 'summary', 'title', 'completion' ) ) ) {
+				continue;
+			}
+
+			try {
+				$ability = wp_get_ability( $name );
+			} catch ( \Throwable $error ) {
+				unset( $error );
+				continue;
+			}
+
+			if ( ! is_object( $ability ) ) {
+				continue;
+			}
+
+			$input = array(
+				'prompt'  => $prompt,
+				'input'   => $prompt,
+				'content' => $prompt,
+				'format'  => 'json',
+			);
+			foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $method ) {
+				if ( ! method_exists( $ability, $method ) || ! is_callable( array( $ability, $method ) ) ) {
+					continue;
+				}
+
+				$path = 'wp_get_ability(' . $name . ')->' . $method;
+				try {
+					$result = $ability->{$method}( $input );
+					return $this->format_test_result( $path, $result, true, $name );
+				} catch ( \Throwable $error ) {
+					try {
+						$result = $ability->{$method}( $prompt );
+						return $this->format_test_result( $path, $result, true, $name );
+					} catch ( \Throwable $fallback_error ) {
+						return $this->format_test_error( $path, $fallback_error, $name );
+					}
+				}
+			}
+		}
+
+		return array( 'attempted' => false );
 	}
 
 	/**
@@ -585,6 +871,7 @@ class AI_Diagnostics {
 		$text = (string) $value;
 		$text = preg_replace( '/(sk-[A-Za-z0-9_\-]{8,})/', '[nascosto]', $text );
 		$text = preg_replace( '/(bearer\s+)[A-Za-z0-9._\-]+/i', '$1[nascosto]', $text );
+		$text = preg_replace( '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', '[email nascosta]', $text );
 		$text = preg_replace( '/(["\']?(?:api[_-]?key|token|secret|password|credential|authorization|openai)["\']?\s*[:=]\s*)["\']?[^,"\'\s}]+/i', '$1[nascosto]', $text );
 
 		return wp_trim_words( sanitize_text_field( $text ), 40, '…' );
@@ -598,7 +885,7 @@ class AI_Diagnostics {
 	 */
 	public function is_sensitive_key( $key ) {
 		$key = strtolower( (string) $key );
-		foreach ( array( 'key', 'token', 'secret', 'password', 'api', 'bearer', 'auth', 'credential', 'openai' ) as $needle ) {
+		foreach ( array( 'key', 'token', 'secret', 'password', 'pass', 'api', 'bearer', 'auth', 'credential', 'openai', 'access', 'license', 'email', 'mail' ) as $needle ) {
 			if ( false !== strpos( $key, $needle ) ) {
 				return true;
 			}
@@ -725,9 +1012,10 @@ class AI_Diagnostics {
 	 * @param bool   $attempted Attempted flag.
 	 * @return array<string,mixed>
 	 */
-	private function format_test_result( $path, $result, $attempted ) {
+	private function format_test_result( $path, $result, $attempted, $ability = '' ) {
 		return array(
 			'path'          => $path,
+			'ability'       => sanitize_text_field( (string) $ability ),
 			'success'       => true,
 			'error'         => '',
 			'response_type' => $this->describe_value( $result ),
@@ -743,9 +1031,10 @@ class AI_Diagnostics {
 	 * @param \Throwable $error Error.
 	 * @return array<string,mixed>
 	 */
-	private function format_test_error( $path, \Throwable $error ) {
+	private function format_test_error( $path, \Throwable $error, $ability = '' ) {
 		return array(
 			'path'          => $path,
+			'ability'       => sanitize_text_field( (string) $ability ),
 			'success'       => false,
 			'error'         => $this->sanitize_message( $error->getMessage() ),
 			'response_type' => 'error',

@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.3.4**
+Versione corrente: **0.3.5**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
@@ -14,7 +14,7 @@ Dalla versione **0.3.2** il target editoriale principale è l’**Editor Classic
 
 La futura bozza WordPress userà `post_content` con HTML pulito e sicuro, ad esempio paragrafi, titoli `h2`/`h3`, liste e altri tag consentiti da allowlist. L’anteprima del dry-run passa da sanitizzazione dedicata e viene mostrata nell’admin come contenuto compatibile con Classic Editor.
 
-AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.4.
+AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.5.
 
 Funzioni presenti:
 
@@ -42,13 +42,13 @@ Funzioni presenti:
 - Il plugin deve restare funzionante anche se i plugin terzi consigliati non sono installati o non sono attivi.
 - Le chiamate AI future dovranno passare solo dall’adapter centrale.
 
-## Compatibilità hook dry-run
+## Compatibilità filtri dry-run
 
-Dalla versione **0.3.3** il filtro consigliato per fornire output strutturato al dry-run è `wpai_publisher_generate_structured_content_dry_run`. Questo hook riceve il risultato iniziale `null`, il payload normalizzato e lo schema richiesto, quindi permette alle integrazioni WordPress AI di restituire JSON o array già conformi.
+Dalla versione **0.3.5** il filtro consigliato per fornire output strutturato al dry-run è `wpai_publisher_generate_structured_content_dry_run`. Questo hook riceve il risultato iniziale `null`, il payload normalizzato e lo schema richiesto, quindi permette alle integrazioni WordPress AI di restituire JSON o array già conformi.
 
 Per compatibilità con integrazioni create nella versione **0.3.0**, resta supportato anche il filtro legacy `wpai_publisher_structured_content_dry_run`. Il plugin lo richiama solo se il nuovo hook non produce un output utilizzabile: in questo modo le integrazioni aggiornate restano prioritarie e quelle esistenti continuano a funzionare senza causare fallback locale non necessario.
 
-Entrambi gli hook devono restituire solo dati strutturati per anteprima e validazione: il plugin non crea post, non crea bozze, non pubblica contenuti e non chiama OpenAI direttamente.
+Il filtro legacy riceve un payload compatibile con la versione 0.3.0: se il chiamante moderno non include `idea`, WP AI Publisher ricostruisce `idea.topic`, `idea.keyword`, `idea.language`, `idea.target_audience`, `idea.tutorial_level` e `idea.notes` a partire dal payload normalizzato. Entrambi gli hook devono restituire solo dati strutturati per anteprima e validazione: il plugin non crea post, non crea bozze, non pubblica contenuti e non chiama OpenAI direttamente.
 
 ## Diagnostica AI
 
@@ -69,6 +69,17 @@ La pagina non legge né mostra chiavi API, non salva token, non salva risultati 
 Il pulsante **Esegui test AI controllato** è manuale, protetto da nonce e disponibile solo agli amministratori con `manage_options`. Quando viene premuto, il plugin tenta soltanto funzioni o client locali già rilevati, con un prompt brevissimo che richiede JSON valido. Il test non chiama OpenAI direttamente e mostra nella pagina solo path usato, esito, tipo risposta ed estratto mascherato fino a 500 caratteri.
 
 Se il sistema AI WordPress è presente ma non espone una funzione o un client invocabile in modo sicuro, WP AI Publisher può continuare a cadere nel fallback locale durante il dry-run. In quel caso la pagina consiglia di usare Abilities Explorer per individuare la callback reale oppure di registrare un bridge tramite il filtro `wpai_publisher_generate_structured_content_dry_run`, mantenendo il filtro legacy `wpai_publisher_structured_content_dry_run` per compatibilità.
+
+## Privacy diagnostica
+
+La pagina **Diagnostica AI** è pensata per trovare integration path sicuri senza esporre segreti. Dalla versione **0.3.5** la tabella delle option mostra solo nome option, autoload, tipo, lunghezza, anteprima breve, indicatore sensibile e indicatore mascherata.
+
+La diagnostica:
+
+- non mostra chiavi, token, bearer, password, credential, license o valori collegati a OpenAI/API;
+- non mostra email complete e sostituisce i pattern email con un valore mascherato;
+- non mostra JSON lunghi di array o object, ma solo tipo e lunghezza stimata;
+- elenca fino a 50 abilities WordPress rilevate per aiutare a scegliere un bridge sicuro senza chiamare endpoint REST automaticamente.
 
 ## Plugin terzi controllati
 
@@ -124,6 +135,17 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.3.5
+- Corretto payload del filtro legacy `wpai_publisher_structured_content_dry_run`.
+- Ripristinata piena compatibilità con integrazioni 0.3.0.
+- Rimosso falso positivo sul termine “passaggio” nella validazione anteprima.
+- Distinte note gravi e note lievi nella validazione Classic Editor.
+- Aggiunto primo bridge verso WordPress Abilities API tramite `wp_get_abilities` e `wp_get_ability`.
+- Migliorata privacy della pagina Diagnostica AI.
+- Mascherate email, token, chiavi e options sensibili.
+- Aggiunta sezione Abilities WordPress rilevate.
+- Normalizzate impostazioni obsolete legate a OpenAI diretto.
 
 ### 0.3.4
 - Aggiunta pagina Diagnostica AI.
