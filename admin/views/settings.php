@@ -10,8 +10,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 <div class="wrap wpai-admin">
-	<h1><?php echo esc_html__( 'WP AI Publisher Settings', 'wp-ai-publisher' ); ?></h1>
-	<p class="wpai-lead"><?php echo esc_html__( 'Configure safe defaults for the future AI publishing pipeline. API keys and GitHub tokens are intentionally not stored in phase 1.', 'wp-ai-publisher' ); ?></p>
+	<h1><?php echo esc_html__( 'Impostazioni WP AI Publisher', 'wp-ai-publisher' ); ?></h1>
+	<p class="wpai-lead"><?php echo esc_html__( 'Configura le impostazioni operative del plugin. Le chiamate AI useranno esclusivamente il sistema AI di WordPress già configurato sul sito; non vengono gestite chiavi OpenAI personalizzate.', 'wp-ai-publisher' ); ?></p>
+
+	<div class="notice notice-info inline">
+		<p>
+			<strong><?php echo esc_html__( 'Sistema AI:', 'wp-ai-publisher' ); ?></strong>
+			<?php if ( ! empty( $ai_status['wordpress_ai_client_available'] ) ) : ?>
+				<?php echo esc_html__( 'rilevato. Il plugin userà solo il layer AI di WordPress.', 'wp-ai-publisher' ); ?>
+			<?php else : ?>
+				<?php echo esc_html__( 'non rilevato dal plugin. Verifica che il nuovo sistema AI di WordPress sia attivo o esponga i modelli tramite il filtro wpai_publisher_available_ai_models.', 'wp-ai-publisher' ); ?>
+			<?php endif; ?>
+		</p>
+	</div>
 
 	<form method="post" action="options.php" class="wpai-settings-form">
 		<?php settings_fields( 'wpai_publisher_settings_group' ); ?>
@@ -19,64 +30,61 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<table class="form-table" role="presentation">
 			<tbody>
 				<tr>
-					<th scope="row"><label for="wpai-ai-provider-preference"><?php echo esc_html__( 'AI provider preference', 'wp-ai-publisher' ); ?></label></th>
+					<th scope="row"><?php echo esc_html__( 'Provider AI', 'wp-ai-publisher' ); ?></th>
 					<td>
-						<select id="wpai-ai-provider-preference" name="wpai_publisher_settings[ai_provider_preference]">
-							<option value="wordpress_ai_client_first" <?php selected( $settings['ai_provider_preference'], 'wordpress_ai_client_first' ); ?>><?php echo esc_html__( 'WordPress AI Client first', 'wp-ai-publisher' ); ?></option>
-							<option value="openai_direct_only" <?php selected( $settings['ai_provider_preference'], 'openai_direct_only' ); ?>><?php echo esc_html__( 'OpenAI direct only', 'wp-ai-publisher' ); ?></option>
-							<option value="disabled" <?php selected( $settings['ai_provider_preference'], 'disabled' ); ?>><?php echo esc_html__( 'Disabled', 'wp-ai-publisher' ); ?></option>
+						<p><strong><?php echo esc_html__( 'Sistema AI di WordPress', 'wp-ai-publisher' ); ?></strong></p>
+						<input type="hidden" name="wpai_publisher_settings[ai_provider_preference]" value="wordpress_ai_client_only">
+						<p class="description"><?php echo esc_html__( 'WP AI Publisher non usa un client OpenAI custom e non salva chiavi API proprie. Tutte le chiamate passeranno dall’adapter interno collegato al sistema AI di WordPress.', 'wp-ai-publisher' ); ?></p>
+					</td>
+				</tr>
+
+				<tr>
+					<th scope="row"><label for="wpai-default-text-model"><?php echo esc_html__( 'Versione / modello AI disponibile', 'wp-ai-publisher' ); ?></label></th>
+					<td>
+						<select id="wpai-default-text-model" name="wpai_publisher_settings[default_text_model]" class="regular-text" <?php disabled( empty( $ai_models ) ); ?>>
+							<option value=""><?php echo esc_html__( 'Usa il modello predefinito del sistema AI di WordPress', 'wp-ai-publisher' ); ?></option>
+							<?php foreach ( $ai_models as $model ) : ?>
+								<option value="<?php echo esc_attr( $model['id'] ); ?>" <?php selected( $settings['default_text_model'], $model['id'] ); ?>><?php echo esc_html( $model['label'] . ' — ' . $model['id'] ); ?></option>
+							<?php endforeach; ?>
 						</select>
-						<p class="description"><?php echo esc_html__( 'All future AI calls must pass through the central adapter.', 'wp-ai-publisher' ); ?></p>
+						<?php if ( empty( $ai_models ) ) : ?>
+							<p class="description"><?php echo esc_html__( 'Nessun modello è stato esposto dal sistema AI di WordPress. Il plugin può comunque usare il modello predefinito quando l’integrazione WordPress AI lo renderà disponibile.', 'wp-ai-publisher' ); ?></p>
+						<?php else : ?>
+							<p class="description"><?php echo esc_html__( 'I modelli elencati provengono dal sistema AI di WordPress o dal filtro di integrazione del sito.', 'wp-ai-publisher' ); ?></p>
+						<?php endif; ?>
 					</td>
 				</tr>
 
 				<tr>
-					<th scope="row"><?php echo esc_html__( 'Fallback to OpenAI direct', 'wp-ai-publisher' ); ?></th>
-					<td>
-						<label><input type="checkbox" name="wpai_publisher_settings[fallback_to_openai_direct]" value="1" <?php checked( ! empty( $settings['fallback_to_openai_direct'] ) ); ?>> <?php echo esc_html__( 'Allow fallback in future phases when explicitly configured.', 'wp-ai-publisher' ); ?></label>
-					</td>
+					<th scope="row"><?php echo esc_html__( 'Log attivi', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[enable_logging]" value="1" <?php checked( ! empty( $settings['enable_logging'] ) ); ?>> <?php echo esc_html__( 'Salva i log tecnici nella tabella del plugin.', 'wp-ai-publisher' ); ?></label></td>
 				</tr>
 
 				<tr>
-					<th scope="row"><label for="wpai-default-text-model"><?php echo esc_html__( 'Default text model', 'wp-ai-publisher' ); ?></label></th>
-					<td><input type="text" id="wpai-default-text-model" class="regular-text" name="wpai_publisher_settings[default_text_model]" value="<?php echo esc_attr( $settings['default_text_model'] ); ?>"></td>
-				</tr>
-
-				<tr>
-					<th scope="row"><label for="wpai-default-image-model"><?php echo esc_html__( 'Default image model', 'wp-ai-publisher' ); ?></label></th>
-					<td><input type="text" id="wpai-default-image-model" class="regular-text" name="wpai_publisher_settings[default_image_model]" value="<?php echo esc_attr( $settings['default_image_model'] ); ?>"></td>
-				</tr>
-
-				<tr>
-					<th scope="row"><?php echo esc_html__( 'Enable logging', 'wp-ai-publisher' ); ?></th>
-					<td><label><input type="checkbox" name="wpai_publisher_settings[enable_logging]" value="1" <?php checked( ! empty( $settings['enable_logging'] ) ); ?>> <?php echo esc_html__( 'Store plugin logs in the WP AI Publisher log table.', 'wp-ai-publisher' ); ?></label></td>
-				</tr>
-
-				<tr>
-					<th scope="row"><label for="wpai-log-retention-days"><?php echo esc_html__( 'Log retention days', 'wp-ai-publisher' ); ?></label></th>
+					<th scope="row"><label for="wpai-log-retention-days"><?php echo esc_html__( 'Conservazione log in giorni', 'wp-ai-publisher' ); ?></label></th>
 					<td><input type="number" min="1" max="365" id="wpai-log-retention-days" name="wpai_publisher_settings[log_retention_days]" value="<?php echo esc_attr( (string) $settings['log_retention_days'] ); ?>"></td>
 				</tr>
 
 				<tr>
-					<th scope="row"><label for="wpai-daily-cost-limit"><?php echo esc_html__( 'Daily cost limit', 'wp-ai-publisher' ); ?></label></th>
-					<td><input type="number" min="0" step="0.01" id="wpai-daily-cost-limit" name="wpai_publisher_settings[daily_cost_limit]" value="<?php echo esc_attr( $settings['daily_cost_limit'] ); ?>"></td>
+					<th scope="row"><label for="wpai-daily-cost-limit"><?php echo esc_html__( 'Limite costo giornaliero', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="number" min="0" step="0.01" id="wpai-daily-cost-limit" name="wpai_publisher_settings[daily_cost_limit]" value="<?php echo esc_attr( $settings['daily_cost_limit'] ); ?>"> <span class="description"><?php echo esc_html__( 'Opzionale, sarà usato nelle prossime fasi.', 'wp-ai-publisher' ); ?></span></td>
 				</tr>
 
 				<tr>
-					<th scope="row"><label for="wpai-monthly-cost-limit"><?php echo esc_html__( 'Monthly cost limit', 'wp-ai-publisher' ); ?></label></th>
-					<td><input type="number" min="0" step="0.01" id="wpai-monthly-cost-limit" name="wpai_publisher_settings[monthly_cost_limit]" value="<?php echo esc_attr( $settings['monthly_cost_limit'] ); ?>"></td>
+					<th scope="row"><label for="wpai-monthly-cost-limit"><?php echo esc_html__( 'Limite costo mensile', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="number" min="0" step="0.01" id="wpai-monthly-cost-limit" name="wpai_publisher_settings[monthly_cost_limit]" value="<?php echo esc_attr( $settings['monthly_cost_limit'] ); ?>"> <span class="description"><?php echo esc_html__( 'Opzionale, sarà usato nelle prossime fasi.', 'wp-ai-publisher' ); ?></span></td>
 				</tr>
 
 				<tr>
-					<th scope="row"><?php echo esc_html__( 'GitHub updater enabled', 'wp-ai-publisher' ); ?></th>
+					<th scope="row"><?php echo esc_html__( 'Aggiornamenti da GitHub', 'wp-ai-publisher' ); ?></th>
 					<td>
-						<label><input type="checkbox" value="1" disabled> <?php echo esc_html__( 'Disabled in phase 1.', 'wp-ai-publisher' ); ?></label>
-						<p class="description"><?php echo esc_html__( 'The GitHub updater will be implemented in the dedicated GitHub updater phase. No token is stored now.', 'wp-ai-publisher' ); ?></p>
+						<label><input type="checkbox" value="1" disabled> <?php echo esc_html__( 'Non ancora attivo in questa fase.', 'wp-ai-publisher' ); ?></label>
+						<p class="description"><?php echo esc_html__( 'L’aggiornamento one-click da GitHub sarà implementato nella fase dedicata. Nessun token GitHub viene salvato ora.', 'wp-ai-publisher' ); ?></p>
 					</td>
 				</tr>
 			</tbody>
 		</table>
 
-		<?php submit_button( __( 'Save settings', 'wp-ai-publisher' ) ); ?>
+		<?php submit_button( __( 'Salva impostazioni', 'wp-ai-publisher' ) ); ?>
 	</form>
 </div>
