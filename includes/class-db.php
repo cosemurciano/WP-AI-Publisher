@@ -38,6 +38,17 @@ class DB {
 	}
 
 	/**
+	 * Return content ideas table name.
+	 *
+	 * @return string
+	 */
+	public function get_content_ideas_table_name() {
+		global $wpdb;
+
+		return $wpdb->prefix . 'wpai_publisher_content_ideas';
+	}
+
+	/**
 	 * Create or update plugin tables.
 	 *
 	 * @return void
@@ -47,9 +58,10 @@ class DB {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
-		$logs_table_name = $this->get_logs_table_name();
-		$jobs_table_name = $this->get_jobs_table_name();
-		$charset_collate = $wpdb->get_charset_collate();
+		$logs_table_name          = $this->get_logs_table_name();
+		$jobs_table_name          = $this->get_jobs_table_name();
+		$content_ideas_table_name = $this->get_content_ideas_table_name();
+		$charset_collate          = $wpdb->get_charset_collate();
 
 		$logs_sql = "CREATE TABLE {$logs_table_name} (
 			id BIGINT unsigned NOT NULL AUTO_INCREMENT,
@@ -86,8 +98,33 @@ class DB {
 			KEY created_at (created_at)
 		) {$charset_collate};";
 
+
+		$content_ideas_sql = "CREATE TABLE {$content_ideas_table_name} (
+			id BIGINT unsigned NOT NULL AUTO_INCREMENT,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NULL,
+			status VARCHAR(30) NOT NULL DEFAULT 'new',
+			topic TEXT NOT NULL,
+			keyword VARCHAR(255) NULL,
+			language VARCHAR(20) NOT NULL DEFAULT 'it',
+			target_audience VARCHAR(255) NULL,
+			tutorial_level VARCHAR(50) NULL,
+			notes LONGTEXT NULL,
+			dry_run_output LONGTEXT NULL,
+			validation_notes LONGTEXT NULL,
+			related_post_id BIGINT unsigned NULL,
+			job_id BIGINT unsigned NULL,
+			PRIMARY KEY  (id),
+			KEY status (status),
+			KEY language (language),
+			KEY related_post_id (related_post_id),
+			KEY job_id (job_id),
+			KEY created_at (created_at)
+		) {$charset_collate};";
+
 		dbDelta( $logs_sql );
 		dbDelta( $jobs_sql );
+		dbDelta( $content_ideas_sql );
 	}
 
 	/**
@@ -117,14 +154,17 @@ class DB {
 	public function check_tables() {
 		global $wpdb;
 
-		$logs_table_name = $this->get_logs_table_name();
-		$jobs_table_name = $this->get_jobs_table_name();
-		$logs_found      = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $logs_table_name ) );
-		$jobs_found      = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $jobs_table_name ) );
+		$logs_table_name          = $this->get_logs_table_name();
+		$jobs_table_name          = $this->get_jobs_table_name();
+		$content_ideas_table_name = $this->get_content_ideas_table_name();
+		$logs_found               = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $logs_table_name ) );
+		$jobs_found               = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $jobs_table_name ) );
+		$content_ideas_found      = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $content_ideas_table_name ) );
 
 		return array(
-			'logs' => $logs_found === $logs_table_name,
-			'jobs' => $jobs_found === $jobs_table_name,
+			'logs'          => $logs_found === $logs_table_name,
+			'jobs'          => $jobs_found === $jobs_table_name,
+			'content_ideas' => $content_ideas_found === $content_ideas_table_name,
 		);
 	}
 }
