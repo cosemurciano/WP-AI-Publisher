@@ -62,6 +62,7 @@ class System_Status {
 		$uploads_writable = ! empty( $upload_dir['basedir'] ) && wp_is_writable( $upload_dir['basedir'] );
 		$ai_status        = $this->ai_provider->get_status();
 		$models_count     = (int) $ai_status['available_text_models_count'];
+		$abilities_count  = (int) $ai_status['available_abilities_count'];
 
 		return array(
 			$this->row( __( 'Versione plugin', 'wp-ai-publisher' ), WPAIP_VERSION, 'ok' ),
@@ -70,11 +71,12 @@ class System_Status {
 			$this->row( __( 'Provider AI operativo', 'wp-ai-publisher' ), __( 'Solo sistema AI di WordPress', 'wp-ai-publisher' ), 'ok' ),
 			$this->row( __( 'Stato sistema AI WordPress', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? 'ok' : 'not-verified' ),
 			$this->row( __( 'Modelli AI disponibili', 'wp-ai-publisher' ), sprintf( __( '%d modelli rilevati', 'wp-ai-publisher' ), $models_count ), $models_count > 0 ? 'ok' : 'not-verified' ),
+			$this->row( __( 'Abilità AI WordPress', 'wp-ai-publisher' ), sprintf( __( '%d abilità rilevate', 'wp-ai-publisher' ), $abilities_count ), $abilities_count > 0 ? 'ok' : 'not-verified' ),
 			$this->row( __( 'OpenAI diretto', 'wp-ai-publisher' ), __( 'Disabilitato: il plugin non usa un client custom', 'wp-ai-publisher' ), 'not-configured' ),
 			$this->row( __( 'Stato AIOSEO', 'wp-ai-publisher' ), $this->is_aioseo_active() ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' ), $this->is_aioseo_active() ? 'ok' : 'not-configured' ),
 			$this->row( __( 'Database principale', 'wp-ai-publisher' ), ! empty( $db_tables['logs'] ) ? __( 'Tabella log disponibile', 'wp-ai-publisher' ) : __( 'Tabella log mancante', 'wp-ai-publisher' ), ! empty( $db_tables['logs'] ) ? 'ok' : 'error' ),
 			$this->row( __( 'Database secondario', 'wp-ai-publisher' ), __( 'Opzionale / non configurato', 'wp-ai-publisher' ), 'not-configured' ),
-			$this->row( __( 'Cron / coda job', 'wp-ai-publisher' ), __( 'Non ancora implementata', 'wp-ai-publisher' ), 'not-implemented' ),
+			$this->row( __( 'Cron / coda job', 'wp-ai-publisher' ), ! empty( $db_tables['jobs'] ) ? __( 'Tabella job disponibile', 'wp-ai-publisher' ) : __( 'Tabella job mancante', 'wp-ai-publisher' ), ! empty( $db_tables['jobs'] ) ? 'ok' : 'error' ),
 			$this->row( __( 'Permessi file', 'wp-ai-publisher' ), $uploads_writable ? __( 'Cartella uploads scrivibile', 'wp-ai-publisher' ) : __( 'Cartella uploads non scrivibile', 'wp-ai-publisher' ), $uploads_writable ? 'ok' : 'error' ),
 			$this->row( __( 'Media Library', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? __( 'Disponibile', 'wp-ai-publisher' ) : __( 'Non disponibile', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? 'ok' : 'warning' ),
 			$this->row( __( 'Knowledge Index', 'wp-ai-publisher' ), __( 'Non ancora implementato', 'wp-ai-publisher' ), 'not-implemented' ),

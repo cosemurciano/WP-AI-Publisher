@@ -27,6 +27,17 @@ class DB {
 	}
 
 	/**
+	 * Return jobs table name.
+	 *
+	 * @return string
+	 */
+	public function get_jobs_table_name() {
+		global $wpdb;
+
+		return $wpdb->prefix . 'wpai_publisher_jobs';
+	}
+
+	/**
 	 * Create or update plugin tables.
 	 *
 	 * @return void
@@ -36,10 +47,11 @@ class DB {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
-		$table_name      = $this->get_logs_table_name();
+		$logs_table_name = $this->get_logs_table_name();
+		$jobs_table_name = $this->get_jobs_table_name();
 		$charset_collate = $wpdb->get_charset_collate();
 
-		$sql = "CREATE TABLE {$table_name} (
+		$logs_sql = "CREATE TABLE {$logs_table_name} (
 			id BIGINT unsigned NOT NULL AUTO_INCREMENT,
 			created_at DATETIME NOT NULL,
 			level VARCHAR(20) NOT NULL,
@@ -51,7 +63,31 @@ class DB {
 			KEY created_at (created_at)
 		) {$charset_collate};";
 
-		dbDelta( $sql );
+		$jobs_sql = "CREATE TABLE {$jobs_table_name} (
+			id BIGINT unsigned NOT NULL AUTO_INCREMENT,
+			job_type VARCHAR(80) NOT NULL,
+			status VARCHAR(30) NOT NULL DEFAULT 'pending',
+			priority SMALLINT unsigned NOT NULL DEFAULT 10,
+			payload LONGTEXT NULL,
+			attempts SMALLINT unsigned NOT NULL DEFAULT 0,
+			max_attempts SMALLINT unsigned NOT NULL DEFAULT 3,
+			error_message TEXT NULL,
+			created_at DATETIME NOT NULL,
+			started_at DATETIME NULL,
+			finished_at DATETIME NULL,
+			output LONGTEXT NULL,
+			post_id BIGINT unsigned NULL,
+			estimated_cost DECIMAL(12,6) NULL,
+			PRIMARY KEY  (id),
+			KEY job_type (job_type),
+			KEY status (status),
+			KEY priority (priority),
+			KEY post_id (post_id),
+			KEY created_at (created_at)
+		) {$charset_collate};";
+
+		dbDelta( $logs_sql );
+		dbDelta( $jobs_sql );
 	}
 
 	/**
@@ -81,11 +117,14 @@ class DB {
 	public function check_tables() {
 		global $wpdb;
 
-		$table_name = $this->get_logs_table_name();
-		$found      = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
+		$logs_table_name = $this->get_logs_table_name();
+		$jobs_table_name = $this->get_jobs_table_name();
+		$logs_found      = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $logs_table_name ) );
+		$jobs_found      = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $jobs_table_name ) );
 
 		return array(
-			'logs' => $found === $table_name,
+			'logs' => $logs_found === $logs_table_name,
+			'jobs' => $jobs_found === $jobs_table_name,
 		);
 	}
 }

@@ -1,0 +1,191 @@
+<?php
+/**
+ * Job queue foundation.
+ *
+ * @package WPAIPublisher
+ */
+
+namespace WPAIPublisher;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Read/write access to the WP AI Publisher jobs table.
+ */
+class Job_Queue {
+	/**
+	 * Database service.
+	 *
+	 * @var DB
+	 */
+	private $db;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param DB $db Database service.
+	 */
+	public function __construct( DB $db ) {
+		$this->db = $db;
+	}
+
+	/**
+	 * Return supported job type keys.
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_supported_job_types() {
+		return array(
+			'generate_article',
+			'generate_featured_image',
+			'generate_internal_images',
+			'apply_seo',
+			'apply_internal_links',
+			'index_post',
+			'process_ai_file',
+			'create_content_idea',
+		);
+	}
+
+	/**
+	 * Create a new queued job.
+	 *
+	 * This only records queue metadata. It does not execute AI calls, publish content,
+	 * create media, or start a processor.
+	 *
+	 * @param string        $job_type       Job type key.
+	 * @param array<string,mixed> $payload  Optional payload.
+	 * @param int           $priority       Lower values can be processed first in future phases.
+	 * @param int|null      $post_id        Optional related post ID.
+	 * @param float|null    $estimated_cost Optional estimated cost.
+	 * @return int|false Inserted job ID on success, false on failure or unsupported type.
+	 */
+	public function create_job( $job_type, $payload = array(), $priority = 10, $post_id = null, $estimated_cost = null ) {
+		global $wpdb;
+
+		$job_type = sanitize_key( (string) $job_type );
+		if ( ! in_array( $job_type, $this->get_supported_job_types(), true ) ) {
+			return false;
+		}
+
+		$payload_json = null;
+		if ( ! empty( $payload ) ) {
+			$payload_json = wp_json_encode( $payload );
+			if ( false === $payload_json ) {
+				$payload_json = null;
+			}
+		}
+
+		$data = array(
+			'job_type'   => $job_type,
+			'status'     => 'pending',
+			'priority'   => max( 0, absint( $priority ) ),
+			'payload'    => $payload_json,
+			'created_at' => current_time( 'mysql' ),
+		);
+
+		$format = array( '%s', '%s', '%d', '%s', '%s' );
+
+		if ( null !== $post_id ) {
+			$data['post_id'] = absint( $post_id );
+			$format[]        = '%d';
+		}
+
+		if ( null !== $estimated_cost ) {
+			$data['estimated_cost'] = (float) $estimated_cost;
+			$format[]              = '%f';
+		}
+
+		$inserted = $wpdb->insert( $this->db->get_jobs_table_name(), $data, $format );
+		if ( false === $inserted ) {
+			return false;
+		}
+
+		return (int) $wpdb->insert_id;
+	}
+
+	/**
+	 * Return most recently created jobs.
+	 *
+	 * @param int $limit Maximum rows.
+	 * @return array<int,object>
+	 */
+	public function get_recent_jobs( $limit = 20 ) {
+		global $wpdb;
+
+		$limit = min( 100, max( 1, absint( $limit ) ) );
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$this->db->get_jobs_table_name()} ORDER BY created_at DESC, id DESC LIMIT %d",
+				$limit
+			)
+		);
+	}
+
+	/**
+	 * Count jobs grouped by status.
+	 *
+	 * @return array<string,int>
+	 */
+	public function count_by_status() {
+		global $wpdb;
+
+		$counts = array_fill_keys( array( 'pending', 'running', 'completed', 'failed', 'cancelled' ), 0 );
+		$rows   = $wpdb->get_results( "SELECT status, COUNT(*) AS total FROM {$this->db->get_jobs_table_name()} GROUP BY status" );
+
+		foreach ( $rows as $row ) {
+			$status = sanitize_key( (string) $row->status );
+			if ( array_key_exists( $status, $counts ) ) {
+				$counts[ $status ] = (int) $row->total;
+			}
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * Return translated status label.
+	 *
+	 * @param string $status Status key.
+	 * @return string
+	 */
+	public function get_status_label( $status ) {
+		$labels = array(
+			'pending'   => __( 'In attesa', 'wp-ai-publisher' ),
+			'running'   => __( 'In corso', 'wp-ai-publisher' ),
+			'completed' => __( 'Completato', 'wp-ai-publisher' ),
+			'failed'    => __( 'Fallito', 'wp-ai-publisher' ),
+			'cancelled' => __( 'Annullato', 'wp-ai-publisher' ),
+		);
+
+		$status = sanitize_key( (string) $status );
+
+		return $labels[ $status ] ?? $status;
+	}
+
+	/**
+	 * Return translated job type label.
+	 *
+	 * @param string $job_type Job type key.
+	 * @return string
+	 */
+	public function get_job_type_label( $job_type ) {
+		$labels = array(
+			'generate_article'          => __( 'Generazione articolo', 'wp-ai-publisher' ),
+			'generate_featured_image'   => __( 'Generazione immagine in evidenza', 'wp-ai-publisher' ),
+			'generate_internal_images'  => __( 'Generazione immagini interne', 'wp-ai-publisher' ),
+			'apply_seo'                 => __( 'Applicazione SEO', 'wp-ai-publisher' ),
+			'apply_internal_links'      => __( 'Applicazione link interni', 'wp-ai-publisher' ),
+			'index_post'                => __( 'Indicizzazione articolo', 'wp-ai-publisher' ),
+			'process_ai_file'           => __( 'Elaborazione file AI', 'wp-ai-publisher' ),
+			'create_content_idea'       => __( 'Creazione idea contenuto', 'wp-ai-publisher' ),
+		);
+
+		$job_type = sanitize_key( (string) $job_type );
+
+		return $labels[ $job_type ] ?? $job_type;
+	}
+}

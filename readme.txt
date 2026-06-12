@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.1.1
+Stable tag: 0.2.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -14,7 +14,7 @@ Base modulare per la pubblicazione assistita da AI in WordPress.
 
 WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita.
 
-Dalla versione 0.1.1 il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie.
+Dalla versione 0.2.0 il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie.
 
 Questa versione non genera ancora articoli, immagini o embedding. Tutte le future funzioni AI passeranno dall’adapter centrale collegato al sistema AI di WordPress.
 
@@ -24,7 +24,8 @@ Questa versione non genera ancora articoli, immagini o embedding. Tutte le futur
 2. Attiva WP AI Publisher dalla schermata Plugin.
 3. Apri WP AI Publisher > Bacheca.
 4. Controlla WP AI Publisher > Impostazioni.
-5. Controlla WP AI Publisher > Stato sistema.
+5. Controlla WP AI Publisher > Coda job.
+6. Controlla WP AI Publisher > Stato sistema.
 
 == Domande frequenti ==
 
@@ -41,6 +42,14 @@ No. La generazione articoli sarà implementata in una fase successiva.
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.2.0 =
+* Aggiunta fondazione Job Queue.
+* Aggiunta tabella database dei job.
+* Aggiunta pagina admin Coda job.
+* Migliorata diagnostica del sistema AI WordPress.
+* Predisposto rilevamento abilità AI WordPress.
+* Nessuna generazione automatica ancora attiva.
 
 = 0.1.1 =
 * Interfaccia principale tradotta in italiano.

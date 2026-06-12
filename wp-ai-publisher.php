@@ -3,7 +3,7 @@
  * Plugin Name: WP AI Publisher
  * Plugin URI: https://github.com/cosemurciano/WP-AI-Publisher
  * Description: Base modulare per la pubblicazione assistita da AI in WordPress, con stato sistema, impostazioni, log e adapter per il sistema AI nativo di WordPress.
- * Version: 0.1.1
+ * Version: 0.2.0
  * Requires at least: 7.0
  * Requires PHP: 8.1
  * Author: WP AI Publisher Team
@@ -21,12 +21,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WPAIP_VERSION', '0.1.1' );
+define( 'WPAIP_VERSION', '0.2.0' );
 define( 'WPAIP_PLUGIN_FILE', __FILE__ );
 define( 'WPAIP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPAIP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'WPAIP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
-define( 'WPAIP_DB_SCHEMA_VERSION', '1' );
+define( 'WPAIP_DB_SCHEMA_VERSION', '2' );
 
 require_once WPAIP_PLUGIN_DIR . 'includes/helpers.php';
 
