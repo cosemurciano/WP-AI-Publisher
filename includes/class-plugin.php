@@ -44,6 +44,13 @@ final class Plugin {
 	private $settings;
 
 	/**
+	 * Job queue service.
+	 *
+	 * @var Job_Queue
+	 */
+	private $job_queue;
+
+	/**
 	 * Admin service.
 	 *
 	 * @var Admin
@@ -77,8 +84,9 @@ final class Plugin {
 		$this->db          = new DB();
 		$this->logger      = new Logger( $this->db );
 		$this->settings    = new Settings();
+		$this->job_queue   = new Job_Queue( $this->db );
 		$this->ai_provider = new AI_Provider_Adapter();
-		$this->admin       = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider );
+		$this->admin       = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue );
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 		add_action( 'admin_init', array( $this->settings, 'register' ) );

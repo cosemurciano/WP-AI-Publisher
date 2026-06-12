@@ -27,7 +27,8 @@ class AI_Provider_Adapter {
 	 * @return array<string,mixed>
 	 */
 	public function get_status() {
-		$models = $this->get_available_models( 'text' );
+		$models    = $this->get_available_models( 'text' );
+		$abilities = $this->get_available_abilities();
 
 		return array(
 			'provider_preference'             => $this->get_provider_preference(),
@@ -35,6 +36,8 @@ class AI_Provider_Adapter {
 			'wordpress_ai_client_status'      => $this->is_wordpress_ai_client_available() ? 'detected' : 'not_detected',
 			'available_text_models'           => $models,
 			'available_text_models_count'     => count( $models ),
+			'available_abilities'             => $abilities,
+			'available_abilities_count'       => count( $abilities ),
 			'selected_text_model'             => $this->get_selected_text_model(),
 			'openai_direct_available'         => false,
 			'openai_status'                   => 'disabled',
@@ -53,6 +56,8 @@ class AI_Provider_Adapter {
 			'\\WP_AI\\Client',
 			'\\WordPress\\AI\\Services\\Services_API',
 			'\\WordPress\\AI\\Services\\AI_Service',
+			'WP_AI_Abilities_Registry',
+			'\\WordPress\\AI\\Abilities\\Registry',
 		);
 
 		foreach ( $classes as $class_name ) {
@@ -69,6 +74,8 @@ class AI_Provider_Adapter {
 			'wp_get_ai_models',
 			'wp_ai_get_available_models',
 			'wp_ai_services',
+			'wp_ai_get_abilities',
+			'wp_ai_get_available_abilities',
 		);
 
 		foreach ( $functions as $function_name ) {
@@ -144,6 +151,59 @@ class AI_Provider_Adapter {
 		$models = apply_filters( 'wpai_publisher_available_ai_models', $models, $type );
 
 		return $this->normalize_models( $models );
+	}
+
+	/**
+	 * Return abilities exposed locally by the WordPress AI / Abilities API.
+	 *
+	 * This method is intentionally defensive and read-only: it never performs
+	 * remote calls and does not depend on one specific WordPress AI API shape.
+	 *
+	 * @return array<int,array<string,string>>
+	 */
+	public function get_available_abilities() {
+		$abilities = array();
+
+		$abilities = array_merge( $abilities, $this->abilities_from_known_functions() );
+		$abilities = array_merge( $abilities, $this->abilities_from_known_registries() );
+
+		/**
+		 * Allows the site's WordPress AI integration to expose available abilities.
+		 *
+		 * Expected shapes accepted by the plugin:
+		 * - array( 'ability-id', 'another-ability' )
+		 * - array( array( 'id' => 'ability-id', 'label' => 'Label', 'description' => 'Description' ) )
+		 * - array( 'ability-id' => 'Label' )
+		 *
+		 * @param array<int|string,mixed> $abilities Current ability list.
+		 */
+		$abilities = apply_filters( 'wpai_publisher_available_ai_abilities', $abilities );
+
+		return $this->normalize_abilities( $abilities );
+	}
+
+	/**
+	 * Return abilities that appear relevant for future publisher workflows.
+	 *
+	 * @return array<int,array<string,string>>
+	 */
+	public function get_relevant_abilities() {
+		$abilities = $this->get_available_abilities();
+		$keywords  = array( 'article', 'content', 'generate', 'image', 'seo', 'link', 'index', 'file', 'idea', 'text', 'write', 'media' );
+		$relevant  = array();
+
+		foreach ( $abilities as $ability ) {
+			$haystack = strtolower( implode( ' ', array( $ability['id'], $ability['label'], $ability['description'] ) ) );
+
+			foreach ( $keywords as $keyword ) {
+				if ( false !== strpos( $haystack, $keyword ) ) {
+					$relevant[] = $ability;
+					continue 2;
+				}
+			}
+		}
+
+		return $relevant;
 	}
 
 	/**
@@ -240,6 +300,111 @@ class AI_Provider_Adapter {
 	}
 
 	/**
+	 * Try ability discovery through known WordPress AI functions.
+	 *
+	 * @return array<int|string,mixed>
+	 */
+	private function abilities_from_known_functions() {
+		$abilities = array();
+		$functions = array(
+			'wp_ai_get_abilities',
+			'wp_get_ai_abilities',
+			'wp_ai_get_available_abilities',
+			'wp_get_ai_available_abilities',
+		);
+
+		foreach ( $functions as $function_name ) {
+			if ( ! function_exists( $function_name ) ) {
+				continue;
+			}
+
+			try {
+				$result = call_user_func( $function_name );
+				if ( is_array( $result ) ) {
+					$abilities = array_merge( $abilities, $result );
+				}
+			} catch ( Throwable $error ) {
+				unset( $error );
+			}
+		}
+
+		return $abilities;
+	}
+
+	/**
+	 * Try ability discovery through known registry objects and classes.
+	 *
+	 * @return array<int|string,mixed>
+	 */
+	private function abilities_from_known_registries() {
+		$abilities  = array();
+		$registries = array();
+
+		foreach ( array( 'wp_ai_abilities', 'wp_get_ai_abilities_registry', 'wp_ai_abilities_registry' ) as $factory ) {
+			if ( ! function_exists( $factory ) ) {
+				continue;
+			}
+
+			try {
+				$registry = call_user_func( $factory );
+				if ( is_object( $registry ) ) {
+					$registries[] = $registry;
+				}
+			} catch ( Throwable $error ) {
+				unset( $error );
+			}
+		}
+
+		$classes = array(
+			'WP_AI_Abilities_Registry',
+			'WP_AI_Ability_Registry',
+			'\WordPress\AI\Abilities\Registry',
+			'\WordPress\AI\Abilities\Abilities_Registry',
+			'\WP_AI\Abilities\Registry',
+		);
+
+		foreach ( $classes as $class_name ) {
+			if ( ! class_exists( $class_name ) ) {
+				continue;
+			}
+
+			foreach ( array( 'get_instance', 'instance' ) as $method ) {
+				if ( ! method_exists( $class_name, $method ) ) {
+					continue;
+				}
+
+				try {
+					$registry = call_user_func( array( $class_name, $method ) );
+					if ( is_object( $registry ) ) {
+						$registries[] = $registry;
+					}
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+		}
+
+		foreach ( $registries as $registry ) {
+			foreach ( array( 'get_abilities', 'get_all', 'get_registered', 'all', 'list_abilities', 'abilities' ) as $method ) {
+				if ( ! method_exists( $registry, $method ) ) {
+					continue;
+				}
+
+				try {
+					$result = $registry->{$method}();
+					if ( is_array( $result ) ) {
+						$abilities = array_merge( $abilities, $result );
+					}
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+		}
+
+		return $abilities;
+	}
+
+	/**
 	 * Normalize model definitions to id/label rows.
 	 *
 	 * @param mixed $models Raw model list.
@@ -277,6 +442,55 @@ class AI_Provider_Adapter {
 			$normalized[ $id ] = array(
 				'id'    => $id,
 				'label' => '' !== $label ? $label : $id,
+			);
+		}
+
+		return array_values( $normalized );
+	}
+
+	/**
+	 * Normalize ability definitions to id/label/description rows.
+	 *
+	 * @param mixed $abilities Raw ability list.
+	 * @return array<int,array<string,string>>
+	 */
+	private function normalize_abilities( $abilities ) {
+		if ( ! is_array( $abilities ) ) {
+			return array();
+		}
+
+		$normalized = array();
+
+		foreach ( $abilities as $key => $ability ) {
+			$id          = '';
+			$label       = '';
+			$description = '';
+
+			if ( is_string( $ability ) ) {
+				$id    = $ability;
+				$label = is_string( $key ) ? $key : $ability;
+			} elseif ( is_array( $ability ) ) {
+				$id          = $ability['id'] ?? $ability['name'] ?? $ability['slug'] ?? ( is_string( $key ) ? $key : '' );
+				$label       = $ability['label'] ?? $ability['title'] ?? $ability['name'] ?? $id;
+				$description = $ability['description'] ?? $ability['summary'] ?? '';
+			} elseif ( is_object( $ability ) ) {
+				$id          = $ability->id ?? $ability->name ?? $ability->slug ?? ( is_string( $key ) ? $key : '' );
+				$label       = $ability->label ?? $ability->title ?? $ability->name ?? $id;
+				$description = $ability->description ?? $ability->summary ?? '';
+			}
+
+			$id          = sanitize_text_field( (string) $id );
+			$label       = sanitize_text_field( (string) $label );
+			$description = sanitize_textarea_field( (string) $description );
+
+			if ( '' === $id ) {
+				continue;
+			}
+
+			$normalized[ $id ] = array(
+				'id'          => $id,
+				'label'       => '' !== $label ? $label : $id,
+				'description' => $description,
 			);
 		}
 

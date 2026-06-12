@@ -37,6 +37,13 @@ class Admin {
 	private $settings;
 
 	/**
+	 * Job queue service.
+	 *
+	 * @var Job_Queue
+	 */
+	private $job_queue;
+
+	/**
 	 * AI adapter.
 	 *
 	 * @var AI_Provider_Adapter
@@ -50,12 +57,14 @@ class Admin {
 	 * @param Logger              $logger Logger service.
 	 * @param Settings            $settings Settings service.
 	 * @param AI_Provider_Adapter $ai_provider AI adapter.
+	 * @param Job_Queue           $job_queue Job queue service.
 	 */
-	public function __construct( DB $db, Logger $logger, Settings $settings, AI_Provider_Adapter $ai_provider ) {
+	public function __construct( DB $db, Logger $logger, Settings $settings, AI_Provider_Adapter $ai_provider, Job_Queue $job_queue ) {
 		$this->db          = $db;
 		$this->logger      = $logger;
 		$this->settings    = $settings;
 		$this->ai_provider = $ai_provider;
+		$this->job_queue   = $job_queue;
 	}
 
 	/**
@@ -94,12 +103,37 @@ class Admin {
 
 		add_submenu_page(
 			'wp-ai-publisher',
+			esc_html__( 'Coda job', 'wp-ai-publisher' ),
+			esc_html__( 'Coda job', 'wp-ai-publisher' ),
+			'manage_options',
+			'wp-ai-publisher-jobs',
+			array( $this, 'render_jobs' )
+		);
+
+		add_submenu_page(
+			'wp-ai-publisher',
 			esc_html__( 'Stato sistema', 'wp-ai-publisher' ),
 			esc_html__( 'Stato sistema', 'wp-ai-publisher' ),
 			'manage_options',
 			'wp-ai-publisher-system-status',
 			array( $this, 'render_system_status' )
 		);
+	}
+
+	/**
+	 * Render jobs queue page.
+	 *
+	 * @return void
+	 */
+	public function render_jobs() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+
+		$job_queue    = $this->job_queue;
+		$status_counts = $job_queue->count_by_status();
+		$jobs          = $job_queue->get_recent_jobs( 20 );
+		include WPAIP_PLUGIN_DIR . 'admin/views/jobs.php';
 	}
 
 	/**
