@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -14,7 +14,7 @@ Base modulare per la pubblicazione assistita da AI in WordPress.
 
 WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita.
 
-Dalla versione 0.2.0 il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie. Dalla versione 0.2.1 aggiunge diagnostica difensiva per plugin terzi richiesti o consigliati, senza creare dipendenze rigide.
+Il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie. Include diagnostica difensiva per plugin terzi richiesti o consigliati, senza creare dipendenze rigide.
 
 Questa versione non genera ancora articoli, immagini o embedding. Tutte le future funzioni AI passeranno dall’adapter centrale collegato al sistema AI di WordPress.
 
@@ -23,9 +23,15 @@ Questa versione non genera ancora articoli, immagini o embedding. Tutte le futur
 1. Carica la cartella del plugin in `/wp-content/plugins/` oppure installa lo ZIP da Plugin > Aggiungi plugin > Carica plugin.
 2. Attiva WP AI Publisher dalla schermata Plugin.
 3. Apri WP AI Publisher > Bacheca.
-4. Controlla WP AI Publisher > Impostazioni.
-5. Controlla WP AI Publisher > Coda job.
+4. Controlla WP AI Publisher > Coda job.
+5. Controlla WP AI Publisher > Impostazioni.
 6. Controlla WP AI Publisher > Stato sistema.
+
+== Note sviluppo ==
+
+Durante tutto lo sviluppo, `readme.txt`, `README.md` e versione del plugin devono restare aggiornati. Le voci “Impostazioni” e “Stato sistema” devono restare sempre alla fine del menu del plugin; le altre voci vanno ordinate per importanza d’uso.
+
+Dalla versione 0.2.2 le migrazioni database vengono controllate anche durante il bootstrap del plugin, perché WordPress non riesegue automaticamente l’hook di attivazione dopo un aggiornamento one-click. Questo evita errori quando una nuova pagina admin interroga tabelle create in versioni successive.
 
 == Plugin terzi consigliati ==
 
@@ -60,6 +66,12 @@ No. La generazione articoli sarà implementata in una fase successiva.
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.2.2 =
+* Corretto il flusso di upgrade database: le migrazioni vengono eseguite anche dopo aggiornamento plugin, non solo in attivazione.
+* Evitati errori sulla pagina Coda job nei siti aggiornati da versioni precedenti.
+* Formalizzata la regola di ordinamento menu: Impostazioni e Stato sistema restano sempre in fondo.
+* Aggiornato README.md insieme alla versione plugin.
 
 = 0.2.1 =
 * Aggiunto controllo dei plugin terzi richiesti e consigliati.
