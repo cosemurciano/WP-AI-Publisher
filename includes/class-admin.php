@@ -76,8 +76,8 @@ class Admin {
 
 		add_submenu_page(
 			'wp-ai-publisher',
-			esc_html__( 'Dashboard', 'wp-ai-publisher' ),
-			esc_html__( 'Dashboard', 'wp-ai-publisher' ),
+			esc_html__( 'Bacheca', 'wp-ai-publisher' ),
+			esc_html__( 'Bacheca', 'wp-ai-publisher' ),
 			'manage_options',
 			'wp-ai-publisher',
 			array( $this, 'render_dashboard' )
@@ -85,8 +85,8 @@ class Admin {
 
 		add_submenu_page(
 			'wp-ai-publisher',
-			esc_html__( 'Settings', 'wp-ai-publisher' ),
-			esc_html__( 'Settings', 'wp-ai-publisher' ),
+			esc_html__( 'Impostazioni', 'wp-ai-publisher' ),
+			esc_html__( 'Impostazioni', 'wp-ai-publisher' ),
 			'manage_options',
 			'wp-ai-publisher-settings',
 			array( $this->settings, 'render_page' )
@@ -94,8 +94,8 @@ class Admin {
 
 		add_submenu_page(
 			'wp-ai-publisher',
-			esc_html__( 'System Status', 'wp-ai-publisher' ),
-			esc_html__( 'System Status', 'wp-ai-publisher' ),
+			esc_html__( 'Stato sistema', 'wp-ai-publisher' ),
+			esc_html__( 'Stato sistema', 'wp-ai-publisher' ),
 			'manage_options',
 			'wp-ai-publisher-system-status',
 			array( $this, 'render_system_status' )
@@ -109,7 +109,7 @@ class Admin {
 	 */
 	public function render_dashboard() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'wp-ai-publisher' ) );
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
 
 		$ai_status = $this->ai_provider->get_status();
@@ -124,7 +124,7 @@ class Admin {
 	 */
 	public function render_system_status() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'wp-ai-publisher' ) );
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
 
 		$system_status = new System_Status( $this->db, $this->logger, $this->ai_provider );
