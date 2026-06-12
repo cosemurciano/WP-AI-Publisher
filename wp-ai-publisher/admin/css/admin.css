@@ -1,0 +1,91 @@
+.wpai-admin {
+	--wpai-border: #dcdcde;
+	--wpai-surface: #fff;
+	--wpai-muted: #646970;
+	--wpai-primary: #1d2327;
+}
+
+.wpai-admin .wpai-lead {
+	max-width: 880px;
+	font-size: 15px;
+	color: var(--wpai-muted);
+}
+
+.wpai-card-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: 16px;
+	margin-top: 20px;
+}
+
+.wpai-card {
+	padding: 20px;
+	background: var(--wpai-surface);
+	border: 1px solid var(--wpai-border);
+	border-radius: 8px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.wpai-card h2 {
+	margin-top: 0;
+	font-size: 17px;
+	color: var(--wpai-primary);
+}
+
+.wpai-card ul {
+	margin-left: 18px;
+	list-style: disc;
+}
+
+.wpai-badge {
+	display: inline-flex;
+	align-items: center;
+	min-height: 22px;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.4;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+}
+
+.wpai-badge--ok {
+	color: #0a4b20;
+	background: #d1e7dd;
+}
+
+.wpai-badge--warning,
+.wpai-badge--not-verified {
+	color: #664d03;
+	background: #fff3cd;
+}
+
+.wpai-badge--error {
+	color: #842029;
+	background: #f8d7da;
+}
+
+.wpai-badge--not-implemented,
+.wpai-badge--not-configured {
+	color: #2c3338;
+	background: #e2e3e5;
+}
+
+.wpai-status-table {
+	max-width: 1100px;
+	margin-top: 16px;
+}
+
+.wpai-status-table th,
+.wpai-status-table td {
+	vertical-align: middle;
+}
+
+.wpai-settings-form {
+	max-width: 960px;
+	padding: 8px 20px 20px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+}
