@@ -33,6 +33,19 @@ $level_labels = array(
 	'avanzato'   => __( 'Avanzato', 'wp-ai-publisher' ),
 );
 
+
+$source_labels = array(
+	'wordpress_ai'   => __( 'WordPress AI', 'wp-ai-publisher' ),
+	'local_fallback' => __( 'Fallback locale', 'wp-ai-publisher' ),
+	'unknown'        => __( 'Non disponibile', 'wp-ai-publisher' ),
+);
+
+$source_badges = array(
+	'wordpress_ai'   => __( 'AI WordPress', 'wp-ai-publisher' ),
+	'local_fallback' => __( 'Fallback locale', 'wp-ai-publisher' ),
+	'unknown'        => __( 'Non disponibile', 'wp-ai-publisher' ),
+);
+
 $render_list = static function ( $items ) {
 	if ( empty( $items ) || ! is_array( $items ) ) {
 		echo esc_html__( '—', 'wp-ai-publisher' );
@@ -157,10 +170,36 @@ $render_list = static function ( $items ) {
 	<?php endif; ?>
 
 	<?php if ( $selected_idea && ! empty( $dry_run_data ) ) : ?>
+		<?php
+		$generation_source = isset( $dry_run_data['source'] ) ? sanitize_key( (string) $dry_run_data['source'] ) : 'unknown';
+		if ( ! isset( $source_labels[ $generation_source ] ) ) {
+			$generation_source = 'unknown';
+		}
+		$source_badge_class = 'wordpress_ai' === $generation_source ? 'wpai-badge wpai-badge--ok' : ( 'local_fallback' === $generation_source ? 'wpai-badge wpai-badge--warning' : 'wpai-badge wpai-badge--not-verified' );
+		?>
 		<section class="wpai-card" style="margin-top:20px;">
 			<h2><?php echo esc_html__( 'Risultato dry-run', 'wp-ai-publisher' ); ?> #<?php echo esc_html( (string) $selected_idea->id ); ?></h2>
 			<details open>
 				<summary><?php echo esc_html__( 'Visualizza struttura articolo proposta', 'wp-ai-publisher' ); ?></summary>
+
+				<h3><?php echo esc_html__( 'Origine generazione', 'wp-ai-publisher' ); ?></h3>
+				<p>
+					<span class="<?php echo esc_attr( $source_badge_class ); ?>"><?php echo esc_html( $source_badges[ $generation_source ] ); ?></span>
+					<?php echo esc_html( $source_labels[ $generation_source ] ); ?>
+				</p>
+				<?php if ( 'local_fallback' === $generation_source ) : ?>
+					<div class="notice notice-warning inline">
+						<p><?php echo esc_html__( 'Questo risultato è utile per testare il flusso, ma non è ancora stato prodotto dal sistema AI reale.', 'wp-ai-publisher' ); ?></p>
+					</div>
+				<?php elseif ( 'wordpress_ai' === $generation_source ) : ?>
+					<div class="notice notice-success inline">
+						<p><?php echo esc_html__( 'Risultato prodotto tramite sistema AI di WordPress.', 'wp-ai-publisher' ); ?></p>
+					</div>
+				<?php else : ?>
+					<div class="notice notice-error inline">
+						<p><?php echo esc_html__( 'Origine del dry-run non disponibile.', 'wp-ai-publisher' ); ?></p>
+					</div>
+				<?php endif; ?>
 				<h3><?php echo esc_html__( 'Titolo proposto', 'wp-ai-publisher' ); ?></h3>
 				<p><?php echo esc_html( (string) ( $dry_run_data['title'] ?? '—' ) ); ?></p>
 

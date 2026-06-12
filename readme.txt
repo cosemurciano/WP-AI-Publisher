@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.3.0
+Stable tag: 0.3.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -12,7 +12,7 @@ Base modulare per la pubblicazione assistita da AI in WordPress.
 
 == Descrizione ==
 
-WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.3.0 introduce la prima area operativa “Idee contenuto” per salvare argomenti editoriali e ottenere un dry-run strutturato, senza creare post WordPress.
+WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.3.1 migliora l’area “Idee contenuto” con tentativi di generazione tramite sistema AI di WordPress, fallback locale contestuale e validazione strutturata, senza creare post WordPress.
 
 Il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie. Include diagnostica difensiva per plugin terzi richiesti o consigliati, senza creare dipendenze rigide.
 
@@ -67,6 +67,15 @@ No. La generazione articoli sarà implementata in una fase successiva.
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.3.1 =
+* Migliorato dry-run Idee contenuto.
+* Aggiunto tentativo di generazione tramite sistema AI di WordPress.
+* Aggiunto fallback locale più utile e contestuale.
+* Migliorata validazione dell’output strutturato.
+* Normalizzato content_outline con heading, level numerico e summary.
+* Aggiunta indicazione origine risultato: WordPress AI o fallback locale.
+* Corretto ordine menu con Impostazioni e Stato sistema sempre in fondo.
 
 = 0.3.0 =
 * Aggiunta sezione Idee contenuto.

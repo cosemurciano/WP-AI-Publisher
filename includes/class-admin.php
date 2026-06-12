@@ -122,6 +122,7 @@ class Admin {
 			array( $this, 'render_jobs' )
 		);
 
+		// Le voci Impostazioni e Stato sistema devono restare sempre alla fine del menu.
 		add_submenu_page(
 			'wp-ai-publisher',
 			esc_html__( 'Impostazioni', 'wp-ai-publisher' ),
