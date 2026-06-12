@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.3.5**
+Versione corrente: **0.3.6**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
@@ -14,7 +14,7 @@ Dalla versione **0.3.2** il target editoriale principale è l’**Editor Classic
 
 La futura bozza WordPress userà `post_content` con HTML pulito e sicuro, ad esempio paragrafi, titoli `h2`/`h3`, liste e altri tag consentiti da allowlist. L’anteprima del dry-run passa da sanitizzazione dedicata e viene mostrata nell’admin come contenuto compatibile con Classic Editor.
 
-AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.5.
+AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.6.
 
 Funzioni presenti:
 
@@ -49,6 +49,14 @@ Dalla versione **0.3.5** il filtro consigliato per fornire output strutturato al
 Per compatibilità con integrazioni create nella versione **0.3.0**, resta supportato anche il filtro legacy `wpai_publisher_structured_content_dry_run`. Il plugin lo richiama solo se il nuovo hook non produce un output utilizzabile: in questo modo le integrazioni aggiornate restano prioritarie e quelle esistenti continuano a funzionare senza causare fallback locale non necessario.
 
 Il filtro legacy riceve un payload compatibile con la versione 0.3.0: se il chiamante moderno non include `idea`, WP AI Publisher ricostruisce `idea.topic`, `idea.keyword`, `idea.language`, `idea.target_audience`, `idea.tutorial_level` e `idea.notes` a partire dal payload normalizzato. Entrambi gli hook devono restituire solo dati strutturati per anteprima e validazione: il plugin non crea post, non crea bozze, non pubblica contenuti e non chiama OpenAI direttamente.
+
+## WordPress Abilities API
+
+Dalla versione **0.3.6**, WP AI Publisher consolida l’integrazione con la WordPress Abilities API quando disponibile nel runtime WordPress 7. Il plugin usa `wp_get_abilities()` per leggere le ability registrate e `wp_get_ability()` per ottenere l’istanza invocabile, sempre con chiamate protette e senza generare fatal error.
+
+Le istanze `WP_Ability` vengono lette tramite getter (`get_name()`, `get_label()`, `get_description()`, `get_category()`, `get_input_schema()`, `get_output_schema()` e `get_meta()`) quando disponibili, con fallback difensivo su array o proprietà pubbliche solo per metadati scalari sicuri. Gli schema vengono usati solo per dedurre parole chiave e input compatibili; non vengono mostrati completi nella diagnostica.
+
+WP AI Publisher non chiama API OpenAI dirette, non salva chiavi e non contiene un client OpenAI custom. L’output generato da un’ability reale è marcato come `source: wordpress_ai` e viene distinto dal fallback locale (`source: local_fallback`) nell’admin, nella qualità anteprima e nelle note di revisione.
 
 ## Diagnostica AI
 
@@ -135,6 +143,15 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.3.6
+- Migliorato riconoscimento delle abilities WordPress tramite getter `WP_Ability`.
+- Migliorata selezione delle ability candidate per generazione testo.
+- Migliorata diagnostica delle abilities rilevate.
+- Migliorata invocazione sicura delle abilities con input schema.
+- Evitata doppia conclusione nell’anteprima Editor Classico.
+- Aggiunte note di qualità non bloccanti per title, slug, excerpt e metadati.
+- Migliorata distinzione admin tra output AI reale e fallback locale.
 
 ### 0.3.5
 - Corretto payload del filtro legacy `wpai_publisher_structured_content_dry_run`.
