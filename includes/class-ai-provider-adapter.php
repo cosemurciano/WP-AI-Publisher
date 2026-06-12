@@ -702,6 +702,7 @@ class AI_Provider_Adapter {
 			'required_schema'      => isset( $payload['required_schema'] ) && is_array( $payload['required_schema'] ) ? $payload['required_schema'] : $this->get_content_dry_run_schema(),
 			'allow_local_fallback' => ! empty( $payload['allow_local_fallback'] ),
 			'safety'               => isset( $payload['safety'] ) && is_array( $payload['safety'] ) ? $payload['safety'] : array(),
+			'site_context'         => wpai_publisher_normalize_site_context( $payload['site_context'] ?? wpai_publisher_get_site_context() ),
 		);
 	}
 
@@ -1217,16 +1218,39 @@ class AI_Provider_Adapter {
 			return '';
 		}
 
-		$schema_json = wp_json_encode( ! empty( $schema ) ? $schema : $this->get_content_dry_run_schema(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
+		$site_context = wpai_publisher_normalize_site_context( $payload['site_context'] ?? wpai_publisher_get_site_context() );
+		$context_for_prompt = array(
+			'site_profile_name'                    => $site_context['site_profile_name'],
+			'site_description'                     => $site_context['site_description'],
+			'content_niche'                        => $site_context['content_niche'],
+			'default_audience'                     => $site_context['default_audience'],
+			'default_tone'                         => wpai_publisher_site_context_label( 'default_tone', $site_context['default_tone'] ),
+			'default_language'                     => $site_context['default_language'],
+			'default_editor'                       => $site_context['default_editor'],
+			'default_post_status_after_generation' => $site_context['default_post_status_after_generation'],
+			'allowed_categories'                   => wpai_publisher_split_context_list( $site_context['allowed_categories'] ),
+			'preferred_tags'                       => wpai_publisher_split_context_list( $site_context['preferred_tags'] ),
+			'excluded_topics'                      => wpai_publisher_split_context_list( $site_context['excluded_topics'] ),
+			'internal_link_strategy'               => $site_context['internal_link_strategy'],
+			'seo_plugin_preference'                => $site_context['seo_plugin_preference'],
+			'writing_rules'                        => $site_context['writing_rules'],
+			'forbidden_claims'                     => $site_context['forbidden_claims'],
+			'brand_terms'                          => $site_context['brand_terms'],
+			'content_format_preference'            => $site_context['content_format_preference'],
+		);
+
+		$schema_json  = wp_json_encode( ! empty( $schema ) ? $schema : $this->get_content_dry_run_schema(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
+		$context_json = wp_json_encode( $context_for_prompt, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
 
 		return sprintf(
-			"Agisci come assistente editoriale WordPress. Genera SOLO JSON valido, senza markdown, senza blocchi di codice e senza spiegazioni fuori dal JSON. Non creare post, non pubblicare, non generare immagini reali, non scrivere metadati AIOSEO e non inventare dati tecnici non verificabili. Crea una struttura utile per un tutorial WordPress in italiano corretto, chiaro, didattico e operativo. Target: utenti WordPress di livello %5\$s. Genera categorie e tag realistici. content_outline deve essere un array di oggetti con heading stringa, level numerico intero e summary stringa. I link interni devono essere target semantici realistici, non URL inventati. Imposta source a wordpress_ai e language a it. Schema obbligatorio: %7\$s\nArgomento: %1\$s\nKeyword: %2\$s\nLingua richiesta: %3\$s\nPubblico target: %4\$s\nLivello tutorial: %5\$s\nNote editoriali: %6\$s",
+			"Agisci come assistente editoriale WordPress per un dry-run strutturato. Genera SOLO JSON valido, senza markdown, senza blocchi di codice e senza spiegazioni fuori dal JSON. Non creare post, non pubblicare, non generare immagini reali, non scrivere metadati AIOSEO e non inventare dati tecnici non verificabili. Usa HTML pulito compatibile con Editor Classico per eventuali anteprime e non generare blocchi Gutenberg. Usa il contesto sito per categorie, tag, tono di voce, livello, lingua, target, link interni semantici, stile contenuto, limiti editoriali e claim vietati. Non assumere che il sito sia wptutorial.ai o un sito WordPress tutorial se il contesto editoriale indica altro. Usa le categorie consentite se presenti. Usa i tag preferiti solo se pertinenti. Rispetta gli argomenti esclusi. Non inventare dati tecnici, prezzi, normative, date o promesse se non presenti nel contesto. content_outline deve essere un array di oggetti con heading stringa, level numerico intero e summary stringa. I link interni devono essere target semantici realistici, non URL inventati. Imposta source a wordpress_ai. Schema obbligatorio: %8\$s\nsite_context: %7\$s\nArgomento: %1\$s\nKeyword: %2\$s\nLingua richiesta: %3\$s\nPubblico target: %4\$s\nLivello o complessità: %5\$s\nNote editoriali: %6\$s",
 			$topic,
 			sanitize_text_field( (string) ( $payload['keyword'] ?? '' ) ),
-			sanitize_key( (string) ( $payload['language'] ?? 'it' ) ),
-			sanitize_text_field( (string) ( $payload['target_audience'] ?? '' ) ),
+			sanitize_key( (string) ( $payload['language'] ?? $site_context['default_language'] ) ),
+			sanitize_text_field( (string) ( $payload['target_audience'] ?? $site_context['default_audience'] ) ),
 			sanitize_key( (string) ( $payload['tutorial_level'] ?? 'base' ) ),
 			sanitize_textarea_field( (string) ( $payload['notes'] ?? '' ) ),
+			false !== $context_json ? $context_json : '{}',
 			false !== $schema_json ? $schema_json : '{}'
 		);
 	}
@@ -1240,14 +1264,15 @@ class AI_Provider_Adapter {
 	private function generate_local_structured_content_dry_run( $payload ) {
 		$topic           = sanitize_textarea_field( (string) ( $payload['topic'] ?? __( 'Idea contenuto', 'wp-ai-publisher' ) ) );
 		$keyword         = sanitize_text_field( (string) ( $payload['keyword'] ?? '' ) );
-		$language        = sanitize_key( (string) ( $payload['language'] ?? 'it' ) );
+		$site_context    = wpai_publisher_normalize_site_context( $payload['site_context'] ?? wpai_publisher_get_site_context() );
+		$language        = sanitize_key( (string) ( $payload['language'] ?? $site_context['default_language'] ) );
 		$target_audience = sanitize_text_field( (string) ( $payload['target_audience'] ?? '' ) );
 		$tutorial_level  = sanitize_key( (string) ( $payload['tutorial_level'] ?? 'base' ) );
-		$profile         = $this->get_contextual_local_profile( $topic, $keyword );
+		$profile         = $this->get_contextual_local_profile( $topic, $keyword, $site_context );
 		$title           = $this->limit_local_title( $this->build_contextual_local_title( $topic, $keyword ) );
 		$slug            = $this->build_contextual_local_slug( $title, $profile );
-		$audience_text   = '' !== $target_audience ? $target_audience : __( 'utenti WordPress', 'wp-ai-publisher' );
-		$outline         = $this->build_contextual_local_outline( $topic, $keyword );
+		$audience_text   = '' !== $target_audience ? $target_audience : ( '' !== $site_context['default_audience'] ? $site_context['default_audience'] : __( 'lettori del sito', 'wp-ai-publisher' ) );
+		$outline         = $this->build_contextual_local_outline( $topic, $keyword, $site_context );
 		$meta_title      = $this->limit_local_title( $profile['meta_title'] ?? $title );
 
 		return array(
@@ -1255,21 +1280,21 @@ class AI_Provider_Adapter {
 			'slug'                   => $slug,
 			'excerpt'                => sprintf( __( 'Traccia editoriale per spiegare %1$s a %2$s con HTML pulito per Editor Classico, senza creare bozze o pubblicare contenuti.', 'wp-ai-publisher' ), $topic, $audience_text ),
 			'content_outline'        => $outline,
-			'categories'             => array( __( 'Guide WordPress', 'wp-ai-publisher' ), __( 'Tutorial', 'wp-ai-publisher' ) ),
-			'tags'                   => array_values( array_unique( array_filter( array( $keyword, $this->extract_primary_entity( $topic, $keyword ), __( 'wordpress', 'wp-ai-publisher' ), __( 'tutorial', 'wp-ai-publisher' ) ) ) ) ),
+			'categories'             => $this->get_contextual_local_categories( $site_context, $profile ),
+			'tags'                   => $this->get_contextual_local_tags( $keyword, $topic, $site_context, $profile ),
 			'meta_title'             => $meta_title,
-			'meta_description'       => sprintf( __( 'Struttura preliminare per un tutorial WordPress su %s, utile per validare flusso e outline senza pubblicare nulla.', 'wp-ai-publisher' ), $topic ),
+			'meta_description'       => sprintf( __( 'Struttura preliminare per %s, utile per validare flusso e outline senza pubblicare nulla.', 'wp-ai-publisher' ), $topic ),
 			'open_graph_title'       => $title,
 			'open_graph_description' => sprintf( __( 'Anteprima editoriale controllata per %s.', 'wp-ai-publisher' ), $topic ),
 			'twitter_title'          => $title,
-			'twitter_description'    => sprintf( __( 'Dry-run tutorial WordPress: %s.', 'wp-ai-publisher' ), $topic ),
-			'featured_image_prompt'  => sprintf( __( 'Illustrazione editoriale concettuale per un tutorial WordPress su %s, senza generare immagini reali.', 'wp-ai-publisher' ), $topic ),
+			'twitter_description'    => sprintf( __( 'Dry-run editoriale: %s.', 'wp-ai-publisher' ), $topic ),
+			'featured_image_prompt'  => sprintf( __( 'Illustrazione editoriale concettuale per %s, senza generare immagini reali.', 'wp-ai-publisher' ), $topic ),
 			'internal_image_prompts' => array(
 				sprintf( __( 'Schema visuale dei passaggi operativi per %s.', 'wp-ai-publisher' ), $topic ),
 				sprintf( __( 'Checklist visiva di verifica finale per %s.', 'wp-ai-publisher' ), $topic ),
 			),
 			'image_alt_texts'        => array(
-				sprintf( __( 'Schema tutorial WordPress per %s.', 'wp-ai-publisher' ), $topic ),
+				sprintf( __( 'Schema editoriale per %s.', 'wp-ai-publisher' ), $topic ),
 				sprintf( __( 'Checklist di controllo per %s.', 'wp-ai-publisher' ), $topic ),
 			),
 			'image_captions'         => array(
@@ -1277,8 +1302,8 @@ class AI_Provider_Adapter {
 			),
 			'internal_link_targets'  => $profile['internal_link_targets'],
 			'knowledge_summary'      => sprintf( __( 'Sintesi locale basata sull’argomento inserito: %s. Il contenuto resta da verificare con revisione umana prima di qualsiasi pubblicazione.', 'wp-ai-publisher' ), $topic ),
-			'entities'               => array_values( array_unique( array_filter( array( $this->extract_primary_entity( $topic, $keyword ), $keyword, 'WordPress' ) ) ) ),
-			'search_intent'          => __( 'Informazionale / tutorial operativo', 'wp-ai-publisher' ),
+			'entities'               => array_values( array_unique( array_filter( array( $this->extract_primary_entity( $topic, $keyword ), $keyword, $site_context['content_niche'] ) ) ) ),
+			'search_intent'          => $this->get_contextual_search_intent( $site_context ),
 			'tutorial_level'         => in_array( $tutorial_level, array( 'base', 'intermedio', 'avanzato' ), true ) ? $tutorial_level : 'base',
 			'cluster_topic'          => '' !== $keyword ? $keyword : wp_trim_words( $topic, 4, '' ),
 			'subtopic'               => $topic,
@@ -1297,8 +1322,9 @@ class AI_Provider_Adapter {
 	 * @param string $keyword Keyword.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function build_contextual_local_outline( $topic, $keyword ) {
-		$profile = $this->get_contextual_local_profile( $topic, $keyword );
+	private function build_contextual_local_outline( $topic, $keyword, $site_context = array() ) {
+		$site_context = wpai_publisher_normalize_site_context( $site_context );
+		$profile = $this->get_contextual_local_profile( $topic, $keyword, $site_context );
 		$outline = array();
 
 		foreach ( $profile['outline'] as $section ) {
@@ -1320,7 +1346,7 @@ class AI_Provider_Adapter {
 	 * @return string
 	 */
 	private function build_contextual_local_title( $topic, $keyword ) {
-		$profile = $this->get_contextual_local_profile( $topic, $keyword );
+		$profile = $this->get_contextual_local_profile( $topic, $keyword, wpai_publisher_get_site_context() );
 		if ( ! empty( $profile['title'] ) ) {
 			return $profile['title'];
 		}
@@ -1331,7 +1357,7 @@ class AI_Provider_Adapter {
 		$raw = trim( preg_replace( '/\s+/', ' ', (string) $raw ) );
 
 		if ( '' === $raw ) {
-			return __( 'Guida WordPress pratica', 'wp-ai-publisher' );
+			return __( 'Guida pratica', 'wp-ai-publisher' );
 		}
 
 		if ( preg_match( '/\bcome\b/i', $raw ) ) {
@@ -1392,7 +1418,13 @@ class AI_Provider_Adapter {
 	 * @param string $keyword Keyword.
 	 * @return array<string,mixed>
 	 */
-	private function get_contextual_local_profile( $topic, $keyword ) {
+	private function get_contextual_local_profile( $topic, $keyword, $site_context = array() ) {
+		$site_context = wpai_publisher_normalize_site_context( $site_context );
+		$niche_profile = $this->get_niche_local_profile( $topic, $keyword, $site_context );
+		if ( ! empty( $niche_profile ) ) {
+			return $niche_profile;
+		}
+
 		$patterns = $this->detect_wordpress_editorial_patterns( $topic, $keyword );
 		$entity   = $this->extract_primary_entity( $topic, $keyword );
 		if ( '' === $entity ) {
@@ -1495,12 +1527,190 @@ class AI_Provider_Adapter {
 		}
 
 		return array(
-			'title'                 => sprintf( __( 'Guida WordPress: %s', 'wp-ai-publisher' ), $this->normalize_brand_capitalization( $entity ) ),
-			'meta_title'            => sprintf( __( 'Guida WordPress: %s', 'wp-ai-publisher' ), $this->normalize_brand_capitalization( $entity ) ),
-			'slug'                  => sanitize_title( 'guida-wordpress-' . $entity ),
-			'internal_link_targets' => array( __( 'Workflow editoriale WordPress', 'wp-ai-publisher' ), __( 'Checklist contenuti WordPress', 'wp-ai-publisher' ), __( 'Verifiche prima della pubblicazione', 'wp-ai-publisher' ) ),
-			'outline'               => $this->build_generic_local_sections( $entity, 'generico' ),
+			'title'                 => sprintf( __( 'Guida informativa: %s', 'wp-ai-publisher' ), $this->normalize_brand_capitalization( $entity ) ),
+			'meta_title'            => sprintf( __( '%s: guida informativa', 'wp-ai-publisher' ), $this->normalize_brand_capitalization( $entity ) ),
+			'slug'                  => sanitize_title( 'guida-informativa-' . $entity ),
+			'internal_link_targets' => array( __( 'Approfondimenti correlati', 'wp-ai-publisher' ), __( 'Guide introduttive', 'wp-ai-publisher' ), __( 'Checklist editoriale', 'wp-ai-publisher' ) ),
+			'outline'               => $this->build_informational_local_sections( $this->normalize_brand_capitalization( $entity ) ),
 		);
+	}
+
+	/**
+	 * Return a local fallback profile based on configured editorial niche.
+	 *
+	 * @param string              $topic Topic.
+	 * @param string              $keyword Keyword.
+	 * @param array<string,mixed> $site_context Site context.
+	 * @return array<string,mixed>
+	 */
+	private function get_niche_local_profile( $topic, $keyword, $site_context ) {
+		$haystack = strtolower( remove_accents( implode( ' ', array( $site_context['content_niche'] ?? '', $site_context['content_format_preference'] ?? '', $topic, $keyword ) ) ) );
+		$entity   = $this->extract_primary_entity( $topic, $keyword );
+		if ( '' === $entity ) {
+			$entity = __( 'il tema scelto', 'wp-ai-publisher' );
+		}
+		$entity_label = $this->normalize_brand_capitalization( $entity );
+
+		if ( preg_match( '/\b(viaggi|travel|turismo)\b/', $haystack ) ) {
+			return array(
+				'title'                 => sprintf( __( 'Guida viaggio: %s', 'wp-ai-publisher' ), $entity_label ),
+				'meta_title'            => sprintf( __( 'Guida viaggio: %s', 'wp-ai-publisher' ), $entity_label ),
+				'slug'                  => sanitize_title( 'guida-viaggio-' . $entity ),
+				'internal_link_targets' => array( __( 'Itinerari correlati', 'wp-ai-publisher' ), __( 'Consigli pratici di viaggio', 'wp-ai-publisher' ), __( 'Cosa vedere nella stessa area', 'wp-ai-publisher' ) ),
+				'outline'               => $this->build_travel_local_sections( $entity_label ),
+			);
+		}
+
+		if ( preg_match( '/\b(giardinaggio|agricoltura|e-commerce|ecommerce|prodotti|prodotto)\b/', $haystack ) ) {
+			return array(
+				'title'                 => sprintf( __( 'Guida acquisto e uso: %s', 'wp-ai-publisher' ), $entity_label ),
+				'meta_title'            => sprintf( __( '%s: guida pratica e criteri di scelta', 'wp-ai-publisher' ), $entity_label ),
+				'slug'                  => sanitize_title( 'guida-acquisto-uso-' . $entity ),
+				'internal_link_targets' => array( __( 'Categorie prodotto correlate', 'wp-ai-publisher' ), __( 'Guide alla scelta dei materiali', 'wp-ai-publisher' ), __( 'Consigli di manutenzione', 'wp-ai-publisher' ) ),
+				'outline'               => $this->build_product_local_sections( $entity_label ),
+			);
+		}
+
+		if ( preg_match( '/\b(ristorante|food|locale|ristorazione)\b/', $haystack ) ) {
+			return array(
+				'title'                 => sprintf( __( 'Guida locale: %s', 'wp-ai-publisher' ), $entity_label ),
+				'meta_title'            => sprintf( __( '%s: esperienza, servizi e informazioni utili', 'wp-ai-publisher' ), $entity_label ),
+				'slug'                  => sanitize_title( 'guida-locale-' . $entity ),
+				'internal_link_targets' => array( __( 'Servizi correlati', 'wp-ai-publisher' ), __( 'Esperienze nella zona', 'wp-ai-publisher' ), __( 'Informazioni pratiche per i clienti', 'wp-ai-publisher' ) ),
+				'outline'               => $this->build_local_experience_sections( $entity_label ),
+			);
+		}
+
+		if ( preg_match( '/\b(wordpress|plugin|tema|seo wordpress)\b/', $haystack ) ) {
+			return array();
+		}
+
+		if ( '' !== trim( (string) ( $site_context['content_niche'] ?? '' ) ) ) {
+			return array(
+				'title'                 => sprintf( __( 'Guida informativa: %s', 'wp-ai-publisher' ), $entity_label ),
+				'meta_title'            => sprintf( __( '%s: guida informativa', 'wp-ai-publisher' ), $entity_label ),
+				'slug'                  => sanitize_title( 'guida-informativa-' . $entity ),
+				'internal_link_targets' => array( __( 'Approfondimenti correlati', 'wp-ai-publisher' ), __( 'Guide introduttive', 'wp-ai-publisher' ), __( 'Checklist editoriale', 'wp-ai-publisher' ) ),
+				'outline'               => $this->build_informational_local_sections( $entity_label ),
+			);
+		}
+
+		return array();
+	}
+
+	/** @return array<int,array<string,string>> */
+	private function build_travel_local_sections( $entity ) {
+		return array(
+			array( 'heading' => sprintf( __( 'Perché visitare %s', 'wp-ai-publisher' ), $entity ), 'summary' => __( 'Inquadrare il valore della destinazione senza inventare date, prezzi o informazioni non presenti nel contesto.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Cosa vedere e cosa fare', 'wp-ai-publisher' ), 'summary' => __( 'Organizzare attrazioni, esperienze e attività come spunti da verificare editorialmente prima della pubblicazione.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Itinerario consigliato', 'wp-ai-publisher' ), 'summary' => __( 'Proporre una sequenza logica di visita, mantenendo indicazioni generiche se mancano dati locali certi.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Consigli pratici per il viaggio', 'wp-ai-publisher' ), 'summary' => __( 'Evidenziare trasporti, periodo, budget e documenti come aspetti da verificare, senza inventare normative o costi.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Errori da evitare', 'wp-ai-publisher' ), 'summary' => __( 'Suggerire controlli su orari, prenotazioni e condizioni locali prima di finalizzare il contenuto.', 'wp-ai-publisher' ) ),
+		);
+	}
+
+	/** @return array<int,array<string,string>> */
+	private function build_product_local_sections( $entity ) {
+		return array(
+			array( 'heading' => sprintf( __( 'A cosa serve %s', 'wp-ai-publisher' ), $entity ), 'summary' => __( 'Descrivere l’utilità del prodotto o tema senza promesse garantite e senza dati tecnici inventati.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Come scegliere in base alle esigenze', 'wp-ai-publisher' ), 'summary' => __( 'Confrontare criteri pratici, materiali, uso previsto e limiti, rimandando i dettagli specifici alle schede verificate.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Caratteristiche da controllare', 'wp-ai-publisher' ), 'summary' => __( 'Elencare aspetti controllabili come dimensioni, compatibilità, manutenzione e condizioni d’uso senza inventare valori.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Uso, cura e manutenzione', 'wp-ai-publisher' ), 'summary' => __( 'Fornire consigli generici e sicuri, adattabili a giardinaggio, agricoltura o cataloghi e-commerce.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Quando chiedere una consulenza', 'wp-ai-publisher' ), 'summary' => __( 'Indicare i casi in cui servono verifiche professionali, schede tecniche ufficiali o assistenza del venditore.', 'wp-ai-publisher' ) ),
+		);
+	}
+
+	/** @return array<int,array<string,string>> */
+	private function build_local_experience_sections( $entity ) {
+		return array(
+			array( 'heading' => sprintf( __( 'Esperienza proposta da %s', 'wp-ai-publisher' ), $entity ), 'summary' => __( 'Descrivere atmosfera, proposta e pubblico ideale senza inventare menu, prezzi, orari o disponibilità.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Servizi e punti di forza', 'wp-ai-publisher' ), 'summary' => __( 'Organizzare i servizi come traccia editoriale da completare con informazioni confermate dal sito o dal cliente.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'A chi è adatto', 'wp-ai-publisher' ), 'summary' => __( 'Collegare la proposta a esigenze reali dei clienti e al pubblico target configurato.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Informazioni pratiche da verificare', 'wp-ai-publisher' ), 'summary' => __( 'Segnalare che orari, prezzi, prenotazioni, allergeni o normative devono essere controllati prima della bozza reale.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Prossimi passi per il cliente', 'wp-ai-publisher' ), 'summary' => __( 'Proporre chiamate all’azione informative e non aggressive, coerenti con il contesto locale.', 'wp-ai-publisher' ) ),
+		);
+	}
+
+	/** @return array<int,array<string,string>> */
+	private function build_informational_local_sections( $entity ) {
+		return array(
+			array( 'heading' => sprintf( __( 'Cos’è %s', 'wp-ai-publisher' ), $entity ), 'summary' => __( 'Definire il tema in modo chiaro e coerente con la nicchia configurata.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Perché è rilevante per il pubblico', 'wp-ai-publisher' ), 'summary' => __( 'Collegare l’argomento ai bisogni informativi del target senza assumere un contesto WordPress se non configurato.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Aspetti principali da conoscere', 'wp-ai-publisher' ), 'summary' => __( 'Organizzare concetti, benefici, limiti e verifiche in sezioni brevi e revisionabili.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Errori o fraintendimenti da evitare', 'wp-ai-publisher' ), 'summary' => __( 'Evidenziare claim da non fare, dati da controllare e informazioni da non inventare.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Approfondimenti consigliati', 'wp-ai-publisher' ), 'summary' => __( 'Suggerire collegamenti interni come target semantici e non come URL inventati.', 'wp-ai-publisher' ) ),
+		);
+	}
+
+	/**
+	 * Return context-aware fallback categories.
+	 *
+	 * @param array<string,mixed> $site_context Site context.
+	 * @param array<string,mixed> $profile Local profile.
+	 * @return array<int,string>
+	 */
+	private function get_contextual_local_categories( $site_context, $profile ) {
+		$allowed = wpai_publisher_split_context_list( (string) ( $site_context['allowed_categories'] ?? '' ) );
+		if ( ! empty( $allowed ) ) {
+			return array_slice( $allowed, 0, 3 );
+		}
+
+		$niche = strtolower( remove_accents( (string) ( $site_context['content_niche'] ?? '' ) ) );
+		if ( false !== strpos( $niche, 'viaggi' ) || false !== strpos( $niche, 'travel' ) || false !== strpos( $niche, 'turismo' ) ) {
+			return array( __( 'Guide viaggio', 'wp-ai-publisher' ), __( 'Consigli di viaggio', 'wp-ai-publisher' ) );
+		}
+		if ( false !== strpos( $niche, 'giardinaggio' ) || false !== strpos( $niche, 'agricoltura' ) || false !== strpos( $niche, 'e-commerce' ) ) {
+			return array( __( 'Guide prodotto', 'wp-ai-publisher' ), __( 'Consigli pratici', 'wp-ai-publisher' ) );
+		}
+		if ( false !== strpos( $niche, 'ristorante' ) || false !== strpos( $niche, 'food' ) || false !== strpos( $niche, 'locale' ) ) {
+			return array( __( 'Guide locali', 'wp-ai-publisher' ), __( 'Esperienze', 'wp-ai-publisher' ) );
+		}
+
+		$profile_title = strtolower( remove_accents( (string) ( $profile['title'] ?? '' ) ) );
+		if ( false !== strpos( $niche, 'wordpress' ) || false !== strpos( $profile_title, 'wordpress' ) ) {
+			return array( __( 'Guide WordPress', 'wp-ai-publisher' ), __( 'Tutorial', 'wp-ai-publisher' ) );
+		}
+
+		return array( __( 'Guide', 'wp-ai-publisher' ), __( 'Approfondimenti', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Return context-aware fallback tags.
+	 *
+	 * @param string              $keyword Keyword.
+	 * @param string              $topic Topic.
+	 * @param array<string,mixed> $site_context Site context.
+	 * @param array<string,mixed> $profile Local profile.
+	 * @return array<int,string>
+	 */
+	private function get_contextual_local_tags( $keyword, $topic, $site_context, $profile ) {
+		$tags = array_filter( array( $keyword, $this->extract_primary_entity( $topic, $keyword ) ) );
+		$tags = array_merge( $tags, wpai_publisher_split_context_list( (string) ( $site_context['preferred_tags'] ?? '' ) ) );
+		$profile_title = strtolower( remove_accents( (string) ( $profile['title'] ?? '' ) ) );
+		if ( false !== strpos( $profile_title, 'wordpress' ) ) {
+			$tags[] = __( 'wordpress', 'wp-ai-publisher' );
+			$tags[] = __( 'tutorial', 'wp-ai-publisher' );
+		}
+
+		return array_values( array_unique( array_filter( array_slice( $tags, 0, 8 ) ) ) );
+	}
+
+	/**
+	 * Return search intent from site context.
+	 *
+	 * @param array<string,mixed> $site_context Site context.
+	 * @return string
+	 */
+	private function get_contextual_search_intent( $site_context ) {
+		$format = (string) ( $site_context['content_format_preference'] ?? '' );
+		if ( in_array( $format, array( 'product_sheet', 'affiliate_content' ), true ) ) {
+			return __( 'Commerciale informazionale / valutazione', 'wp-ai-publisher' );
+		}
+		if ( 'local_guide' === $format ) {
+			return __( 'Locale / informazionale', 'wp-ai-publisher' );
+		}
+
+		return __( 'Informazionale', 'wp-ai-publisher' );
 	}
 
 	/**

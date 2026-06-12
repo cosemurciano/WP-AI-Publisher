@@ -57,8 +57,47 @@ class Settings {
 		$output['daily_cost_limit']       = $this->sanitize_cost_limit( $input['daily_cost_limit'] ?? '' );
 		$output['monthly_cost_limit']     = $this->sanitize_cost_limit( $input['monthly_cost_limit'] ?? '' );
 		$output['github_updater_enabled'] = false;
+		$output['site_context']           = $this->sanitize_site_context( $input['site_context'] ?? array() );
 
 		return $output;
+	}
+
+	/**
+	 * Sanitize editorial site context settings.
+	 *
+	 * @param mixed $input Raw site context.
+	 * @return array<string,string>
+	 */
+	private function sanitize_site_context( $input ) {
+		$defaults = wpai_publisher_default_site_context();
+		$input    = is_array( $input ) ? $input : array();
+		$output   = array();
+
+		foreach ( array( 'site_profile_name', 'content_niche', 'default_audience' ) as $field ) {
+			$output[ $field ] = isset( $input[ $field ] ) ? sanitize_text_field( $input[ $field ] ) : $defaults[ $field ];
+		}
+
+		foreach ( array( 'site_description', 'allowed_categories', 'preferred_tags', 'excluded_topics', 'writing_rules', 'forbidden_claims', 'brand_terms' ) as $field ) {
+			$output[ $field ] = isset( $input[ $field ] ) ? sanitize_textarea_field( $input[ $field ] ) : $defaults[ $field ];
+		}
+
+		$allowed_values = wpai_publisher_site_context_allowed_values();
+		foreach ( $allowed_values as $field => $allowed ) {
+			$value = isset( $input[ $field ] ) ? sanitize_key( $input[ $field ] ) : sanitize_key( $defaults[ $field ] );
+			if ( ! in_array( $value, $allowed, true ) ) {
+				$value = sanitize_key( $defaults[ $field ] );
+			}
+			$output[ $field ] = $value;
+		}
+
+		// Current phase is Classic Editor only. Gutenberg remains a future inactive target.
+		$output['default_editor'] = 'classic';
+
+		if ( ! in_array( $output['default_post_status_after_generation'], array( 'draft', 'pending' ), true ) ) {
+			$output['default_post_status_after_generation'] = 'draft';
+		}
+
+		return wpai_publisher_normalize_site_context( $output );
 	}
 
 	/**

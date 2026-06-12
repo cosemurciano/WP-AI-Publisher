@@ -16,6 +16,22 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Classic_Content_Builder {
 	/**
+	 * Editorial site context.
+	 *
+	 * @var array<string,string>
+	 */
+	private $site_context;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param array<string,mixed>|null $site_context Optional site context.
+	 */
+	public function __construct( $site_context = null ) {
+		$this->site_context = wpai_publisher_normalize_site_context( null === $site_context ? wpai_publisher_get_site_context() : $site_context );
+	}
+
+	/**
 	 * Build a complete Classic Editor preview from dry-run output.
 	 *
 	 * @param array<string,mixed> $dry_run_output Structured dry-run output.
@@ -24,12 +40,18 @@ class Classic_Content_Builder {
 	public function build_from_dry_run( $dry_run_output ) {
 		$dry_run_output = is_array( $dry_run_output ) ? $dry_run_output : array();
 		$notes          = array();
+		$context_notes  = $this->build_context_notes();
 
 		$html_parts = array(
 			$this->build_intro( $dry_run_output ),
+			$context_notes,
 			$this->build_outline_sections( $dry_run_output ),
 			$this->build_conclusion( $dry_run_output ),
 		);
+
+		if ( 'classic' !== $this->site_context['default_editor'] ) {
+			$notes[] = __( 'Il contesto editoriale è stato forzato su Editor Classico: Gutenberg non è attivo in questa fase.', 'wp-ai-publisher' );
+		}
 
 		if ( 'local_fallback' === (string) ( $dry_run_output['source'] ?? '' ) ) {
 			$html_parts[] = '<blockquote><p>' . esc_html__( 'Nota di revisione editoriale: questo contenuto è una simulazione locale utile per testare il flusso. Prima della bozza reale sarà necessaria generazione AI o revisione umana.', 'wp-ai-publisher' ) . '</p></blockquote>';
@@ -75,6 +97,26 @@ class Classic_Content_Builder {
 	}
 
 	/**
+	 * Build a small editorial note from configured site context.
+	 *
+	 * @return string
+	 */
+	private function build_context_notes() {
+		$parts = array();
+		if ( '' !== $this->site_context['default_audience'] ) {
+			$parts[] = sprintf( __( 'Pubblico: %s.', 'wp-ai-publisher' ), $this->site_context['default_audience'] );
+		}
+		$parts[] = sprintf( __( 'Tono: %s.', 'wp-ai-publisher' ), wpai_publisher_site_context_label( 'default_tone', $this->site_context['default_tone'] ) );
+		$parts[] = sprintf( __( 'Formato preferito: %s.', 'wp-ai-publisher' ), wpai_publisher_site_context_label( 'content_format_preference', $this->site_context['content_format_preference'] ) );
+		$parts[] = __( 'Target tecnico: Editor Classico con HTML pulito; nessun blocco Gutenberg.', 'wp-ai-publisher' );
+		if ( '' !== $this->site_context['writing_rules'] ) {
+			$parts[] = sprintf( __( 'Nota editoriale: %s', 'wp-ai-publisher' ), $this->site_context['writing_rules'] );
+		}
+
+		return '<blockquote><p>' . esc_html( implode( ' ', $parts ) ) . '</p></blockquote>';
+	}
+
+	/**
 	 * Build introductory paragraph.
 	 *
 	 * @param array<string,mixed> $dry_run_output Structured dry-run output.
@@ -87,7 +129,7 @@ class Classic_Content_Builder {
 
 		if ( '' === $excerpt ) {
 			$excerpt = sprintf(
-				__( 'In questa guida vedremo %s con un percorso ordinato, pratico e pensato per l’Editor Classico di WordPress.', 'wp-ai-publisher' ),
+				__( 'In questo contenuto vedremo %s con un percorso ordinato, pratico e pensato per HTML pulito in Editor Classico.', 'wp-ai-publisher' ),
 				'' !== $topic ? $topic : __( 'l’argomento proposto', 'wp-ai-publisher' )
 			);
 		}
@@ -166,7 +208,7 @@ class Classic_Content_Builder {
 	public function build_conclusion( $dry_run_output ) {
 		$title = sanitize_text_field( (string) ( $dry_run_output['title'] ?? __( 'il contenuto', 'wp-ai-publisher' ) ) );
 
-		return '<h2>' . esc_html__( 'Conclusione', 'wp-ai-publisher' ) . '</h2>' . "\n" . '<p>' . esc_html( sprintf( __( 'Prima di trasformare “%s” in una bozza reale, conviene rileggere la struttura, verificare i passaggi tecnici e completare eventuali esempi specifici del sito.', 'wp-ai-publisher' ), $title ) ) . '</p>';
+		return '<h2>' . esc_html__( 'Conclusione', 'wp-ai-publisher' ) . '</h2>' . "\n" . '<p>' . esc_html( sprintf( __( 'Prima di trasformare “%s” in una bozza reale, conviene rileggere la struttura, verificare dati, tono e regole editoriali del sito e completare eventuali esempi specifici.', 'wp-ai-publisher' ), $title ) ) . '</p>';
 	}
 
 	/**
@@ -270,7 +312,7 @@ class Classic_Content_Builder {
 			return __( 'Inquadrare la gestione multilingua, ricordando di verificare traduzioni, URL, menu e contenuti collegati in ogni lingua attiva.', 'wp-ai-publisher' );
 		}
 
-		return sprintf( __( 'Presentare “%s” con indicazioni operative, controlli nel pannello WordPress e una verifica finale dal front-end.', 'wp-ai-publisher' ), sanitize_text_field( (string) $heading ) );
+		return sprintf( __( 'Presentare “%s” con indicazioni operative, verifiche pratiche e una revisione finale coerente con il contesto del sito.', 'wp-ai-publisher' ), sanitize_text_field( (string) $heading ) );
 	}
 
 	/**
@@ -297,8 +339,8 @@ class Classic_Content_Builder {
 		}
 
 		return array(
-			__( 'Salva una modifica alla volta e annota cosa è stato cambiato.', 'wp-ai-publisher' ),
-			__( 'Verifica il risultato dal pannello di amministrazione e dal front-end.', 'wp-ai-publisher' ),
+			__( 'Procedi per passaggi ordinati e annota le verifiche necessarie.', 'wp-ai-publisher' ),
+			__( 'Verifica il risultato finale prima di usare il contenuto in una bozza.', 'wp-ai-publisher' ),
 		);
 	}
 }
