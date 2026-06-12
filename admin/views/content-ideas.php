@@ -179,20 +179,42 @@ $render_list = static function ( $items ) {
 		$classic_preview = isset( $dry_run_data['classic_editor_preview'] ) && is_array( $dry_run_data['classic_editor_preview'] ) ? $dry_run_data['classic_editor_preview'] : array();
 		$classic_html    = isset( $classic_preview['html'] ) ? (string) $classic_preview['html'] : '';
 		$classic_notes   = isset( $classic_preview['validation_notes'] ) && is_array( $classic_preview['validation_notes'] ) ? $classic_preview['validation_notes'] : array();
+		$quality_label   = __( 'Da revisionare', 'wp-ai-publisher' );
+		$quality_class   = 'wpai-badge wpai-badge--not-verified';
+		$has_review_notes = false;
+		foreach ( $classic_notes as $classic_note ) {
+			$classic_note_text = strtolower( remove_accents( (string) $classic_note ) );
+			if ( false !== strpos( $classic_note_text, 'placeholder' ) || false !== strpos( $classic_note_text, 'grave' ) || false !== strpos( $classic_note_text, 'vuot' ) ) {
+				$has_review_notes = true;
+				break;
+			}
+		}
+
+		if ( 'local_fallback' === $generation_source ) {
+			$quality_label = __( 'Simulazione locale', 'wp-ai-publisher' );
+			$quality_class = 'wpai-badge wpai-badge--warning';
+		} elseif ( 'wordpress_ai' === $generation_source && ! $has_review_notes ) {
+			$quality_label = __( 'Output AI reale', 'wp-ai-publisher' );
+			$quality_class = 'wpai-badge wpai-badge--ok';
+		} elseif ( 'wordpress_ai' === $generation_source ) {
+			$quality_label = __( 'Output AI reale da revisionare', 'wp-ai-publisher' );
+			$quality_class = 'wpai-badge wpai-badge--warning';
+		}
 		?>
 		<section class="wpai-card" style="margin-top:20px;">
 			<h2><?php echo esc_html__( 'Risultato dry-run', 'wp-ai-publisher' ); ?> #<?php echo esc_html( (string) $selected_idea->id ); ?></h2>
 			<details open>
 				<summary><?php echo esc_html__( 'Visualizza struttura articolo proposta', 'wp-ai-publisher' ); ?></summary>
 
-				<h3><?php echo esc_html__( 'Origine generazione', 'wp-ai-publisher' ); ?></h3>
-				<p>
-					<span class="<?php echo esc_attr( $source_badge_class ); ?>"><?php echo esc_html( $source_badges[ $generation_source ] ); ?></span>
-					<?php echo esc_html( $source_labels[ $generation_source ] ); ?>
-				</p>
+				<h3><?php echo esc_html__( 'Stato dry-run', 'wp-ai-publisher' ); ?></h3>
+				<ul>
+					<li><strong><?php echo esc_html__( 'Origine:', 'wp-ai-publisher' ); ?></strong> <span class="<?php echo esc_attr( $source_badge_class ); ?>"><?php echo esc_html( $source_badges[ $generation_source ] ); ?></span> <?php echo esc_html( $source_labels[ $generation_source ] ); ?></li>
+					<li><strong><?php echo esc_html__( 'Compatibilità:', 'wp-ai-publisher' ); ?></strong> <span class="wpai-badge wpai-badge--ok"><?php echo esc_html__( 'Editor Classico', 'wp-ai-publisher' ); ?></span></li>
+					<li><strong><?php echo esc_html__( 'Qualità anteprima:', 'wp-ai-publisher' ); ?></strong> <span class="<?php echo esc_attr( $quality_class ); ?>"><?php echo esc_html( $quality_label ); ?></span></li>
+				</ul>
 				<?php if ( 'local_fallback' === $generation_source ) : ?>
 					<div class="notice notice-warning inline">
-						<p><?php echo esc_html__( 'Questo risultato è utile per testare il flusso, ma non è ancora stato prodotto dal sistema AI reale.', 'wp-ai-publisher' ); ?></p>
+						<p><?php echo esc_html__( 'Il fallback locale serve solo a testare il flusso. Prima di creare una bozza reale è consigliata una revisione editoriale o una generazione AI effettiva.', 'wp-ai-publisher' ); ?></p>
 					</div>
 				<?php elseif ( 'wordpress_ai' === $generation_source ) : ?>
 					<div class="notice notice-success inline">
@@ -252,7 +274,7 @@ $render_list = static function ( $items ) {
 				<p><?php echo esc_html__( 'Questa anteprima usa HTML pulito compatibile con l’Editor Classico di WordPress. Non sono presenti blocchi Gutenberg.', 'wp-ai-publisher' ); ?></p>
 				<?php if ( 'local_fallback' === $generation_source ) : ?>
 					<div class="notice notice-warning inline">
-						<p><?php echo esc_html__( 'Il contenuto è una simulazione locale utile per testare il flusso. Prima della bozza reale sarà necessaria generazione AI o revisione umana.', 'wp-ai-publisher' ); ?></p>
+						<p><?php echo esc_html__( 'Il fallback locale serve solo a testare il flusso. Prima di creare una bozza reale è consigliata una revisione editoriale o una generazione AI effettiva.', 'wp-ai-publisher' ); ?></p>
 					</div>
 				<?php endif; ?>
 				<div class="wpai-classic-preview">

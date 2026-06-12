@@ -510,6 +510,9 @@ class Content_Ideas {
 			'<script'  => __( 'Nota grave: classic_editor_preview contiene script non consentiti.', 'wp-ai-publisher' ),
 			'<iframe'  => __( 'Nota grave: classic_editor_preview contiene iframe non consentiti.', 'wp-ai-publisher' ),
 			' style='  => __( 'Nota grave: classic_editor_preview contiene style inline non consentiti.', 'wp-ai-publisher' ),
+			'descrivere in modo' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+			'passaggio' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+			'nel contesto di' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
 		);
 
 		$lower_html = strtolower( $html );

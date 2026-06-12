@@ -585,6 +585,29 @@ class AI_Provider_Adapter {
 			$errors[] = is_wp_error( $normalized ) ? $normalized->get_error_message() : __( 'Il filtro di integrazione ha restituito un output non utilizzabile.', 'wp-ai-publisher' );
 		}
 
+		/**
+		 * Backward compatibility with integrations built against WP AI Publisher 0.3.0.
+		 *
+		 * The new wpai_publisher_generate_structured_content_dry_run filter remains the
+		 * primary hook. The legacy hook is called only when the primary hook returns
+		 * null or unusable output, so a valid new integration is never invoked twice.
+		 *
+		 * @param mixed               $result  Dry-run result.
+		 * @param array<string,mixed> $payload Request payload.
+		 */
+		$legacy_filtered = apply_filters( 'wpai_publisher_structured_content_dry_run', null, $payload );
+		if ( null !== $legacy_filtered ) {
+			$legacy_normalized = $this->normalize_real_ai_candidate( $legacy_filtered );
+			if ( ! is_wp_error( $legacy_normalized ) && $this->is_usable_dry_run_candidate( $legacy_normalized ) ) {
+				$legacy_normalized['source'] = ! empty( $legacy_normalized['source'] ) ? $legacy_normalized['source'] : 'wordpress_ai';
+				$legacy_normalized['validation_notes'] = isset( $legacy_normalized['validation_notes'] ) && is_array( $legacy_normalized['validation_notes'] ) ? $legacy_normalized['validation_notes'] : array();
+				$legacy_normalized['validation_notes'][] = __( 'Output generato tramite filtro legacy wpai_publisher_structured_content_dry_run.', 'wp-ai-publisher' );
+
+				return $legacy_normalized;
+			}
+			$errors[] = is_wp_error( $legacy_normalized ) ? $legacy_normalized->get_error_message() : __( 'Il filtro legacy ha restituito un output non utilizzabile.', 'wp-ai-publisher' );
+		}
+
 		$abilities_result = $this->try_generate_with_abilities( $payload, $schema, $prompt );
 		if ( ! is_wp_error( $abilities_result ) ) {
 			return $abilities_result;
@@ -1060,19 +1083,21 @@ class AI_Provider_Adapter {
 		$language        = sanitize_key( (string) ( $payload['language'] ?? 'it' ) );
 		$target_audience = sanitize_text_field( (string) ( $payload['target_audience'] ?? '' ) );
 		$tutorial_level  = sanitize_key( (string) ( $payload['tutorial_level'] ?? 'base' ) );
-		$title           = $this->build_contextual_local_title( $topic, $keyword );
-		$slug            = $this->build_contextual_local_slug( $title );
+		$profile         = $this->get_contextual_local_profile( $topic, $keyword );
+		$title           = $this->limit_local_title( $this->build_contextual_local_title( $topic, $keyword ) );
+		$slug            = $this->build_contextual_local_slug( $title, $profile );
 		$audience_text   = '' !== $target_audience ? $target_audience : __( 'utenti WordPress', 'wp-ai-publisher' );
 		$outline         = $this->build_contextual_local_outline( $topic, $keyword );
+		$meta_title      = $this->limit_local_title( $profile['meta_title'] ?? $title );
 
 		return array(
 			'title'                  => $title,
 			'slug'                   => $slug,
-			'excerpt'                => sprintf( __( 'Dry-run editoriale su %1$s pensato per %2$s, senza creare bozze o pubblicare contenuti.', 'wp-ai-publisher' ), $topic, $audience_text ),
+			'excerpt'                => sprintf( __( 'Traccia editoriale per spiegare %1$s a %2$s con HTML pulito per Editor Classico, senza creare bozze o pubblicare contenuti.', 'wp-ai-publisher' ), $topic, $audience_text ),
 			'content_outline'        => $outline,
 			'categories'             => array( __( 'Guide WordPress', 'wp-ai-publisher' ), __( 'Tutorial', 'wp-ai-publisher' ) ),
 			'tags'                   => array_values( array_unique( array_filter( array( $keyword, $this->extract_primary_entity( $topic, $keyword ), __( 'wordpress', 'wp-ai-publisher' ), __( 'tutorial', 'wp-ai-publisher' ) ) ) ) ),
-			'meta_title'             => wp_trim_words( $title, 10, '' ),
+			'meta_title'             => $meta_title,
 			'meta_description'       => sprintf( __( 'Struttura preliminare per un tutorial WordPress su %s, utile per validare flusso e outline senza pubblicare nulla.', 'wp-ai-publisher' ), $topic ),
 			'open_graph_title'       => $title,
 			'open_graph_description' => sprintf( __( 'Anteprima editoriale controllata per %s.', 'wp-ai-publisher' ), $topic ),
@@ -1090,11 +1115,7 @@ class AI_Provider_Adapter {
 			'image_captions'         => array(
 				sprintf( __( 'Percorso operativo proposto per %s.', 'wp-ai-publisher' ), $topic ),
 			),
-			'internal_link_targets'  => array(
-				__( 'Guida introduttiva a WordPress', 'wp-ai-publisher' ),
-				__( 'Archivio tutorial plugin WordPress', 'wp-ai-publisher' ),
-				__( 'Checklist sicurezza e aggiornamenti WordPress', 'wp-ai-publisher' ),
-			),
+			'internal_link_targets'  => $profile['internal_link_targets'],
 			'knowledge_summary'      => sprintf( __( 'Sintesi locale basata sull’argomento inserito: %s. Il contenuto resta da verificare con revisione umana prima di qualsiasi pubblicazione.', 'wp-ai-publisher' ), $topic ),
 			'entities'               => array_values( array_unique( array_filter( array( $this->extract_primary_entity( $topic, $keyword ), $keyword, 'WordPress' ) ) ) ),
 			'search_intent'          => __( 'Informazionale / tutorial operativo', 'wp-ai-publisher' ),
@@ -1117,70 +1138,14 @@ class AI_Provider_Adapter {
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function build_contextual_local_outline( $topic, $keyword ) {
-		$entity = $this->extract_primary_entity( $topic, $keyword );
-		if ( '' === $entity ) {
-			$entity = __( 'il tema scelto', 'wp-ai-publisher' );
-		}
-
-		$patterns = $this->detect_wordpress_editorial_patterns( $topic, $keyword );
-
-		if ( in_array( 'wpml', $patterns, true ) ) {
-			$headings = array(
-				__( 'Cos’è WPML e a cosa serve', 'wp-ai-publisher' ),
-				__( 'Quando conviene usare WPML', 'wp-ai-publisher' ),
-				__( 'Requisiti prima dell’installazione', 'wp-ai-publisher' ),
-				__( 'Installazione e attivazione del plugin', 'wp-ai-publisher' ),
-				__( 'Configurazione guidata delle lingue', 'wp-ai-publisher' ),
-				__( 'Traduzione di pagine e articoli', 'wp-ai-publisher' ),
-				__( 'Traduzione menu e stringhe del tema', 'wp-ai-publisher' ),
-				__( 'SEO multilingua e URL', 'wp-ai-publisher' ),
-				__( 'Errori comuni da evitare', 'wp-ai-publisher' ),
-				__( 'Verifica finale', 'wp-ai-publisher' ),
-			);
-		} elseif ( in_array( 'menu', $patterns, true ) ) {
-			$headings = array(
-				__( 'Cos’è un menù di navigazione in WordPress', 'wp-ai-publisher' ),
-				__( 'Dove si gestiscono i menù nel pannello di WordPress', 'wp-ai-publisher' ),
-				__( 'Come creare un nuovo menù', 'wp-ai-publisher' ),
-				__( 'Come aggiungere pagine, articoli e categorie al menù', 'wp-ai-publisher' ),
-				__( 'Come ordinare le voci del menù', 'wp-ai-publisher' ),
-				__( 'Come assegnare il menù a una posizione del tema', 'wp-ai-publisher' ),
-				__( 'Come creare sottovoci e menù a tendina', 'wp-ai-publisher' ),
-				__( 'Come verificare il menù sul sito', 'wp-ai-publisher' ),
-				__( 'Errori comuni da evitare', 'wp-ai-publisher' ),
-				__( 'Prossimi passi', 'wp-ai-publisher' ),
-			);
-		} elseif ( in_array( 'plugin', $patterns, true ) ) {
-			$headings = array(
-				sprintf( __( 'Cos’è il plugin %s', 'wp-ai-publisher' ), $entity ),
-				__( 'Quando conviene usare un plugin WordPress', 'wp-ai-publisher' ),
-				__( 'Requisiti prima dell’installazione', 'wp-ai-publisher' ),
-				__( 'Installazione e attivazione dal pannello Plugin', 'wp-ai-publisher' ),
-				__( 'Configurazione iniziale in sicurezza', 'wp-ai-publisher' ),
-				__( 'Impostazioni da verificare dopo l’attivazione', 'wp-ai-publisher' ),
-				__( 'Compatibilità con tema e altri plugin', 'wp-ai-publisher' ),
-				__( 'Errori comuni da evitare', 'wp-ai-publisher' ),
-				__( 'Verifica finale', 'wp-ai-publisher' ),
-			);
-		} else {
-			$headings = array(
-				sprintf( __( 'Cos’è %s in WordPress', 'wp-ai-publisher' ), $entity ),
-				sprintf( __( 'Quando è utile lavorare su %s', 'wp-ai-publisher' ), $entity ),
-				__( 'Prerequisiti e controlli iniziali', 'wp-ai-publisher' ),
-				__( 'Percorso operativo passo passo', 'wp-ai-publisher' ),
-				__( 'Impostazioni da controllare nel pannello WordPress', 'wp-ai-publisher' ),
-				__( 'Verifiche sul sito pubblico', 'wp-ai-publisher' ),
-				__( 'Errori comuni da evitare', 'wp-ai-publisher' ),
-				__( 'Prossimi passi consigliati', 'wp-ai-publisher' ),
-			);
-		}
-
+		$profile = $this->get_contextual_local_profile( $topic, $keyword );
 		$outline = array();
-		foreach ( $headings as $heading ) {
+
+		foreach ( $profile['outline'] as $section ) {
 			$outline[] = array(
-				'heading' => $heading,
+				'heading' => $section['heading'],
 				'level'   => 2,
-				'summary' => sprintf( __( 'Descrivere in modo pratico e verificabile il passaggio “%1$s” nel contesto di “%2$s”, evitando dettagli tecnici non confermati.', 'wp-ai-publisher' ), $heading, $topic ),
+				'summary' => $section['summary'],
 			);
 		}
 
@@ -1195,51 +1160,209 @@ class AI_Provider_Adapter {
 	 * @return string
 	 */
 	private function build_contextual_local_title( $topic, $keyword ) {
-		$raw      = trim( '' !== $topic ? $topic : $keyword );
-		$raw      = $this->normalize_brand_capitalization( $raw );
-		$raw_slug = strtolower( remove_accents( $raw ) );
-
-		if ( false !== strpos( $raw_slug, 'wpml' ) ) {
-			return __( 'Come usare WPML in WordPress', 'wp-ai-publisher' );
+		$profile = $this->get_contextual_local_profile( $topic, $keyword );
+		if ( ! empty( $profile['title'] ) ) {
+			return $profile['title'];
 		}
 
-		if ( false !== strpos( $raw_slug, 'menu' ) || false !== strpos( $raw_slug, 'navigazione' ) ) {
-			return __( 'Come creare un menù di navigazione in WordPress', 'wp-ai-publisher' );
+		$raw = trim( '' !== $topic ? $topic : $keyword );
+		$raw = $this->normalize_brand_capitalization( $raw );
+		$raw = preg_replace( '/\s*,\s*/', ': ', $raw );
+		$raw = trim( preg_replace( '/\s+/', ' ', (string) $raw ) );
+
+		if ( '' === $raw ) {
+			return __( 'Guida WordPress pratica', 'wp-ai-publisher' );
 		}
 
-		if ( preg_match( '/\bcome\b/i', $raw_slug ) ) {
-			$clean = preg_replace( '/\bwordpress\b/i', 'WordPress', $raw );
-			$clean = preg_replace( '/^come\s+/i', '', (string) $clean );
+		if ( preg_match( '/\bcome\b/i', $raw ) ) {
+			$clean = preg_replace( '/^come\s+/i', '', (string) $raw );
 			$clean = trim( preg_replace( '/\s+/', ' ', (string) $clean ) );
 			if ( '' !== $clean ) {
-				return 'Come ' . lcfirst( $this->normalize_brand_capitalization( $clean ) );
+				return $this->limit_local_title( 'Come ' . lcfirst( $this->normalize_brand_capitalization( $clean ) ) );
 			}
 		}
 
-		$clean = '' !== $raw ? $raw : __( 'contenuto WordPress', 'wp-ai-publisher' );
-		$clean = $this->normalize_brand_capitalization( $clean );
-
-		if ( str_word_count( wp_strip_all_tags( $clean ) ) < 3 ) {
-			return sprintf( __( 'Come gestire %s in WordPress', 'wp-ai-publisher' ), lcfirst( $clean ) );
-		}
-
-		return ucfirst( $clean );
+		return $this->limit_local_title( ucfirst( $raw ) );
 	}
 
 	/**
 	 * Build a clean slug from the generated fallback title.
 	 *
-	 * @param string $title Title.
+	 * @param string              $title Title.
+	 * @param array<string,mixed> $profile Optional fallback profile.
 	 * @return string
 	 */
-	private function build_contextual_local_slug( $title ) {
-		$slug = sanitize_title( str_replace( 'menù', 'menu', $title ) );
-		$stop_words = array( 'un', 'una', 'il', 'lo', 'la', 'le', 'gli', 'di', 'a', 'in', 'per', 'con' );
-		$parts = array_values( array_filter( explode( '-', $slug ), static function ( $part ) use ( $stop_words ) {
+	private function build_contextual_local_slug( $title, $profile = array() ) {
+		if ( ! empty( $profile['slug'] ) ) {
+			return sanitize_title( (string) $profile['slug'] );
+		}
+
+		$slug       = sanitize_title( str_replace( 'menù', 'menu', $title ) );
+		$stop_words = array( 'un', 'una', 'il', 'lo', 'la', 'le', 'gli', 'di', 'a', 'in', 'per', 'con', 'e', 'nei', 'nelle', 'del', 'della' );
+		$parts      = array_values( array_filter( explode( '-', $slug ), static function ( $part ) use ( $stop_words ) {
 			return '' !== $part && ! in_array( $part, $stop_words, true );
 		} ) );
 
-		return implode( '-', $parts );
+		return implode( '-', array_slice( $parts, 0, 7 ) );
+	}
+
+	/**
+	 * Limit a fallback title to an SEO-friendly length where possible.
+	 *
+	 * @param string $title Title.
+	 * @return string
+	 */
+	private function limit_local_title( $title ) {
+		$title = trim( preg_replace( '/\s+/', ' ', $this->normalize_brand_capitalization( (string) $title ) ) );
+		if ( function_exists( 'mb_strlen' ) && mb_strlen( $title ) <= 60 ) {
+			return $title;
+		}
+		if ( ! function_exists( 'mb_strlen' ) && strlen( $title ) <= 60 ) {
+			return $title;
+		}
+
+		$short = wp_trim_words( $title, 8, '' );
+		return '' !== $short ? $short : $title;
+	}
+
+	/**
+	 * Return contextual fallback data for common WordPress topics.
+	 *
+	 * @param string $topic Topic.
+	 * @param string $keyword Keyword.
+	 * @return array<string,mixed>
+	 */
+	private function get_contextual_local_profile( $topic, $keyword ) {
+		$patterns = $this->detect_wordpress_editorial_patterns( $topic, $keyword );
+		$entity   = $this->extract_primary_entity( $topic, $keyword );
+		if ( '' === $entity ) {
+			$entity = __( 'il tema scelto', 'wp-ai-publisher' );
+		}
+
+		$profiles = array(
+			'widget' => array(
+				'title'                 => __( 'Widget WordPress: cosa sono e come usarli nei temi', 'wp-ai-publisher' ),
+				'meta_title'            => __( 'Widget WordPress: cosa sono e come usarli', 'wp-ai-publisher' ),
+				'slug'                  => 'widget-wordpress-cosa-sono-come-usarli',
+				'internal_link_targets' => array(
+					__( 'Guida ai temi WordPress', 'wp-ai-publisher' ),
+					__( 'Come personalizzare il footer in WordPress', 'wp-ai-publisher' ),
+					__( 'Differenza tra widget e blocchi', 'wp-ai-publisher' ),
+					__( 'Come usare il Customizer di WordPress', 'wp-ai-publisher' ),
+				),
+				'outline'               => array(
+					array( 'heading' => __( 'Cosa sono i widget in WordPress', 'wp-ai-publisher' ), 'summary' => __( 'Spiegare che i widget sono elementi riutilizzabili che permettono di aggiungere contenuti o funzioni in aree predisposte dal tema, come sidebar, footer o altre zone widget.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Dove si trovano i widget nel pannello di amministrazione', 'wp-ai-publisher' ), 'summary' => __( 'Mostrare dove trovare la sezione dei widget nel pannello WordPress e chiarire che il percorso può variare in base al tema e alla configurazione del sito.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Che differenza c’è tra widget, blocchi e aree widget', 'wp-ai-publisher' ), 'summary' => __( 'Chiarire che i widget sono contenuti o funzioni, i blocchi sono elementi dell’editor moderno e le aree widget sono gli spazi del tema in cui inserirli.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Come aggiungere un widget a una sidebar o al footer', 'wp-ai-publisher' ), 'summary' => __( 'Descrivere l’inserimento di un widget in un’area disponibile, scegliendo il contenuto, salvando le modifiche e controllando che la posizione sia quella prevista.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Come ordinare e rimuovere i widget', 'wp-ai-publisher' ), 'summary' => __( 'Spiegare come cambiare l’ordine dei widget, rimuovere quelli non necessari e mantenere una struttura semplice per evitare confusione nel layout.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Come dipendono i widget dal tema attivo', 'wp-ai-publisher' ), 'summary' => __( 'Spiegare che non tutti i temi espongono le stesse aree widget e che sidebar, footer e header possono comportarsi in modo diverso.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Come verificare il risultato nel sito pubblico', 'wp-ai-publisher' ), 'summary' => __( 'Suggerire una verifica dal front-end dopo ogni modifica, soprattutto su desktop e mobile, controllando leggibilità, spaziature e coerenza con il tema.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Errori comuni da evitare', 'wp-ai-publisher' ), 'summary' => __( 'Evidenziare gli errori più frequenti: inserire troppi widget, duplicare contenuti, ignorare la versione mobile o modificare aree non visibili nel tema attivo.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Quando usare un plugin per widget avanzati', 'wp-ai-publisher' ), 'summary' => __( 'Indicare quando può servire un plugin dedicato, per esempio per regole di visibilità, widget personalizzati o layout più complessi non gestiti dal tema.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Prossimi passi', 'wp-ai-publisher' ), 'summary' => __( 'Invitare a documentare le aree widget del tema, testare ogni modifica e pianificare eventuali personalizzazioni solo dopo una revisione del layout.', 'wp-ai-publisher' ) ),
+				),
+			),
+			'menu' => array(
+				'title'                 => __( 'Come creare un menù di navigazione in WordPress', 'wp-ai-publisher' ),
+				'meta_title'            => __( 'Menù WordPress: crearli e gestirli', 'wp-ai-publisher' ),
+				'slug'                  => 'menu-navigazione-wordpress-crearli-gestirli',
+				'internal_link_targets' => array( __( 'Come creare pagine in WordPress', 'wp-ai-publisher' ), __( 'Guida ai menu di navigazione', 'wp-ai-publisher' ), __( 'Come gestire header e footer del tema', 'wp-ai-publisher' ) ),
+				'outline'               => array(
+					array( 'heading' => __( 'Cos’è un menù di navigazione in WordPress', 'wp-ai-publisher' ), 'summary' => __( 'Spiegare che il menù aiuta gli utenti a raggiungere pagine, categorie e sezioni importanti del sito con un percorso chiaro.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Dove si gestiscono i menù nel pannello di WordPress', 'wp-ai-publisher' ), 'summary' => __( 'Indicare le aree del pannello in cui possono essere gestiti i menù e chiarire che tema e configurazione possono modificare il percorso.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Come creare un nuovo menù', 'wp-ai-publisher' ), 'summary' => __( 'Descrivere la creazione di un menù assegnando un nome riconoscibile e preparando le voci principali prima di salvarlo.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Come aggiungere pagine, articoli e categorie al menù', 'wp-ai-publisher' ), 'summary' => __( 'Mostrare quali contenuti possono diventare voci di navigazione e consigliare di scegliere solo collegamenti utili per l’utente.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Come ordinare le voci del menù', 'wp-ai-publisher' ), 'summary' => __( 'Spiegare come organizzare le voci in ordine logico, mettendo prima le pagine più importanti e riducendo i passaggi inutili.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Come assegnare il menù a una posizione del tema', 'wp-ai-publisher' ), 'summary' => __( 'Chiarire che un menù diventa visibile solo se viene assegnato a una posizione prevista dal tema, come header, footer o area mobile.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Come creare sottovoci e menù a tendina', 'wp-ai-publisher' ), 'summary' => __( 'Descrivere l’uso delle sottovoci per raggruppare contenuti correlati senza rendere la navigazione troppo profonda.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Come verificare il menù sul sito', 'wp-ai-publisher' ), 'summary' => __( 'Suggerire di provare il menù da desktop e mobile, controllando apertura, link, gerarchie e leggibilità.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Errori comuni da evitare', 'wp-ai-publisher' ), 'summary' => __( 'Evidenziare voci duplicate, link rotti, etichette poco chiare e menù troppo lunghi che rendono difficile la navigazione.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Prossimi passi', 'wp-ai-publisher' ), 'summary' => __( 'Invitare a rivedere periodicamente il menù quando cambiano pagine, categorie o struttura editoriale del sito.', 'wp-ai-publisher' ) ),
+				),
+			),
+			'wpml' => array(
+				'title'                 => __( 'WPML in WordPress: configurazione e traduzioni', 'wp-ai-publisher' ),
+				'meta_title'            => __( 'WPML WordPress: guida alle traduzioni', 'wp-ai-publisher' ),
+				'slug'                  => 'wpml-wordpress-configurazione-traduzioni',
+				'internal_link_targets' => array( __( 'Come creare un sito multilingua WordPress', 'wp-ai-publisher' ), __( 'Tradurre pagine e articoli in WordPress', 'wp-ai-publisher' ), __( 'SEO per siti multilingua', 'wp-ai-publisher' ) ),
+				'outline'               => array(
+					array( 'heading' => __( 'Cos’è WPML e a cosa serve', 'wp-ai-publisher' ), 'summary' => __( 'Presentare WPML come plugin per gestire contenuti multilingua, collegando versioni tradotte di pagine, articoli, tassonomie e parti del tema.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Quando conviene usare WPML', 'wp-ai-publisher' ), 'summary' => __( 'Chiarire in quali casi WPML è adatto: siti con più lingue, redazioni strutturate, URL localizzati e necessità di controllo sulle traduzioni.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Requisiti prima dell’installazione', 'wp-ai-publisher' ), 'summary' => __( 'Suggerire backup, verifica compatibilità del tema e controllo dei plugin attivi prima di modificare la gestione linguistica del sito.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Installazione e attivazione del plugin', 'wp-ai-publisher' ), 'summary' => __( 'Descrivere il flusso generale di installazione e ricordare che licenza, moduli aggiuntivi e permessi devono essere gestiti nel pannello WordPress.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Configurazione guidata delle lingue', 'wp-ai-publisher' ), 'summary' => __( 'Spiegare la scelta della lingua principale, delle lingue secondarie e del formato URL più adatto alla struttura del sito.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Traduzione di pagine e articoli', 'wp-ai-publisher' ), 'summary' => __( 'Illustrare come collegare ogni contenuto alla relativa traduzione e verificare che titoli, slug, excerpt e contenuto siano coerenti.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Traduzione menu e stringhe del tema', 'wp-ai-publisher' ), 'summary' => __( 'Evidenziare che menu, widget e stringhe del tema possono richiedere pannelli o moduli specifici rispetto alla traduzione dei post.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'SEO multilingua e URL', 'wp-ai-publisher' ), 'summary' => __( 'Suggerire di verificare slug, meta title, descrizioni e collegamenti hreflang generati dall’integrazione SEO compatibile.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Errori comuni da evitare', 'wp-ai-publisher' ), 'summary' => __( 'Segnalare contenuti tradotti solo in parte, menu non allineati, URL incoerenti e modifiche senza backup preventivo.', 'wp-ai-publisher' ) ),
+					array( 'heading' => __( 'Verifica finale', 'wp-ai-publisher' ), 'summary' => __( 'Consigliare un controllo front-end lingua per lingua, testando navigazione, link interni, switcher e contenuti principali.', 'wp-ai-publisher' ) ),
+				),
+			),
+		);
+
+		$generic_labels = array(
+			'plugin'         => array( __( 'Plugin WordPress: installazione e configurazione', 'wp-ai-publisher' ), 'plugin-wordpress-installazione-configurazione', array( __( 'Come scegliere plugin WordPress affidabili', 'wp-ai-publisher' ), __( 'Checklist compatibilità plugin', 'wp-ai-publisher' ), __( 'Aggiornare plugin WordPress in sicurezza', 'wp-ai-publisher' ) ) ),
+			'tema'           => array( __( 'Tema WordPress: scelta, impostazioni e verifiche', 'wp-ai-publisher' ), 'tema-wordpress-scelta-impostazioni-verifiche', array( __( 'Guida ai temi WordPress', 'wp-ai-publisher' ), __( 'Come usare il Customizer di WordPress', 'wp-ai-publisher' ), __( 'Child theme: quando usarlo', 'wp-ai-publisher' ) ) ),
+			'categorie'      => array( __( 'Categorie WordPress: organizzarle senza errori', 'wp-ai-publisher' ), 'categorie-wordpress-organizzarle', array( __( 'Differenza tra categorie e tag', 'wp-ai-publisher' ), __( 'Archivi WordPress e tassonomie', 'wp-ai-publisher' ), __( 'SEO per categorie WordPress', 'wp-ai-publisher' ) ) ),
+			'tag'            => array( __( 'Tag WordPress: quando usarli e come gestirli', 'wp-ai-publisher' ), 'tag-wordpress-quando-usarli', array( __( 'Differenza tra categorie e tag', 'wp-ai-publisher' ), __( 'Come organizzare gli archivi WordPress', 'wp-ai-publisher' ), __( 'Pulizia tag duplicati', 'wp-ai-publisher' ) ) ),
+			'permalink'      => array( __( 'Permalink WordPress: struttura e controlli SEO', 'wp-ai-publisher' ), 'permalink-wordpress-struttura-controlli-seo', array( __( 'Impostazioni permalink WordPress', 'wp-ai-publisher' ), __( 'Redirect dopo cambio URL', 'wp-ai-publisher' ), __( 'SEO tecnica per WordPress', 'wp-ai-publisher' ) ) ),
+			'media_library'  => array( __( 'Media Library WordPress: gestione ordinata dei file', 'wp-ai-publisher' ), 'media-library-wordpress-gestione-file', array( __( 'Ottimizzare immagini WordPress', 'wp-ai-publisher' ), __( 'Testi alternativi per immagini', 'wp-ai-publisher' ), __( 'Pulizia file media inutilizzati', 'wp-ai-publisher' ) ) ),
+			'seo'            => array( __( 'SEO WordPress: controlli base prima di pubblicare', 'wp-ai-publisher' ), 'seo-wordpress-controlli-base', array( __( 'Meta title e meta description', 'wp-ai-publisher' ), __( 'Link interni WordPress', 'wp-ai-publisher' ), __( 'Checklist SEO on-page', 'wp-ai-publisher' ) ) ),
+			'sicurezza'      => array( __( 'Sicurezza WordPress: controlli essenziali', 'wp-ai-publisher' ), 'sicurezza-wordpress-controlli-essenziali', array( __( 'Aggiornamenti WordPress sicuri', 'wp-ai-publisher' ), __( 'Ruoli e permessi utente', 'wp-ai-publisher' ), __( 'Backup prima degli aggiornamenti', 'wp-ai-publisher' ) ) ),
+			'backup'         => array( __( 'Backup WordPress: cosa salvare e come verificarlo', 'wp-ai-publisher' ), 'backup-wordpress-cosa-salvare', array( __( 'Backup database WordPress', 'wp-ai-publisher' ), __( 'Ripristino sito WordPress', 'wp-ai-publisher' ), __( 'Backup prima degli aggiornamenti', 'wp-ai-publisher' ) ) ),
+			'classic_editor' => array( __( 'Classic Editor: usare HTML pulito in WordPress', 'wp-ai-publisher' ), 'classic-editor-html-pulito-wordpress', array( __( 'Editor Classico vs Gutenberg', 'wp-ai-publisher' ), __( 'Formattazione HTML sicura', 'wp-ai-publisher' ), __( 'Workflow editoriale WordPress', 'wp-ai-publisher' ) ) ),
+			'woocommerce'    => array( __( 'WooCommerce: impostazioni iniziali da verificare', 'wp-ai-publisher' ), 'woocommerce-impostazioni-iniziali', array( __( 'Configurare pagamenti WooCommerce', 'wp-ai-publisher' ), __( 'Spedizioni WooCommerce', 'wp-ai-publisher' ), __( 'Schede prodotto ottimizzate', 'wp-ai-publisher' ) ) ),
+			'elementor'      => array( __( 'Elementor in WordPress: uso sicuro e ordinato', 'wp-ai-publisher' ), 'elementor-wordpress-uso-sicuro', array( __( 'Tema compatibile con Elementor', 'wp-ai-publisher' ), __( 'Header e footer con Elementor', 'wp-ai-publisher' ), __( 'Performance pagine Elementor', 'wp-ai-publisher' ) ) ),
+		);
+
+		foreach ( array( 'widget', 'menu', 'wpml' ) as $priority_pattern ) {
+			if ( in_array( $priority_pattern, $patterns, true ) ) {
+				return $profiles[ $priority_pattern ];
+			}
+		}
+
+		foreach ( $generic_labels as $pattern => $data ) {
+			if ( in_array( $pattern, $patterns, true ) ) {
+				return array(
+					'title'                 => $data[0],
+					'meta_title'            => $data[0],
+					'slug'                  => $data[1],
+					'internal_link_targets' => $data[2],
+					'outline'               => $this->build_generic_local_sections( $entity, $pattern ),
+				);
+			}
+		}
+
+		return array(
+			'title'                 => sprintf( __( 'Guida WordPress: %s', 'wp-ai-publisher' ), $this->normalize_brand_capitalization( $entity ) ),
+			'meta_title'            => sprintf( __( 'Guida WordPress: %s', 'wp-ai-publisher' ), $this->normalize_brand_capitalization( $entity ) ),
+			'slug'                  => sanitize_title( 'guida-wordpress-' . $entity ),
+			'internal_link_targets' => array( __( 'Workflow editoriale WordPress', 'wp-ai-publisher' ), __( 'Checklist contenuti WordPress', 'wp-ai-publisher' ), __( 'Verifiche prima della pubblicazione', 'wp-ai-publisher' ) ),
+			'outline'               => $this->build_generic_local_sections( $entity, 'generico' ),
+		);
+	}
+
+	/**
+	 * Build generic but concrete fallback sections.
+	 *
+	 * @param string $entity Main entity.
+	 * @param string $pattern Pattern key.
+	 * @return array<int,array<string,string>>
+	 */
+	private function build_generic_local_sections( $entity, $pattern ) {
+		$entity = $this->normalize_brand_capitalization( $entity );
+
+		return array(
+			array( 'heading' => sprintf( __( 'Cos’è %s in WordPress', 'wp-ai-publisher' ), $entity ), 'summary' => sprintf( __( 'Definire %s con parole semplici, indicando quale problema risolve nel sito e quali limiti deve conoscere chi lo usa.', 'wp-ai-publisher' ), $entity ) ),
+			array( 'heading' => sprintf( __( 'Quando conviene lavorare su %s', 'wp-ai-publisher' ), $entity ), 'summary' => sprintf( __( 'Spiegare gli scenari in cui %s è davvero utile, distinguendo esigenze editoriali, tecniche e di manutenzione.', 'wp-ai-publisher' ), $entity ) ),
+			array( 'heading' => __( 'Prerequisiti e controlli iniziali', 'wp-ai-publisher' ), 'summary' => __( 'Consigliare backup, verifica dei permessi utente, controllo del tema attivo e revisione dei plugin coinvolti prima di procedere.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Percorso operativo passo passo', 'wp-ai-publisher' ), 'summary' => __( 'Organizzare i passaggi in ordine pratico: aprire il pannello corretto, modificare una sola impostazione alla volta, salvare e annotare il cambiamento.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Impostazioni da controllare nel pannello WordPress', 'wp-ai-publisher' ), 'summary' => __( 'Indicare quali opzioni amministrative verificare e ricordare che nomi e posizioni possono cambiare in base a tema, plugin e lingua del sito.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Verifiche sul sito pubblico', 'wp-ai-publisher' ), 'summary' => __( 'Suggerire una verifica dal front-end dopo ogni modifica, includendo desktop, mobile, navigazione utente e coerenza con il layout esistente.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Errori comuni da evitare', 'wp-ai-publisher' ), 'summary' => __( 'Elencare problemi ricorrenti come modifiche non documentate, impostazioni duplicate, assenza di backup e controlli effettuati solo nell’admin.', 'wp-ai-publisher' ) ),
+			array( 'heading' => __( 'Prossimi passi consigliati', 'wp-ai-publisher' ), 'summary' => sprintf( __( 'Proporre una revisione periodica di %s e collegare l’attività a una checklist editoriale o tecnica prima della pubblicazione.', 'wp-ai-publisher' ), $entity ) ),
+		);
 	}
 
 	/**
@@ -1252,6 +1375,7 @@ class AI_Provider_Adapter {
 	private function detect_wordpress_editorial_patterns( $topic, $keyword ) {
 		$haystack = strtolower( remove_accents( $topic . ' ' . $keyword ) );
 		$map      = array(
+			'widget'         => array( 'widget', 'widgets', 'area widget', 'aree widget', 'sidebar', 'footer' ),
 			'menu'           => array( 'menu', 'menu di navigazione', 'navigazione' ),
 			'plugin'         => array( 'plugin' ),
 			'tema'           => array( 'tema', 'theme' ),

@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.3.2
+Stable tag: 0.3.3
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -12,7 +12,7 @@ Base modulare per la pubblicazione assistita da AI in WordPress.
 
 == Descrizione ==
 
-WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.3.2 imposta l’Editor Classico come target editoriale, aggiunge anteprima HTML sicura da dry-run e mantiene il flusso senza creare post WordPress.
+WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.3.3 mantiene l’Editor Classico come target editoriale, migliora anteprima HTML sicura da dry-run e mantiene il flusso senza creare post WordPress.
 
 Il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie. Include diagnostica difensiva per plugin terzi richiesti o consigliati, senza creare dipendenze rigide.
 
@@ -67,6 +67,15 @@ No. La generazione articoli sarà implementata in una fase successiva.
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.3.3 =
+* Ripristinata compatibilità con il filtro legacy wpai_publisher_structured_content_dry_run.
+* Mantenuto il nuovo filtro wpai_publisher_generate_structured_content_dry_run.
+* Migliorato fallback locale per outline WordPress più concreti.
+* Migliorate summary e anteprima HTML per Editor Classico.
+* Migliorati titoli, slug, meta title e link interni previsti.
+* Rafforzato controllo anti-placeholder nel contenuto di anteprima.
+* Confermato target Editor Classico e assenza di blocchi Gutenberg.
 
 = 0.3.2 =
 * Impostato Editor Classico come target editoriale principale.

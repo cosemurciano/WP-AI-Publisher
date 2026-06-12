@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.3.2**
+Versione corrente: **0.3.3**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
@@ -14,7 +14,7 @@ Dalla versione **0.3.2** il target editoriale principale è l’**Editor Classic
 
 La futura bozza WordPress userà `post_content` con HTML pulito e sicuro, ad esempio paragrafi, titoli `h2`/`h3`, liste e altri tag consentiti da allowlist. L’anteprima del dry-run passa da sanitizzazione dedicata e viene mostrata nell’admin come contenuto compatibile con Classic Editor.
 
-AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.2.
+AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.3.
 
 Funzioni presenti:
 
@@ -40,6 +40,14 @@ Funzioni presenti:
 - Le altre voci del menu devono essere ordinate per importanza d’uso. Ordine attuale: Bacheca, Idee contenuto, Coda job, Impostazioni, Stato sistema.
 - Il plugin deve restare funzionante anche se i plugin terzi consigliati non sono installati o non sono attivi.
 - Le chiamate AI future dovranno passare solo dall’adapter centrale.
+
+## Compatibilità hook dry-run
+
+Dalla versione **0.3.3** il filtro consigliato per fornire output strutturato al dry-run è `wpai_publisher_generate_structured_content_dry_run`. Questo hook riceve il risultato iniziale `null`, il payload normalizzato e lo schema richiesto, quindi permette alle integrazioni WordPress AI di restituire JSON o array già conformi.
+
+Per compatibilità con integrazioni create nella versione **0.3.0**, resta supportato anche il filtro legacy `wpai_publisher_structured_content_dry_run`. Il plugin lo richiama solo se il nuovo hook non produce un output utilizzabile: in questo modo le integrazioni aggiornate restano prioritarie e quelle esistenti continuano a funzionare senza causare fallback locale non necessario.
+
+Entrambi gli hook devono restituire solo dati strutturati per anteprima e validazione: il plugin non crea post, non crea bozze, non pubblica contenuti e non chiama OpenAI direttamente.
 
 ## Plugin terzi controllati
 
@@ -95,6 +103,15 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.3.3
+- Ripristinata compatibilità con il filtro legacy `wpai_publisher_structured_content_dry_run`.
+- Mantenuto il nuovo filtro `wpai_publisher_generate_structured_content_dry_run` come hook principale.
+- Migliorato fallback locale per outline WordPress più concreti.
+- Migliorate summary e anteprima HTML per Editor Classico.
+- Migliorati titoli, slug, meta title e link interni previsti.
+- Rafforzato controllo anti-placeholder nel contenuto di anteprima.
+- Confermato target Editor Classico e assenza di blocchi Gutenberg.
 
 ### 0.3.2
 - Impostato Editor Classico come target editoriale principale.
