@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.3.0**
+Versione corrente: **0.3.1**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
@@ -70,7 +70,33 @@ Il pulsante **Esegui dry-run** genera una struttura articolo validabile con tito
 
 L’output viene salvato come JSON nella tabella delle idee contenuto e mostrato anche in forma leggibile nell’admin. Se nessuna chiamata WordPress AI reale è disponibile, l’adapter può produrre un fallback locale controllato solo quando il payload abilita `allow_local_fallback`.
 
+
+## Dry-run AI reale e fallback locale
+
+Dalla versione **0.3.1**, il dry-run delle Idee contenuto tenta prima una generazione reale tramite il sistema AI di WordPress disponibile sul sito: Abilities API, funzioni WordPress AI note, client AI locali o filtro di integrazione `wpai_publisher_generate_structured_content_dry_run`.
+
+Se WordPress AI non è disponibile o non restituisce un JSON utilizzabile, il plugin usa un fallback locale più contestuale solo per testare il workflow admin. Il fallback locale è marcato con `source: local_fallback`, mostra note di validazione visibili e non deve essere considerato contenuto finale generato da AI reale.
+
+Anche con WordPress AI disponibile, il dry-run resta sicuro:
+
+- non crea post WordPress;
+- non crea bozze;
+- non pubblica contenuti;
+- non genera immagini reali;
+- non scrive metadati AIOSEO;
+- non modifica contenuti esistenti.
+
 ## Changelog
+
+### 0.3.1
+
+- Migliorato dry-run Idee contenuto.
+- Aggiunto tentativo di generazione tramite sistema AI di WordPress.
+- Aggiunto fallback locale più utile e contestuale.
+- Migliorata validazione dell’output strutturato.
+- Normalizzato content_outline con heading, level numerico e summary.
+- Aggiunta indicazione origine risultato: WordPress AI o fallback locale.
+- Corretto ordine menu con Impostazioni e Stato sistema sempre in fondo.
 
 ### 0.3.0
 

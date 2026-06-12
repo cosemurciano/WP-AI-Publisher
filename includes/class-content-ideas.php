@@ -239,16 +239,14 @@ class Content_Ideas {
 
 		$payload = array(
 			'task'                 => 'structured_content_dry_run',
+			'topic'                => (string) $idea->topic,
+			'keyword'              => (string) $idea->keyword,
+			'language'             => (string) $idea->language,
+			'target_audience'      => (string) $idea->target_audience,
+			'tutorial_level'       => (string) $idea->tutorial_level,
+			'notes'                => (string) $idea->notes,
+			'required_schema'      => $this->ai_provider->get_content_dry_run_schema(),
 			'allow_local_fallback' => true,
-			'idea'                 => array(
-				'id'              => (int) $idea->id,
-				'topic'           => (string) $idea->topic,
-				'keyword'         => (string) $idea->keyword,
-				'language'        => (string) $idea->language,
-				'target_audience' => (string) $idea->target_audience,
-				'tutorial_level'  => (string) $idea->tutorial_level,
-				'notes'           => (string) $idea->notes,
-			),
 			'safety'               => array(
 				'create_posts'       => false,
 				'publish_content'    => false,
@@ -259,36 +257,62 @@ class Content_Ideas {
 
 		$output = $this->ai_provider->generate_structured_content_dry_run( $payload );
 		if ( is_wp_error( $output ) ) {
-			$this->save_dry_run_output( (int) $idea->id, array(), array( $output->get_error_message() ) );
+			$failed_output = array(
+				'title'            => '',
+				'slug'             => '',
+				'excerpt'          => '',
+				'content_outline'  => array(),
+				'categories'       => array(),
+				'tags'             => array(),
+				'meta_title'       => '',
+				'meta_description' => '',
+				'validation_notes' => array( $output->get_error_message() ),
+				'language'         => (string) $idea->language,
+				'source'           => 'unknown',
+			);
+			$this->save_dry_run_output( (int) $idea->id, $failed_output, array( $output->get_error_message() ) );
 			$this->update_idea_status( (int) $idea->id, 'dry_run_failed' );
 			return $output;
 		}
 
-		$output     = $this->normalize_dry_run_output( $output );
-		$validation = $this->validate_dry_run_output( $output );
-		$notes      = $validation['notes'];
+		$validator  = class_exists( __NAMESPACE__ . '\Structured_Output_Validator' ) ? new Structured_Output_Validator() : null;
+		$validation = $validator ? $validator->validate_content_dry_run( $output ) : $this->validate_dry_run_output( $this->normalize_dry_run_output( $output ) );
+		$normalized = $validator ? $validation['output'] : $this->normalize_dry_run_output( $output );
+		$notes      = $validator ? $validation['validation_notes'] : $validation['notes'];
+		$is_valid   = $validator ? ! empty( $validation['is_valid'] ) : ! empty( $validation['valid'] );
 
-		if ( ! empty( $output['validation_notes'] ) && is_array( $output['validation_notes'] ) ) {
-			$notes = array_merge( $notes, $output['validation_notes'] );
+		if ( empty( $normalized['source'] ) || ! in_array( $normalized['source'], array( 'wordpress_ai', 'local_fallback' ), true ) ) {
+			$notes[]              = __( 'Origine generazione non disponibile o non riconosciuta.', 'wp-ai-publisher' );
+			$normalized['source'] = 'unknown';
 		}
 
-		$saved = $this->save_dry_run_output( (int) $idea->id, $output, $notes );
+		if ( 'local_fallback' === $normalized['source'] ) {
+			$notes[] = __( 'Questo risultato è utile per testare il flusso, ma non è ancora stato prodotto dal sistema AI reale.', 'wp-ai-publisher' );
+		} elseif ( 'wordpress_ai' === $normalized['source'] ) {
+			$notes[] = __( 'Risultato prodotto tramite sistema AI di WordPress.', 'wp-ai-publisher' );
+		}
+
+		$notes                         = array_values( array_unique( array_filter( array_map( 'strval', $notes ) ) ) );
+		$normalized['validation_notes'] = $notes;
+
+		$saved = $this->save_dry_run_output( (int) $idea->id, $normalized, $notes );
 		if ( is_wp_error( $saved ) ) {
 			$this->update_idea_status( (int) $idea->id, 'dry_run_failed' );
 			return $saved;
 		}
 
-		if ( ! empty( $validation['valid'] ) ) {
+		if ( $is_valid ) {
 			$this->update_idea_status( (int) $idea->id, 'dry_run_ready' );
-			$this->maybe_create_completed_job_record( (int) $idea->id, $payload, $output );
+			$this->maybe_create_completed_job_record( (int) $idea->id, $payload, $normalized );
 		} else {
 			$this->update_idea_status( (int) $idea->id, 'dry_run_failed' );
 		}
 
 		return array(
-			'output'           => $output,
+			'output'           => $normalized,
 			'validation_notes' => $notes,
-			'valid'            => ! empty( $validation['valid'] ),
+			'valid'            => $is_valid,
+			'source'           => $normalized['source'],
 		);
 	}
 
@@ -417,6 +441,14 @@ class Content_Ideas {
 			}
 
 			return $sanitized;
+		}
+
+		if ( is_int( $value ) || is_float( $value ) ) {
+			return $value;
+		}
+
+		if ( is_bool( $value ) ) {
+			return $value;
 		}
 
 		if ( is_scalar( $value ) ) {
