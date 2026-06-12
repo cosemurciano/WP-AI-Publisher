@@ -55,6 +55,9 @@ $site_context = wpai_publisher_get_site_context();
 					<li><?php echo esc_html__( 'Editor:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( wpai_publisher_site_context_label( 'default_editor', $site_context['default_editor'] ) ); ?></strong></li>
 					<li><?php echo esc_html__( 'Stato post futuro:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( wpai_publisher_site_context_label( 'default_post_status_after_generation', $site_context['default_post_status_after_generation'] ) ); ?></strong></li>
 				</ul>
+				<?php if ( 'publish' === $site_context['default_post_status_after_generation'] ) : ?>
+					<div class="notice notice-warning inline"><p><?php echo esc_html__( 'Attenzione: il contesto prevede stato Pubblicato dopo generazione. Questa opzione sarà usata solo nelle fasi future e richiederà conferma esplicita.', 'wp-ai-publisher' ); ?></p></div>
+				<?php endif; ?>
 			<?php else : ?>
 				<p><span class="wpai-badge wpai-badge--warning"><?php echo esc_html__( 'Da configurare', 'wp-ai-publisher' ); ?></span></p>
 				<p><?php echo esc_html__( 'Configura il contesto editoriale per rendere i dry-run più coerenti e riutilizzabili su questo sito.', 'wp-ai-publisher' ); ?></p>

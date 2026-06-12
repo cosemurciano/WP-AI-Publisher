@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.3.7**
+Versione corrente: **0.3.8**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
@@ -28,7 +28,7 @@ Dalla versione **0.3.2** il target editoriale principale è l’**Editor Classic
 
 La futura bozza WordPress userà `post_content` con HTML pulito e sicuro, ad esempio paragrafi, titoli `h2`/`h3`, liste e altri tag consentiti da allowlist. L’anteprima del dry-run passa da sanitizzazione dedicata e viene mostrata nell’admin come contenuto compatibile con Classic Editor.
 
-AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.7.
+AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.8.
 
 Funzioni presenti:
 
@@ -71,6 +71,57 @@ Dalla versione **0.3.6**, WP AI Publisher consolida l’integrazione con la Word
 Le istanze `WP_Ability` vengono lette tramite getter (`get_name()`, `get_label()`, `get_description()`, `get_category()`, `get_input_schema()`, `get_output_schema()` e `get_meta()`) quando disponibili, con fallback difensivo su array o proprietà pubbliche solo per metadati scalari sicuri. Gli schema vengono usati solo per dedurre parole chiave e input compatibili; non vengono mostrati completi nella diagnostica.
 
 WP AI Publisher non chiama API OpenAI dirette, non salva chiavi e non contiene un client OpenAI custom. L’output generato da un’ability reale è marcato come `source: wordpress_ai` e viene distinto dal fallback locale (`source: local_fallback`) nell’admin, nella qualità anteprima e nelle note di revisione.
+
+## Sicurezza WordPress Abilities
+
+Non tutte le WordPress Abilities sono sicure per un dry-run editoriale: alcune possono creare post, caricare media, aggiornare opzioni, inviare email o chiamare servizi esterni. Dalla versione **0.3.8** WP AI Publisher non invoca più abilities arbitrarie solo perché nome, descrizione o schema contengono parole generiche come `generate`, `content`, `title` o `summary`.
+
+Il dry-run può invocare solo abilities che rientrano in almeno una regola sicura:
+
+- nome presente nella allowlist **Impostazioni > Sicurezza Abilities AI**;
+- nome aggiunto dal filtro `wpai_publisher_safe_ai_ability_names`;
+- decisione esplicita del filtro avanzato `wpai_publisher_is_ability_safe_for_dry_run`;
+- metadata compatibili con read-only / non destructive e senza segnali pericolosi.
+
+Esempio allowlist da codice:
+
+```php
+add_filter(
+  'wpai_publisher_safe_ai_ability_names',
+  function ( $names ) {
+      $names[] = 'nome/ability/testuale/sicura';
+      return $names;
+  }
+);
+```
+
+Esempio filtro avanzato:
+
+```php
+add_filter(
+  'wpai_publisher_is_ability_safe_for_dry_run',
+  function ( $safe, $ability, $metadata ) {
+      if ( isset( $metadata['name'] ) && 'nome/ability/testuale/sicura' === $metadata['name'] ) {
+          return true;
+      }
+      return $safe;
+  },
+  10,
+  3
+);
+```
+
+Se nessuna ability sicura è disponibile, l’adapter restituisce un errore diagnostico utile e il workflow può usare il fallback locale controllato quando abilitato dal payload. Questo evita esecuzioni con effetti collaterali durante test e anteprime.
+
+## Stato post dopo generazione
+
+Il contesto editoriale permette di scegliere lo stato post previsto per fasi future:
+
+- **Bozza** (`draft`) — valore predefinito e più sicuro;
+- **In attesa di revisione** (`pending`) — previsto per workflow editoriali con revisione;
+- **Pubblicato** (`publish`) — selezionabile ora solo come intenzione futura.
+
+Nella fase 0.3.8 il plugin non crea bozze, non crea post e non pubblica nulla. L’eventuale pubblicazione automatica richiederà una fase futura, conferma esplicita e controlli dedicati.
 
 ## Diagnostica AI
 
@@ -157,6 +208,16 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.3.8
+
+- Rafforzata la sicurezza dell’invocazione WordPress Abilities API.
+- Aggiunta allowlist per abilities AI sicure nel dry-run.
+- Evitata l’esecuzione arbitraria di abilities con possibili effetti collaterali.
+- Aggiunti filtri `wpai_publisher_safe_ai_ability_names` e `wpai_publisher_is_ability_safe_for_dry_run`.
+- Migliorata diagnostica delle abilities con indicazione sicurezza.
+- Aggiunta opzione “Pubblicato” nello stato post dopo generazione.
+- Il default resta “Bozza” e la pubblicazione automatica non è ancora attiva.
 
 ### 0.3.7
 
