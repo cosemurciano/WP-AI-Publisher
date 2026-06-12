@@ -57,25 +57,29 @@ class System_Status {
 	public function get_checks() {
 		global $wp_version;
 
-		$db_tables       = $this->db->check_tables();
-		$upload_dir      = wp_upload_dir();
+		$db_tables        = $this->db->check_tables();
+		$upload_dir       = wp_upload_dir();
 		$uploads_writable = ! empty( $upload_dir['basedir'] ) && wp_is_writable( $upload_dir['basedir'] );
+		$ai_status        = $this->ai_provider->get_status();
+		$models_count     = (int) $ai_status['available_text_models_count'];
 
 		return array(
-			$this->row( __( 'Plugin version', 'wp-ai-publisher' ), WPAIP_VERSION, 'ok' ),
-			$this->row( __( 'WordPress version', 'wp-ai-publisher' ), (string) $wp_version, version_compare( $wp_version, '7.0', '>=' ) ? 'ok' : 'error' ),
-			$this->row( __( 'PHP version', 'wp-ai-publisher' ), PHP_VERSION, version_compare( PHP_VERSION, '8.1', '>=' ) ? 'ok' : 'error' ),
-			$this->row( __( 'OpenAI status', 'wp-ai-publisher' ), $this->ai_provider->is_openai_direct_available() ? __( 'Configuration detected; not verified', 'wp-ai-publisher' ) : __( 'Not verified', 'wp-ai-publisher' ), $this->ai_provider->is_openai_direct_available() ? 'warning' : 'not-verified' ),
-			$this->row( __( 'WordPress AI Client/API status', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? __( 'Detected', 'wp-ai-publisher' ) : __( 'Not detected', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? 'ok' : 'not-configured' ),
-			$this->row( __( 'AIOSEO status', 'wp-ai-publisher' ), $this->is_aioseo_active() ? __( 'Detected', 'wp-ai-publisher' ) : __( 'Not detected', 'wp-ai-publisher' ), $this->is_aioseo_active() ? 'ok' : 'not-configured' ),
-			$this->row( __( 'Main DB status', 'wp-ai-publisher' ), ! empty( $db_tables['logs'] ) ? __( 'Log table available', 'wp-ai-publisher' ) : __( 'Log table missing', 'wp-ai-publisher' ), ! empty( $db_tables['logs'] ) ? 'ok' : 'error' ),
-			$this->row( __( 'Secondary DB status', 'wp-ai-publisher' ), __( 'Optional / not configured', 'wp-ai-publisher' ), 'not-configured' ),
-			$this->row( __( 'Cron/job queue status', 'wp-ai-publisher' ), __( 'Not implemented yet', 'wp-ai-publisher' ), 'not-implemented' ),
-			$this->row( __( 'File permissions status', 'wp-ai-publisher' ), $uploads_writable ? __( 'Uploads directory writable', 'wp-ai-publisher' ) : __( 'Uploads directory not writable', 'wp-ai-publisher' ), $uploads_writable ? 'ok' : 'error' ),
-			$this->row( __( 'Media Library status', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? __( 'Available', 'wp-ai-publisher' ) : __( 'Not available', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? 'ok' : 'warning' ),
-			$this->row( __( 'Knowledge Index status', 'wp-ai-publisher' ), __( 'Not implemented yet', 'wp-ai-publisher' ), 'not-implemented' ),
-			$this->row( __( 'GitHub updater status', 'wp-ai-publisher' ), __( 'Not configured', 'wp-ai-publisher' ), 'not-configured' ),
-			$this->row( __( 'Database schema version', 'wp-ai-publisher' ), $this->db->get_schema_version(), $this->db->get_schema_version() === WPAIP_DB_SCHEMA_VERSION ? 'ok' : 'warning' ),
+			$this->row( __( 'Versione plugin', 'wp-ai-publisher' ), WPAIP_VERSION, 'ok' ),
+			$this->row( __( 'Versione WordPress', 'wp-ai-publisher' ), (string) $wp_version, version_compare( $wp_version, '7.0', '>=' ) ? 'ok' : 'error' ),
+			$this->row( __( 'Versione PHP', 'wp-ai-publisher' ), PHP_VERSION, version_compare( PHP_VERSION, '8.1', '>=' ) ? 'ok' : 'error' ),
+			$this->row( __( 'Provider AI operativo', 'wp-ai-publisher' ), __( 'Solo sistema AI di WordPress', 'wp-ai-publisher' ), 'ok' ),
+			$this->row( __( 'Stato sistema AI WordPress', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? 'ok' : 'not-verified' ),
+			$this->row( __( 'Modelli AI disponibili', 'wp-ai-publisher' ), sprintf( __( '%d modelli rilevati', 'wp-ai-publisher' ), $models_count ), $models_count > 0 ? 'ok' : 'not-verified' ),
+			$this->row( __( 'OpenAI diretto', 'wp-ai-publisher' ), __( 'Disabilitato: il plugin non usa un client custom', 'wp-ai-publisher' ), 'not-configured' ),
+			$this->row( __( 'Stato AIOSEO', 'wp-ai-publisher' ), $this->is_aioseo_active() ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' ), $this->is_aioseo_active() ? 'ok' : 'not-configured' ),
+			$this->row( __( 'Database principale', 'wp-ai-publisher' ), ! empty( $db_tables['logs'] ) ? __( 'Tabella log disponibile', 'wp-ai-publisher' ) : __( 'Tabella log mancante', 'wp-ai-publisher' ), ! empty( $db_tables['logs'] ) ? 'ok' : 'error' ),
+			$this->row( __( 'Database secondario', 'wp-ai-publisher' ), __( 'Opzionale / non configurato', 'wp-ai-publisher' ), 'not-configured' ),
+			$this->row( __( 'Cron / coda job', 'wp-ai-publisher' ), __( 'Non ancora implementata', 'wp-ai-publisher' ), 'not-implemented' ),
+			$this->row( __( 'Permessi file', 'wp-ai-publisher' ), $uploads_writable ? __( 'Cartella uploads scrivibile', 'wp-ai-publisher' ) : __( 'Cartella uploads non scrivibile', 'wp-ai-publisher' ), $uploads_writable ? 'ok' : 'error' ),
+			$this->row( __( 'Media Library', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? __( 'Disponibile', 'wp-ai-publisher' ) : __( 'Non disponibile', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? 'ok' : 'warning' ),
+			$this->row( __( 'Knowledge Index', 'wp-ai-publisher' ), __( 'Non ancora implementato', 'wp-ai-publisher' ), 'not-implemented' ),
+			$this->row( __( 'Aggiornamenti GitHub', 'wp-ai-publisher' ), __( 'Non configurati', 'wp-ai-publisher' ), 'not-configured' ),
+			$this->row( __( 'Versione schema database', 'wp-ai-publisher' ), $this->db->get_schema_version(), $this->db->get_schema_version() === WPAIP_DB_SCHEMA_VERSION ? 'ok' : 'warning' ),
 		);
 	}
 
