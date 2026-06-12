@@ -211,11 +211,11 @@ class AI_Provider_Adapter {
 	 */
 	public function get_relevant_abilities() {
 		$abilities = $this->get_available_abilities();
-		$keywords  = array( 'article', 'content', 'generate', 'image', 'seo', 'link', 'index', 'file', 'idea', 'text', 'write', 'media' );
+		$keywords  = array_merge( $this->get_generation_ability_keywords(), array( 'article', 'image', 'link', 'index', 'file', 'idea', 'media' ) );
 		$relevant  = array();
 
 		foreach ( $abilities as $ability ) {
-			$haystack = strtolower( implode( ' ', array( $ability['id'], $ability['label'], $ability['description'] ) ) );
+			$haystack = strtolower( (string) ( $ability['haystack'] ?? implode( ' ', array( $ability['id'], $ability['label'], $ability['description'] ) ) ) );
 
 			foreach ( $keywords as $keyword ) {
 				if ( false !== strpos( $haystack, $keyword ) ) {
@@ -484,26 +484,8 @@ class AI_Provider_Adapter {
 		$normalized = array();
 
 		foreach ( $abilities as $key => $ability ) {
-			$id          = '';
-			$label       = '';
-			$description = '';
-
-			if ( is_string( $ability ) ) {
-				$id    = $ability;
-				$label = is_string( $key ) ? $key : $ability;
-			} elseif ( is_array( $ability ) ) {
-				$id          = $ability['id'] ?? $ability['name'] ?? $ability['slug'] ?? ( is_string( $key ) ? $key : '' );
-				$label       = $ability['label'] ?? $ability['title'] ?? $ability['name'] ?? $id;
-				$description = $ability['description'] ?? $ability['summary'] ?? '';
-			} elseif ( is_object( $ability ) ) {
-				$id          = $ability->id ?? $ability->name ?? $ability->slug ?? ( is_string( $key ) ? $key : '' );
-				$label       = $ability->label ?? $ability->title ?? $ability->name ?? $id;
-				$description = $ability->description ?? $ability->summary ?? '';
-			}
-
-			$id          = sanitize_text_field( (string) $id );
-			$label       = sanitize_text_field( (string) $label );
-			$description = sanitize_textarea_field( (string) $description );
+			$metadata = $this->extract_ability_metadata( $ability, is_string( $key ) ? $key : '' );
+			$id       = '' !== $metadata['name'] ? $metadata['name'] : ( is_string( $key ) ? sanitize_text_field( $key ) : '' );
 
 			if ( '' === $id ) {
 				continue;
@@ -511,14 +493,253 @@ class AI_Provider_Adapter {
 
 			$normalized[ $id ] = array(
 				'id'          => $id,
-				'label'       => '' !== $label ? $label : $id,
-				'description' => $description,
+				'label'       => '' !== $metadata['label'] ? $metadata['label'] : $id,
+				'description' => $metadata['description'],
+				'category'    => $metadata['category'],
+				'haystack'    => $metadata['haystack'],
 			);
 		}
 
 		return array_values( $normalized );
 	}
 
+	/**
+	 * Extract safe metadata from a WordPress ability definition.
+	 *
+	 * WP_Ability exposes data through getters, so getters are preferred and
+	 * every call is isolated to avoid fatal errors from experimental APIs.
+	 *
+	 * @param mixed  $ability Ability object, array, string, or callback.
+	 * @param string $fallback_name Fallback name from registry key.
+	 * @return array{name:string,label:string,description:string,category:string,input_schema:array<string,mixed>,output_schema:array<string,mixed>,meta:array<string,mixed>,haystack:string}
+	 */
+	private function extract_ability_metadata( $ability, $fallback_name = '' ) {
+		$metadata = array(
+			'name'          => sanitize_text_field( (string) $fallback_name ),
+			'label'         => '',
+			'description'   => '',
+			'category'      => '',
+			'input_schema'  => array(),
+			'output_schema' => array(),
+			'meta'          => array(),
+			'haystack'      => '',
+		);
+
+		if ( is_object( $ability ) ) {
+			$getter_map = array(
+				'get_name'          => 'name',
+				'get_label'         => 'label',
+				'get_description'   => 'description',
+				'get_category'      => 'category',
+				'get_input_schema'  => 'input_schema',
+				'get_output_schema' => 'output_schema',
+				'get_meta'          => 'meta',
+			);
+
+			foreach ( $getter_map as $getter => $field ) {
+				if ( ! method_exists( $ability, $getter ) ) {
+					continue;
+				}
+
+				try {
+					$value = $ability->{$getter}();
+				} catch ( Throwable $error ) {
+					unset( $error );
+					continue;
+				}
+
+				$this->assign_ability_metadata_value( $metadata, $field, $value );
+			}
+
+			$property_map = array(
+				'name'          => 'name',
+				'id'            => 'name',
+				'slug'          => 'name',
+				'label'         => 'label',
+				'title'         => 'label',
+				'description'   => 'description',
+				'category'      => 'category',
+				'input_schema'  => 'input_schema',
+				'output_schema' => 'output_schema',
+				'meta'          => 'meta',
+			);
+
+			foreach ( $property_map as $property => $field ) {
+				if ( ! isset( $ability->{$property} ) ) {
+					continue;
+				}
+
+				$value = $ability->{$property};
+				if ( in_array( $field, array( 'input_schema', 'output_schema', 'meta' ), true ) || is_scalar( $value ) ) {
+					$this->assign_ability_metadata_value( $metadata, $field, $value );
+				}
+			}
+		} elseif ( is_array( $ability ) ) {
+			$array_map = array(
+				'name'          => 'name',
+				'id'            => 'name',
+				'slug'          => 'name',
+				'label'         => 'label',
+				'title'         => 'label',
+				'description'   => 'description',
+				'category'      => 'category',
+				'input_schema'  => 'input_schema',
+				'output_schema' => 'output_schema',
+				'meta'          => 'meta',
+			);
+
+			foreach ( $array_map as $source => $field ) {
+				if ( array_key_exists( $source, $ability ) ) {
+					$this->assign_ability_metadata_value( $metadata, $field, $ability[ $source ] );
+				}
+			}
+		} elseif ( is_string( $ability ) ) {
+			$metadata['name']  = sanitize_text_field( $ability );
+			$metadata['label'] = sanitize_text_field( $ability );
+		}
+
+		if ( '' === $metadata['label'] && '' !== $metadata['name'] ) {
+			$metadata['label'] = $metadata['name'];
+		}
+
+		$metadata['haystack'] = $this->build_ability_haystack( $metadata );
+
+		return $metadata;
+	}
+
+	/**
+	 * Assign one extracted ability metadata value safely.
+	 *
+	 * @param array<string,mixed> $metadata Metadata accumulator.
+	 * @param string              $field Target field.
+	 * @param mixed               $value Raw value.
+	 * @return void
+	 */
+	private function assign_ability_metadata_value( &$metadata, $field, $value ) {
+		if ( in_array( $field, array( 'input_schema', 'output_schema', 'meta' ), true ) ) {
+			if ( is_array( $value ) ) {
+				$metadata[ $field ] = $value;
+			}
+			return;
+		}
+
+		if ( is_scalar( $value ) ) {
+			$value = sanitize_text_field( (string) $value );
+			if ( '' !== $value ) {
+				$metadata[ $field ] = $value;
+			}
+		}
+	}
+
+	/**
+	 * Build a compact searchable string without exposing full schemas.
+	 *
+	 * @param array<string,mixed> $metadata Ability metadata.
+	 * @return string
+	 */
+	private function build_ability_haystack( $metadata ) {
+		$parts = array(
+			$metadata['name'] ?? '',
+			$metadata['label'] ?? '',
+			$metadata['description'] ?? '',
+			$metadata['category'] ?? '',
+		);
+
+		foreach ( (array) ( $metadata['meta'] ?? array() ) as $key => $value ) {
+			if ( is_scalar( $key ) ) {
+				$parts[] = sanitize_text_field( (string) $key );
+			}
+			if ( is_scalar( $value ) ) {
+				$text = sanitize_text_field( (string) $value );
+				if ( '' !== $text && strlen( $text ) <= 120 ) {
+					$parts[] = $text;
+				}
+			}
+		}
+
+		$parts = array_merge( $parts, $this->extract_schema_keywords( $metadata['input_schema'] ?? array() ) );
+		$parts = array_merge( $parts, $this->extract_schema_keywords( $metadata['output_schema'] ?? array() ) );
+
+		return strtolower( implode( ' ', array_values( array_unique( array_filter( $parts ) ) ) ) );
+	}
+
+	/**
+	 * Extract compact field/key keywords from an ability schema.
+	 *
+	 * @param mixed $schema Schema array.
+	 * @return array<int,string>
+	 */
+	private function extract_schema_keywords( $schema ) {
+		$keywords = array();
+		if ( ! is_array( $schema ) ) {
+			return $keywords;
+		}
+
+		$walker = function ( $value, $depth = 0 ) use ( &$walker, &$keywords ) {
+			if ( $depth > 3 || count( $keywords ) >= 40 || ! is_array( $value ) ) {
+				return;
+			}
+
+			foreach ( $value as $key => $item ) {
+				if ( is_scalar( $key ) ) {
+					$keywords[] = sanitize_text_field( (string) $key );
+				}
+				if ( is_scalar( $item ) && in_array( (string) $key, array( 'name', 'title', 'description', 'type', 'format' ), true ) ) {
+					$text = sanitize_text_field( (string) $item );
+					if ( '' !== $text && strlen( $text ) <= 120 ) {
+						$keywords[] = $text;
+					}
+				}
+				if ( is_array( $item ) ) {
+					$walker( $item, $depth + 1 );
+				}
+			}
+		};
+
+		$walker( $schema );
+
+		return array_values( array_unique( array_filter( $keywords ) ) );
+	}
+
+	/**
+	 * Keywords that identify text/content generation abilities.
+	 *
+	 * @return array<int,string>
+	 */
+	private function get_generation_ability_keywords() {
+		return array(
+			'generate',
+			'generation',
+			'text',
+			'content',
+			'title',
+			'excerpt',
+			'summary',
+			'editorial',
+			'seo',
+			'meta',
+			'classification',
+			'completion',
+			'prompt',
+			'ai',
+			'assistant',
+			'write',
+			'writing',
+			'resize',
+			'rewrite',
+			'summarize',
+			'generazione',
+			'testo',
+			'contenuto',
+			'titolo',
+			'estratto',
+			'riassunto',
+			'editoriale',
+			'scrittura',
+			'metadati',
+			'descrizione',
+		);
+	}
 
 
 	/**
@@ -733,15 +954,6 @@ class AI_Provider_Adapter {
 			return new WP_Error( 'wpai_wp_get_ability_unavailable', __( 'wp_get_ability non è disponibile per invocare le ability candidate.', 'wp-ai-publisher' ) );
 		}
 
-		$input = array(
-			'prompt'  => $prompt,
-			'input'   => $prompt,
-			'content' => $prompt,
-			'payload' => $payload,
-			'schema'  => $schema,
-			'format'  => 'json',
-		);
-
 		foreach ( $candidates as $name ) {
 			try {
 				$ability = wp_get_ability( $name );
@@ -754,12 +966,15 @@ class AI_Provider_Adapter {
 				continue;
 			}
 
+			$metadata = $this->extract_ability_metadata( $ability, $name );
+			$inputs   = $this->get_ability_invocation_inputs( $prompt, $payload, $schema, $metadata['input_schema'] );
+
 			foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $method ) {
 				if ( ! method_exists( $ability, $method ) || ! is_callable( array( $ability, $method ) ) ) {
 					continue;
 				}
 
-				foreach ( array( $input, $prompt ) as $arguments ) {
+				foreach ( $inputs as $arguments ) {
 					try {
 						$result     = $ability->{$method}( $arguments );
 						$normalized = $this->normalize_real_ai_candidate( $result );
@@ -786,35 +1001,19 @@ class AI_Provider_Adapter {
 	 * @return array<int,string>
 	 */
 	private function filter_wp_abilities_api_generation_candidates( $abilities ) {
-		$keywords   = array( 'generate', 'generation', 'text', 'content', 'title', 'excerpt', 'summary', 'editorial', 'seo', 'meta', 'classification', 'complete', 'completion' );
+		$keywords   = $this->get_generation_ability_keywords();
 		$candidates = array();
 
 		foreach ( (array) $abilities as $key => $ability ) {
-			$name     = is_string( $key ) ? $key : '';
-			$haystack = $name;
-			if ( is_array( $ability ) ) {
-				$name = '' !== $name ? $name : (string) ( $ability['name'] ?? $ability['id'] ?? $ability['slug'] ?? '' );
-				foreach ( array( 'name', 'id', 'slug', 'label', 'title', 'description', 'category' ) as $field ) {
-					if ( isset( $ability[ $field ] ) && is_scalar( $ability[ $field ] ) ) {
-						$haystack .= ' ' . (string) $ability[ $field ];
-					}
-				}
-			} elseif ( is_object( $ability ) ) {
-				$name = '' !== $name ? $name : (string) ( $ability->name ?? $ability->id ?? $ability->slug ?? '' );
-				foreach ( array( 'name', 'id', 'slug', 'label', 'title', 'description', 'category' ) as $property ) {
-					if ( isset( $ability->{$property} ) && is_scalar( $ability->{$property} ) ) {
-						$haystack .= ' ' . (string) $ability->{$property};
-					}
-				}
-			}
+			$metadata = $this->extract_ability_metadata( $ability, is_string( $key ) ? $key : '' );
+			$name     = '' !== $metadata['name'] ? $metadata['name'] : ( is_string( $key ) ? sanitize_text_field( $key ) : '' );
 
 			if ( '' === $name ) {
 				continue;
 			}
 
-			$haystack = strtolower( $haystack );
 			foreach ( $keywords as $keyword ) {
-				if ( false !== strpos( $haystack, $keyword ) ) {
+				if ( false !== strpos( $metadata['haystack'], strtolower( $keyword ) ) ) {
 					$candidates[] = $name;
 					break;
 				}
@@ -968,11 +1167,11 @@ class AI_Provider_Adapter {
 	 */
 	private function get_relevant_generation_abilities() {
 		$abilities = $this->get_relevant_abilities();
-		$keywords  = array( 'generate', 'generation', 'text', 'content', 'title', 'excerpt', 'summary', 'editorial', 'seo', 'meta', 'classification' );
+		$keywords  = $this->get_generation_ability_keywords();
 		$relevant  = array();
 
 		foreach ( $abilities as $ability ) {
-			$haystack = strtolower( implode( ' ', array( $ability['id'], $ability['label'], $ability['description'] ) ) );
+			$haystack = strtolower( (string) ( $ability['haystack'] ?? implode( ' ', array( $ability['id'], $ability['label'], $ability['description'] ) ) ) );
 			foreach ( $keywords as $keyword ) {
 				if ( false !== strpos( $haystack, $keyword ) ) {
 					$relevant[] = $ability;
@@ -1026,6 +1225,81 @@ class AI_Provider_Adapter {
 	}
 
 	/**
+	 * Return default and schema-aware ability input shapes.
+	 *
+	 * @param string              $prompt Prompt.
+	 * @param array<string,mixed> $payload Request payload.
+	 * @param array<string,mixed> $schema Required output schema.
+	 * @param array<string,mixed> $input_schema Ability input schema.
+	 * @return array<int,mixed>
+	 */
+	private function get_ability_invocation_inputs( $prompt, $payload, $schema, $input_schema = array() ) {
+		$default = array(
+			'prompt'  => $prompt,
+			'input'   => $prompt,
+			'content' => $prompt,
+			'text'    => $prompt,
+			'payload' => $payload,
+			'schema'  => $schema,
+			'format'  => 'json',
+		);
+
+		$inputs = array( $default );
+		$schema_properties = $this->get_schema_property_names( $input_schema );
+		if ( ! empty( $schema_properties ) ) {
+			$schema_aware = array();
+			foreach ( array( 'prompt', 'input', 'text', 'content', 'instructions', 'context', 'post_content' ) as $field ) {
+				if ( in_array( $field, $schema_properties, true ) ) {
+					$schema_aware[ $field ] = $prompt;
+				}
+			}
+			if ( in_array( 'payload', $schema_properties, true ) ) {
+				$schema_aware['payload'] = $payload;
+			}
+			if ( in_array( 'schema', $schema_properties, true ) ) {
+				$schema_aware['schema'] = $schema;
+			}
+			if ( in_array( 'format', $schema_properties, true ) ) {
+				$schema_aware['format'] = 'json';
+			}
+			if ( ! empty( $schema_aware ) ) {
+				$inputs[] = $schema_aware;
+			}
+		}
+
+		$inputs[] = $prompt;
+
+		return $inputs;
+	}
+
+	/**
+	 * Extract declared property names from JSON-schema-like input schema.
+	 *
+	 * @param mixed $schema Input schema.
+	 * @return array<int,string>
+	 */
+	private function get_schema_property_names( $schema ) {
+		if ( ! is_array( $schema ) ) {
+			return array();
+		}
+
+		$properties = array();
+		if ( isset( $schema['properties'] ) && is_array( $schema['properties'] ) ) {
+			$properties = array_merge( $properties, array_keys( $schema['properties'] ) );
+		}
+		foreach ( $schema as $key => $value ) {
+			if ( is_scalar( $key ) ) {
+				$properties[] = (string) $key;
+			}
+			if ( is_array( $value ) && isset( $value['properties'] ) && is_array( $value['properties'] ) ) {
+				$properties = array_merge( $properties, array_keys( $value['properties'] ) );
+			}
+		}
+
+		return array_values( array_unique( array_map( 'sanitize_key', $properties ) ) );
+	}
+
+	/**
 	 * Invoke a named ability from a registry using flexible method names.
 	 *
 	 * @param object              $registry Registry object.
@@ -1038,6 +1312,9 @@ class AI_Provider_Adapter {
 	private function invoke_ability_from_registry( $registry, $ability_id, $payload, $schema, $prompt ) {
 		$input = array(
 			'prompt'      => $prompt,
+			'input'       => $prompt,
+			'content'     => $prompt,
+			'text'        => $prompt,
 			'payload'     => $payload,
 			'schema'      => $schema,
 			'format'      => 'json',
@@ -1075,16 +1352,20 @@ class AI_Provider_Adapter {
 			}
 
 			if ( is_object( $ability ) ) {
+				$metadata = $this->extract_ability_metadata( $ability, $ability_id );
+				$inputs   = $this->get_ability_invocation_inputs( $prompt, $payload, $schema, $metadata['input_schema'] );
 				foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $ability_method ) {
 					if ( method_exists( $ability, $ability_method ) ) {
-						try {
-							$result     = $ability->{$ability_method}( $input );
-							$normalized = $this->normalize_real_ai_candidate( $result );
-							if ( ! is_wp_error( $normalized ) && $this->is_usable_dry_run_candidate( $normalized ) ) {
-								return $normalized;
+						foreach ( $inputs as $ability_input ) {
+							try {
+								$result     = $ability->{$ability_method}( $ability_input );
+								$normalized = $this->normalize_real_ai_candidate( $result );
+								if ( ! is_wp_error( $normalized ) && $this->is_usable_dry_run_candidate( $normalized ) ) {
+									return $normalized;
+								}
+							} catch ( Throwable $error ) {
+								unset( $error );
 							}
-						} catch ( Throwable $error ) {
-							unset( $error );
 						}
 					}
 				}

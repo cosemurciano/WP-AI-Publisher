@@ -695,21 +695,8 @@ class AI_Diagnostics {
 	 * @return array<string,string>
 	 */
 	private function summarize_ability( $key, $ability ) {
-		$data = array();
-		if ( is_array( $ability ) ) {
-			$data = $ability;
-		} elseif ( is_object( $ability ) ) {
-			foreach ( array( 'name', 'id', 'slug', 'label', 'title', 'description', 'category', 'input_schema', 'output_schema' ) as $property ) {
-				if ( isset( $ability->{$property} ) ) {
-					$data[ $property ] = $ability->{$property};
-				}
-			}
-		}
-
-		$name        = is_string( $key ) ? $key : (string) ( $data['name'] ?? $data['id'] ?? $data['slug'] ?? '' );
-		$label       = (string) ( $data['label'] ?? $data['title'] ?? '' );
-		$description = (string) ( $data['description'] ?? '' );
-		$category    = (string) ( $data['category'] ?? '' );
+		$data = $this->extract_ability_metadata( $ability, is_string( $key ) ? $key : '' );
+		$name = '' !== $data['name'] ? $data['name'] : ( is_string( $key ) ? sanitize_text_field( $key ) : '' );
 
 		$invocable = __( 'Non deducibile', 'wp-ai-publisher' );
 		if ( is_object( $ability ) ) {
@@ -719,21 +706,181 @@ class AI_Diagnostics {
 					break;
 				}
 			}
-		} elseif ( is_callable( $ability ) ) {
+		} elseif ( is_callable( $ability ) || ( is_array( $ability ) && ! empty( $ability['callback'] ) ) ) {
 			$invocable = __( 'Sì', 'wp-ai-publisher' );
-		} elseif ( is_array( $ability ) && empty( $ability['callback'] ) ) {
-			$invocable = __( 'No', 'wp-ai-publisher' );
 		}
 
 		return array(
-			'name'          => sanitize_text_field( $name ),
-			'label'         => wp_trim_words( sanitize_text_field( $label ), 12, '…' ),
-			'description'   => wp_trim_words( sanitize_text_field( $description ), 20, '…' ),
-			'category'      => sanitize_text_field( $category ),
-			'input_schema'  => ! empty( $data['input_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
-			'output_schema' => ! empty( $data['output_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
-			'invocable'     => $invocable,
+			'name'                 => $name,
+			'label'                => wp_trim_words( sanitize_text_field( $data['label'] ), 12, '…' ),
+			'description'          => $this->trim_text( sanitize_text_field( $data['description'] ), 160 ),
+			'category'             => sanitize_text_field( $data['category'] ),
+			'input_schema'         => ! empty( $data['input_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
+			'output_schema'        => ! empty( $data['output_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
+			'generation_candidate' => $this->contains_keyword( $data['haystack'], $this->get_generation_ability_keywords() ) ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
+			'invocable'            => $invocable,
 		);
+	}
+
+	/**
+	 * Extract safe metadata from a WP_Ability-compatible object, array, or string.
+	 *
+	 * @param mixed  $ability Ability definition.
+	 * @param string $fallback_name Fallback registry key.
+	 * @return array{name:string,label:string,description:string,category:string,input_schema:array<string,mixed>,output_schema:array<string,mixed>,meta:array<string,mixed>,haystack:string}
+	 */
+	private function extract_ability_metadata( $ability, $fallback_name = '' ) {
+		$metadata = array(
+			'name'          => sanitize_text_field( (string) $fallback_name ),
+			'label'         => '',
+			'description'   => '',
+			'category'      => '',
+			'input_schema'  => array(),
+			'output_schema' => array(),
+			'meta'          => array(),
+			'haystack'      => '',
+		);
+
+		if ( is_object( $ability ) ) {
+			foreach ( array( 'get_name' => 'name', 'get_label' => 'label', 'get_description' => 'description', 'get_category' => 'category', 'get_input_schema' => 'input_schema', 'get_output_schema' => 'output_schema', 'get_meta' => 'meta' ) as $getter => $field ) {
+				if ( ! method_exists( $ability, $getter ) ) {
+					continue;
+				}
+				try {
+					$this->assign_ability_metadata_value( $metadata, $field, $ability->{$getter}() );
+				} catch ( \Throwable $error ) {
+					unset( $error );
+				}
+			}
+
+			foreach ( array( 'name' => 'name', 'id' => 'name', 'slug' => 'name', 'label' => 'label', 'title' => 'label', 'description' => 'description', 'category' => 'category', 'input_schema' => 'input_schema', 'output_schema' => 'output_schema', 'meta' => 'meta' ) as $property => $field ) {
+				if ( isset( $ability->{$property} ) && ( is_scalar( $ability->{$property} ) || in_array( $field, array( 'input_schema', 'output_schema', 'meta' ), true ) ) ) {
+					$this->assign_ability_metadata_value( $metadata, $field, $ability->{$property} );
+				}
+			}
+		} elseif ( is_array( $ability ) ) {
+			foreach ( array( 'name' => 'name', 'id' => 'name', 'slug' => 'name', 'label' => 'label', 'title' => 'label', 'description' => 'description', 'category' => 'category', 'input_schema' => 'input_schema', 'output_schema' => 'output_schema', 'meta' => 'meta' ) as $source => $field ) {
+				if ( array_key_exists( $source, $ability ) ) {
+					$this->assign_ability_metadata_value( $metadata, $field, $ability[ $source ] );
+				}
+			}
+		} elseif ( is_string( $ability ) ) {
+			$metadata['name']  = sanitize_text_field( $ability );
+			$metadata['label'] = sanitize_text_field( $ability );
+		}
+
+		if ( '' === $metadata['label'] && '' !== $metadata['name'] ) {
+			$metadata['label'] = $metadata['name'];
+		}
+
+		$metadata['haystack'] = $this->build_ability_haystack( $metadata );
+
+		return $metadata;
+	}
+
+	/**
+	 * Assign one extracted metadata field.
+	 *
+	 * @param array<string,mixed> $metadata Metadata accumulator.
+	 * @param string              $field Field name.
+	 * @param mixed               $value Raw value.
+	 * @return void
+	 */
+	private function assign_ability_metadata_value( &$metadata, $field, $value ) {
+		if ( in_array( $field, array( 'input_schema', 'output_schema', 'meta' ), true ) ) {
+			if ( is_array( $value ) ) {
+				$metadata[ $field ] = $value;
+			}
+			return;
+		}
+
+		if ( is_scalar( $value ) ) {
+			$value = sanitize_text_field( (string) $value );
+			if ( '' !== $value ) {
+				$metadata[ $field ] = $value;
+			}
+		}
+	}
+
+	/**
+	 * Build compact metadata haystack without dumping full schemas.
+	 *
+	 * @param array<string,mixed> $metadata Metadata.
+	 * @return string
+	 */
+	private function build_ability_haystack( $metadata ) {
+		$parts = array( $metadata['name'] ?? '', $metadata['label'] ?? '', $metadata['description'] ?? '', $metadata['category'] ?? '' );
+		foreach ( (array) ( $metadata['meta'] ?? array() ) as $key => $value ) {
+			if ( is_scalar( $key ) ) {
+				$parts[] = sanitize_text_field( (string) $key );
+			}
+			if ( is_scalar( $value ) ) {
+				$text = sanitize_text_field( (string) $value );
+				if ( '' !== $text && strlen( $text ) <= 120 ) {
+					$parts[] = $text;
+				}
+			}
+		}
+		$parts = array_merge( $parts, $this->extract_schema_keywords( $metadata['input_schema'] ?? array() ), $this->extract_schema_keywords( $metadata['output_schema'] ?? array() ) );
+		return strtolower( implode( ' ', array_values( array_unique( array_filter( $parts ) ) ) ) );
+	}
+
+	/**
+	 * Extract compact keys from schema.
+	 *
+	 * @param mixed $schema Schema.
+	 * @return array<int,string>
+	 */
+	private function extract_schema_keywords( $schema ) {
+		$keywords = array();
+		if ( ! is_array( $schema ) ) {
+			return $keywords;
+		}
+		$walker = function ( $value, $depth = 0 ) use ( &$walker, &$keywords ) {
+			if ( $depth > 3 || count( $keywords ) >= 40 || ! is_array( $value ) ) {
+				return;
+			}
+			foreach ( $value as $key => $item ) {
+				if ( is_scalar( $key ) ) {
+					$keywords[] = sanitize_text_field( (string) $key );
+				}
+				if ( is_scalar( $item ) && in_array( (string) $key, array( 'name', 'title', 'description', 'type', 'format' ), true ) ) {
+					$text = sanitize_text_field( (string) $item );
+					if ( '' !== $text && strlen( $text ) <= 120 ) {
+						$keywords[] = $text;
+					}
+				}
+				if ( is_array( $item ) ) {
+					$walker( $item, $depth + 1 );
+				}
+			}
+		};
+		$walker( $schema );
+		return array_values( array_unique( array_filter( $keywords ) ) );
+	}
+
+	/**
+	 * Return generation candidate keywords.
+	 *
+	 * @return array<int,string>
+	 */
+	private function get_generation_ability_keywords() {
+		return array( 'generate', 'generation', 'text', 'content', 'title', 'excerpt', 'summary', 'editorial', 'seo', 'meta', 'classification', 'completion', 'prompt', 'ai', 'assistant', 'write', 'writing', 'resize', 'rewrite', 'summarize', 'generazione', 'testo', 'contenuto', 'titolo', 'estratto', 'riassunto', 'editoriale', 'scrittura', 'metadati', 'descrizione' );
+	}
+
+	/**
+	 * Trim text to a maximum character length.
+	 *
+	 * @param string $text Text.
+	 * @param int    $max Maximum length.
+	 * @return string
+	 */
+	private function trim_text( $text, $max ) {
+		$text = sanitize_text_field( $text );
+		if ( function_exists( 'mb_strlen' ) && function_exists( 'mb_substr' ) ) {
+			return mb_strlen( $text ) > $max ? mb_substr( $text, 0, $max - 1 ) . '…' : $text;
+		}
+		return strlen( $text ) > $max ? substr( $text, 0, $max - 1 ) . '…' : $text;
 	}
 
 	/**
@@ -791,7 +938,7 @@ class AI_Diagnostics {
 			$row      = $this->summarize_ability( $key, $ability_data );
 			$name     = $row['name'];
 			$haystack = strtolower( $name . ' ' . $row['label'] . ' ' . $row['description'] . ' ' . $row['category'] );
-			if ( '' === $name || ! $this->contains_keyword( $haystack, array( 'generate', 'generation', 'text', 'content', 'summary', 'title', 'completion' ) ) ) {
+			if ( '' === $name || ! $this->contains_keyword( $haystack, $this->get_generation_ability_keywords() ) ) {
 				continue;
 			}
 
@@ -810,6 +957,7 @@ class AI_Diagnostics {
 				'prompt'  => $prompt,
 				'input'   => $prompt,
 				'content' => $prompt,
+				'text'    => $prompt,
 				'format'  => 'json',
 			);
 			foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $method ) {

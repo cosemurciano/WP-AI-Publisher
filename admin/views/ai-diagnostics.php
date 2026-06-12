@@ -140,7 +140,7 @@ $confidence_labels = array(
 		<p><?php echo esc_html__( 'Nessuna ability WordPress rilevata tramite wp_get_abilities.', 'wp-ai-publisher' ); ?></p>
 	<?php else : ?>
 		<table class="widefat striped wpai-status-table">
-			<thead><tr><th><?php echo esc_html__( 'Name', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Label/title', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Description', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Category', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Input schema', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Output schema', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Invocabile', 'wp-ai-publisher' ); ?></th></tr></thead>
+			<thead><tr><th><?php echo esc_html__( 'Name', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Label/title', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Description', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Category', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Input schema', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Output schema', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Candidato generazione', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Invocabile', 'wp-ai-publisher' ); ?></th></tr></thead>
 			<tbody>
 				<?php foreach ( $report['abilities'] as $ability ) : ?>
 					<tr>
@@ -150,6 +150,7 @@ $confidence_labels = array(
 						<td><?php echo esc_html( $ability['category'] ); ?></td>
 						<td><?php echo esc_html( $ability['input_schema'] ); ?></td>
 						<td><?php echo esc_html( $ability['output_schema'] ); ?></td>
+						<td><?php echo esc_html( $ability['generation_candidate'] ?? __( 'No', 'wp-ai-publisher' ) ); ?></td>
 						<td><?php echo esc_html( $ability['invocable'] ); ?></td>
 					</tr>
 				<?php endforeach; ?>
