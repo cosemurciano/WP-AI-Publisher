@@ -89,3 +89,13 @@
 	border: 1px solid #dcdcde;
 	border-radius: 8px;
 }
+
+.wpai-card--wide {
+	grid-column: 1 / -1;
+}
+
+.wpai-card .wpai-status-table {
+	display: block;
+	overflow-x: auto;
+	max-width: 100%;
+}

@@ -146,8 +146,15 @@ class Admin {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
 
-		$ai_status = $this->ai_provider->get_status();
-		$db_status = $this->db->check_tables();
+		$ai_status           = $this->ai_provider->get_status();
+		$db_status           = $this->db->check_tables();
+		$third_party_plugins = array();
+
+		if ( class_exists( __NAMESPACE__ . '\\Third_Party_Plugins' ) ) {
+			$third_party         = new Third_Party_Plugins();
+			$third_party_plugins = $third_party->get_plugins();
+		}
+
 		include WPAIP_PLUGIN_DIR . 'admin/views/dashboard.php';
 	}
 

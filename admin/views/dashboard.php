@@ -52,6 +52,80 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<?php endif; ?>
 		</section>
 
+
+		<section class="wpai-card wpai-card--wide">
+			<h2><?php echo esc_html__( 'Plugin terzi e integrazioni', 'wp-ai-publisher' ); ?></h2>
+			<p><?php echo esc_html__( 'WP AI Publisher controlla questi plugin in modo difensivo. Se una integrazione manca, il plugin resta funzionante ma alcune funzioni future potrebbero non essere disponibili.', 'wp-ai-publisher' ); ?></p>
+			<p><?php echo esc_html__( 'La chiave REST di Git Remote Updater deve essere gestita nel pannello Git Updater / Git Remote Updater. WP AI Publisher non salva né replica questa chiave.', 'wp-ai-publisher' ); ?></p>
+			<?php if ( empty( $third_party_plugins ) ) : ?>
+				<p><span class="wpai-badge wpai-badge--not-verified"><?php echo esc_html__( 'Non verificato', 'wp-ai-publisher' ); ?></span> <?php echo esc_html__( 'La diagnostica delle integrazioni non è disponibile in questo momento.', 'wp-ai-publisher' ); ?></p>
+			<?php else : ?>
+				<?php
+				$third_party_status_labels = array(
+					'active'       => __( 'Attivo', 'wp-ai-publisher' ),
+					'inactive'     => __( 'Non attivo', 'wp-ai-publisher' ),
+					'missing'      => __( 'Non installato', 'wp-ai-publisher' ),
+					'detected'     => __( 'Rilevato', 'wp-ai-publisher' ),
+					'not_detected' => __( 'Non rilevato', 'wp-ai-publisher' ),
+				);
+				$third_party_badge_status = array(
+					'active'       => 'ok',
+					'inactive'     => 'warning',
+					'missing'      => 'not-configured',
+					'detected'     => 'ok',
+					'not_detected' => 'not-verified',
+				);
+				?>
+				<table class="widefat striped wpai-status-table">
+					<thead>
+						<tr>
+							<th scope="col"><?php echo esc_html__( 'Nome plugin / integrazione', 'wp-ai-publisher' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Stato', 'wp-ai-publisher' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Tipo', 'wp-ai-publisher' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Utilità', 'wp-ai-publisher' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Azione', 'wp-ai-publisher' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $third_party_plugins as $plugin ) : ?>
+							<?php
+							$status       = isset( $plugin['status'] ) ? sanitize_key( (string) $plugin['status'] ) : 'not_detected';
+							$badge_status = $third_party_badge_status[ $status ] ?? 'not-verified';
+							$type_label   = ! empty( $plugin['required'] ) ? __( 'Obbligatorio', 'wp-ai-publisher' ) : ( ! empty( $plugin['recommended'] ) ? __( 'Consigliato', 'wp-ai-publisher' ) : __( 'Opzionale', 'wp-ai-publisher' ) );
+							$admin_url    = ! empty( $plugin['admin_url'] ) ? (string) $plugin['admin_url'] : '';
+							$download_url = ! empty( $plugin['download_url'] ) ? (string) $plugin['download_url'] : '';
+							?>
+							<tr>
+								<th scope="row">
+									<?php echo esc_html( (string) $plugin['name'] ); ?>
+									<?php if ( ! empty( $plugin['notes'] ) ) : ?>
+										<br><small><?php echo esc_html( (string) $plugin['notes'] ); ?></small>
+									<?php endif; ?>
+								</th>
+								<td><span class="<?php echo esc_attr( wpai_publisher_badge_class( $badge_status ) ); ?>"><?php echo esc_html( $third_party_status_labels[ $status ] ?? $status ); ?></span></td>
+								<td><?php echo esc_html( $type_label ); ?></td>
+								<td><?php echo esc_html( (string) $plugin['purpose'] ); ?></td>
+								<td>
+									<?php if ( 'active' === $status || 'detected' === $status ) : ?>
+										<?php echo esc_html__( 'OK', 'wp-ai-publisher' ); ?>
+										<?php if ( '' !== $admin_url ) : ?>
+											<br><a href="<?php echo esc_url( $admin_url ); ?>"><?php echo esc_html__( 'Apri impostazioni', 'wp-ai-publisher' ); ?></a>
+										<?php endif; ?>
+									<?php elseif ( '' !== $download_url && ( ! empty( $plugin['required'] ) || ! empty( $plugin['recommended'] ) ) ) : ?>
+										<a href="<?php echo esc_url( $download_url ); ?>" target="_blank" rel="noopener noreferrer" aria-label="<?php echo esc_attr( sprintf( __( 'Scarica o apri la documentazione per %s', 'wp-ai-publisher' ), (string) $plugin['name'] ) ); ?>"><?php echo esc_html__( 'Scarica / documentazione', 'wp-ai-publisher' ); ?></a>
+									<?php elseif ( '' !== $admin_url ) : ?>
+										<a href="<?php echo esc_url( $admin_url ); ?>"><?php echo esc_html__( 'Apri impostazioni', 'wp-ai-publisher' ); ?></a>
+									<?php else : ?>
+										<?php echo esc_html__( 'Nessuna azione', 'wp-ai-publisher' ); ?>
+									<?php endif; ?>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			<?php endif; ?>
+		</section>
+
 		<section class="wpai-card">
 			<h2><?php echo esc_html__( 'Prossima fase', 'wp-ai-publisher' ); ?></h2>
 			<p><span class="wpai-badge wpai-badge--not-implemented"><?php echo esc_html__( 'Da implementare', 'wp-ai-publisher' ); ?></span></p>
