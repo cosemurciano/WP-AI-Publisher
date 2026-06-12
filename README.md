@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.3.6**
+Versione corrente: **0.3.7**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
@@ -8,13 +8,27 @@ WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazion
 
 Il plugin è in fase operativa controllata. Non crea ancora post, bozze, immagini reali o metadati SEO definitivi, ma consente di testare idee editoriali con un dry-run strutturato.
 
+
+## Contesto editoriale riutilizzabile
+
+Dalla versione **0.3.7** WP AI Publisher non è legato a wptutorial.ai, a tutorial WordPress o a una singola struttura editoriale. La pagina **Impostazioni** include una sezione **Contesto editoriale del sito** per configurare profilo, descrizione, nicchia, pubblico, tono, lingua, categorie consentite, tag preferiti, argomenti esclusi, regole editoriali, claim vietati e formato contenuto preferito.
+
+Il contesto guida:
+
+- prompt dei dry-run AI tramite sistema AI di WordPress;
+- fallback locale quando non è disponibile un output AI utilizzabile;
+- anteprima HTML compatibile con Classic Editor;
+- futura creazione controllata di bozze.
+
+Il target editoriale corrente resta **Editor Classico**: il plugin produce HTML pulito e non genera blocchi Gutenberg. La generazione futura potrà creare **bozze** o contenuti **in attesa di revisione**, ma non pubblicazioni automatiche.
+
 ## Target editoriale: Editor Classico
 
 Dalla versione **0.3.2** il target editoriale principale è l’**Editor Classico** di WordPress. Il plugin non deve produrre blocchi Gutenberg, commenti `<!-- wp:... -->` o serializzazione a blocchi.
 
 La futura bozza WordPress userà `post_content` con HTML pulito e sicuro, ad esempio paragrafi, titoli `h2`/`h3`, liste e altri tag consentiti da allowlist. L’anteprima del dry-run passa da sanitizzazione dedicata e viene mostrata nell’admin come contenuto compatibile con Classic Editor.
 
-AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.6.
+AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.7.
 
 Funzioni presenti:
 
@@ -144,14 +158,15 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 
 ## Changelog
 
-### 0.3.6
-- Migliorato riconoscimento delle abilities WordPress tramite getter `WP_Ability`.
-- Migliorata selezione delle ability candidate per generazione testo.
-- Migliorata diagnostica delle abilities rilevate.
-- Migliorata invocazione sicura delle abilities con input schema.
-- Evitata doppia conclusione nell’anteprima Editor Classico.
-- Aggiunte note di qualità non bloccanti per title, slug, excerpt e metadati.
-- Migliorata distinzione admin tra output AI reale e fallback locale.
+### 0.3.7
+
+- Aggiunte impostazioni di contesto editoriale del sito.
+- Reso il plugin più adattabile a siti e nicchie diverse.
+- Aggiunta configurazione per nicchia, pubblico, tono, lingua, categorie, tag e regole editoriali.
+- Impostato Editor Classico come target corrente configurabile.
+- Impostato flusso futuro di generazione post su Bozza o In attesa di revisione, senza pubblicazione automatica.
+- Aggiornato prompt dry-run per usare il contesto sito.
+- Migliorato fallback locale per contesti non WordPress.
 
 ### 0.3.5
 - Corretto payload del filtro legacy `wpai_publisher_structured_content_dry_run`.

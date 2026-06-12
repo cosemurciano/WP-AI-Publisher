@@ -33,6 +33,10 @@ $level_labels = array(
 	'avanzato'   => __( 'Avanzato', 'wp-ai-publisher' ),
 );
 
+$site_context              = wpai_publisher_get_site_context();
+$site_context_configured   = wpai_publisher_is_site_context_configured( $site_context );
+$settings_context_url      = admin_url( 'admin.php?page=wp-ai-publisher-settings#wpai-site-profile-name' );
+
 
 $source_labels = array(
 	'wordpress_ai'   => __( 'AI WordPress', 'wp-ai-publisher' ),
@@ -71,6 +75,15 @@ $render_list = static function ( $items ) {
 
 	<section class="wpai-card">
 		<h2><?php echo esc_html__( 'Nuova idea contenuto', 'wp-ai-publisher' ); ?></h2>
+
+		<div class="notice notice-info inline">
+			<p><?php echo esc_html__( 'Il dry-run userà il contesto editoriale configurato in Impostazioni.', 'wp-ai-publisher' ); ?> <a href="<?php echo esc_url( $settings_context_url ); ?>"><?php echo esc_html__( 'Vai alle impostazioni contesto editoriale', 'wp-ai-publisher' ); ?></a></p>
+		</div>
+		<?php if ( ! $site_context_configured ) : ?>
+			<div class="notice notice-warning inline">
+				<p><?php echo esc_html__( 'Contesto editoriale non ancora configurato. Il dry-run userà impostazioni generiche.', 'wp-ai-publisher' ); ?></p>
+			</div>
+		<?php endif; ?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="wpai_publisher_create_content_idea" />
 			<?php wp_nonce_field( 'wpai_publisher_create_content_idea' ); ?>
@@ -92,14 +105,14 @@ $render_list = static function ( $items ) {
 						<td>
 							<select id="wpai-content-language" name="language">
 								<?php foreach ( $language_labels as $language_key => $language_label ) : ?>
-									<option value="<?php echo esc_attr( $language_key ); ?>" <?php selected( 'it', $language_key ); ?>><?php echo esc_html( $language_label ); ?></option>
+									<option value="<?php echo esc_attr( $language_key ); ?>" <?php selected( $site_context['default_language'], $language_key ); ?>><?php echo esc_html( $language_label ); ?></option>
 								<?php endforeach; ?>
 							</select>
 						</td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="wpai-content-target"><?php echo esc_html__( 'Pubblico target', 'wp-ai-publisher' ); ?></label></th>
-						<td><input id="wpai-content-target" name="target_audience" type="text" class="regular-text" /></td>
+						<td><input id="wpai-content-target" name="target_audience" type="text" class="regular-text" value="<?php echo esc_attr( $site_context['default_audience'] ); ?>" /></td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="wpai-content-level"><?php echo esc_html__( 'Livello tutorial', 'wp-ai-publisher' ); ?></label></th>

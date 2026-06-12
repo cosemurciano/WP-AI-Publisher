@@ -237,6 +237,8 @@ class Content_Ideas {
 			return new WP_Error( 'wpai_content_idea_not_found', __( 'Idea non trovata.', 'wp-ai-publisher' ) );
 		}
 
+		$site_context = wpai_publisher_get_site_context();
+
 		$payload = array(
 			'task'                 => 'structured_content_dry_run',
 			'topic'                => (string) $idea->topic,
@@ -247,6 +249,7 @@ class Content_Ideas {
 			'notes'                => (string) $idea->notes,
 			'required_schema'      => $this->ai_provider->get_content_dry_run_schema(),
 			'allow_local_fallback' => true,
+			'site_context'         => $site_context,
 			'safety'               => array(
 				'create_posts'       => false,
 				'publish_content'    => false,
@@ -292,9 +295,7 @@ class Content_Ideas {
 			$notes[] = __( 'Risultato prodotto tramite sistema AI di WordPress.', 'wp-ai-publisher' );
 		}
 
-		$notes = array_merge( $notes, $this->get_quality_review_notes( $normalized ) );
-
-		$classic_builder    = new Classic_Content_Builder();
+		$classic_builder    = new Classic_Content_Builder( $site_context );
 		$classic_preview    = $classic_builder->build_from_dry_run( $normalized );
 		$classic_preview['validation_notes'] = $this->remove_generic_placeholder_preview_notes( $classic_preview['validation_notes'] ?? array() );
 		$classic_validation = $this->validate_classic_editor_preview( $classic_preview );

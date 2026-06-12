@@ -8,6 +8,8 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+$site_context = wpai_publisher_get_site_context();
 ?>
 <div class="wrap wpai-admin">
 	<h1><?php echo esc_html__( 'WP AI Publisher', 'wp-ai-publisher' ); ?></h1>
@@ -40,6 +42,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<p><?php echo esc_html__( 'Modelli rilevati:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( (string) $ai_status['available_text_models_count'] ); ?></strong></p>
 			<p><?php echo esc_html__( 'Modello selezionato:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( $ai_status['selected_text_model'] ? $ai_status['selected_text_model'] : __( 'Predefinito WordPress AI', 'wp-ai-publisher' ) ); ?></strong></p>
 		</section>
+
+		<section class="wpai-card">
+			<h2><?php echo esc_html__( 'Contesto editoriale', 'wp-ai-publisher' ); ?></h2>
+			<?php if ( wpai_publisher_is_site_context_configured( $site_context ) ) : ?>
+				<p><span class="wpai-badge wpai-badge--ok"><?php echo esc_html__( 'Configurato', 'wp-ai-publisher' ); ?></span></p>
+				<ul>
+					<li><?php echo esc_html__( 'Profilo sito:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( '' !== $site_context['site_profile_name'] ? $site_context['site_profile_name'] : __( '—', 'wp-ai-publisher' ) ); ?></strong></li>
+					<li><?php echo esc_html__( 'Nicchia:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( '' !== $site_context['content_niche'] ? $site_context['content_niche'] : __( '—', 'wp-ai-publisher' ) ); ?></strong></li>
+					<li><?php echo esc_html__( 'Pubblico:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( '' !== $site_context['default_audience'] ? $site_context['default_audience'] : __( '—', 'wp-ai-publisher' ) ); ?></strong></li>
+					<li><?php echo esc_html__( 'Lingua:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( wpai_publisher_site_context_label( 'default_language', $site_context['default_language'] ) ); ?></strong></li>
+					<li><?php echo esc_html__( 'Editor:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( wpai_publisher_site_context_label( 'default_editor', $site_context['default_editor'] ) ); ?></strong></li>
+					<li><?php echo esc_html__( 'Stato post futuro:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( wpai_publisher_site_context_label( 'default_post_status_after_generation', $site_context['default_post_status_after_generation'] ) ); ?></strong></li>
+				</ul>
+			<?php else : ?>
+				<p><span class="wpai-badge wpai-badge--warning"><?php echo esc_html__( 'Da configurare', 'wp-ai-publisher' ); ?></span></p>
+				<p><?php echo esc_html__( 'Configura il contesto editoriale per rendere i dry-run più coerenti e riutilizzabili su questo sito.', 'wp-ai-publisher' ); ?></p>
+				<p><a class="button button-secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=wp-ai-publisher-settings#wpai-site-profile-name' ) ); ?>"><?php echo esc_html__( 'Configura contesto editoriale', 'wp-ai-publisher' ); ?></a></p>
+			<?php endif; ?>
+		</section>
+
 
 		<section class="wpai-card">
 			<h2><?php echo esc_html__( 'Database', 'wp-ai-publisher' ); ?></h2>
