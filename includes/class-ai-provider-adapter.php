@@ -52,12 +52,23 @@ class AI_Provider_Adapter {
 	public function is_wordpress_ai_client_available() {
 		$classes = array(
 			'WP_AI_Client',
+			'WP_AI_Abilities_Registry',
+			'WP_AI_Ability_Registry',
 			'\\WordPress\\AI\\Client',
-			'\\WP_AI\\Client',
 			'\\WordPress\\AI\\Services\\Services_API',
 			'\\WordPress\\AI\\Services\\AI_Service',
-			'WP_AI_Abilities_Registry',
 			'\\WordPress\\AI\\Abilities\\Registry',
+			'\\WordPress\\AI\\Abilities\\Abilities_Registry',
+			'\\WP_AI\\Client',
+			'\\WP_AI\\Abilities\\Registry',
+			'\\Felix_Arntz\\AI_Services',
+			'\\Felix_Arntz\\AI_Services\\Services_API',
+			'\\Felix_Arntz\\AI_Services\\Plugin',
+			'AI_Services',
+			'AI_Services_Plugin',
+			'AI_Experiments',
+			'AI_Features',
+			'AI_Connectors',
 		);
 
 		foreach ( $classes as $class_name ) {
@@ -75,7 +86,18 @@ class AI_Provider_Adapter {
 			'wp_ai_get_available_models',
 			'wp_ai_services',
 			'wp_ai_get_abilities',
+			'wp_get_ai_abilities',
 			'wp_ai_get_available_abilities',
+			'wp_get_ai_available_abilities',
+			'wp_ai_abilities',
+			'wp_get_ai_abilities_registry',
+			'wp_ai_abilities_registry',
+			'wp_get_abilities',
+			'wp_get_ability',
+			'wp_invoke_ability',
+			'ai_services',
+			'ai_services_get_connector',
+			'ai_services_get_connectors',
 		);
 
 		foreach ( $functions as $function_name ) {

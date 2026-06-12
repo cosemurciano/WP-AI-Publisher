@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.3.3
+Stable tag: 0.3.4
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -12,7 +12,7 @@ Base modulare per la pubblicazione assistita da AI in WordPress.
 
 == Descrizione ==
 
-WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.3.3 mantiene l’Editor Classico come target editoriale, migliora anteprima HTML sicura da dry-run e mantiene il flusso senza creare post WordPress.
+WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.3.4 mantiene l’Editor Classico come target editoriale, migliora anteprima HTML sicura da dry-run e mantiene il flusso senza creare post WordPress.
 
 Il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie. Include diagnostica difensiva per plugin terzi richiesti o consigliati, senza creare dipendenze rigide.
 
@@ -26,7 +26,8 @@ Questa versione non crea post, non pubblica contenuti, non genera immagini reali
 4. Apri WP AI Publisher > Idee contenuto per salvare un argomento editoriale ed eseguire un dry-run.
 5. Controlla WP AI Publisher > Coda job.
 6. Controlla WP AI Publisher > Impostazioni.
-7. Controlla WP AI Publisher > Stato sistema.
+7. Apri WP AI Publisher > Diagnostica AI per analizzare il runtime AI.
+8. Controlla WP AI Publisher > Stato sistema.
 
 == Note sviluppo ==
 
@@ -67,6 +68,15 @@ No. La generazione articoli sarà implementata in una fase successiva.
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.3.4 =
+* Aggiunta pagina Diagnostica AI.
+* Aggiunto rilevamento runtime di funzioni, classi, REST route, options e plugin collegati al sistema AI WordPress.
+* Aggiunto test AI controllato eseguibile manualmente dall’amministratore.
+* Aggiunta diagnostica dei possibili percorsi di generazione AI.
+* Aggiunta sezione bridge manuale per collegare il connector AI reale.
+* Nessuna chiave API viene mostrata o salvata.
+* Nessuna chiamata OpenAI diretta.
 
 = 0.3.3 =
 * Ripristinata compatibilità con il filtro legacy wpai_publisher_structured_content_dry_run.

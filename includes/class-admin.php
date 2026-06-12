@@ -115,6 +115,15 @@ class Admin {
 
 		add_submenu_page(
 			'wp-ai-publisher',
+			esc_html__( 'Diagnostica AI', 'wp-ai-publisher' ),
+			esc_html__( 'Diagnostica AI', 'wp-ai-publisher' ),
+			'manage_options',
+			'wp-ai-publisher-ai-diagnostics',
+			array( $this, 'render_ai_diagnostics' )
+		);
+
+		add_submenu_page(
+			'wp-ai-publisher',
 			esc_html__( 'Coda job', 'wp-ai-publisher' ),
 			esc_html__( 'Coda job', 'wp-ai-publisher' ),
 			'manage_options',
@@ -265,6 +274,32 @@ class Admin {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Render AI diagnostics page.
+	 *
+	 * @return void
+	 */
+	public function render_ai_diagnostics() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+
+		$diagnostics = new AI_Diagnostics( $this->ai_provider, $this->logger );
+		$test_result = null;
+
+		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) && isset( $_POST['wpai_publisher_ai_diagnostics_action'] ) ) {
+			check_admin_referer( 'wpai_publisher_ai_diagnostics_test', 'wpai_publisher_ai_diagnostics_nonce' );
+
+			$action = sanitize_key( wp_unslash( $_POST['wpai_publisher_ai_diagnostics_action'] ) );
+			if ( 'run_safe_generation_test' === $action ) {
+				$test_result = $diagnostics->run_safe_generation_test();
+			}
+		}
+
+		$report = $diagnostics->get_report();
+		include WPAIP_PLUGIN_DIR . 'admin/views/ai-diagnostics.php';
 	}
 
 	/**
