@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.3.3**
+Versione corrente: **0.3.4**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
@@ -14,7 +14,7 @@ Dalla versione **0.3.2** il target editoriale principale è l’**Editor Classic
 
 La futura bozza WordPress userà `post_content` con HTML pulito e sicuro, ad esempio paragrafi, titoli `h2`/`h3`, liste e altri tag consentiti da allowlist. L’anteprima del dry-run passa da sanitizzazione dedicata e viene mostrata nell’admin come contenuto compatibile con Classic Editor.
 
-AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.3.
+AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.4.
 
 Funzioni presenti:
 
@@ -28,6 +28,7 @@ Funzioni presenti:
 - database job queue;
 - pagina Coda job;
 - sezione Idee contenuto;
+- pagina Diagnostica AI;
 - salvataggio idee editoriali in tabella dedicata;
 - dry-run articolo con output JSON validabile, visualizzazione leggibile e anteprima HTML per Editor Classico;
 - migrazione database durante aggiornamento plugin.
@@ -37,7 +38,7 @@ Funzioni presenti:
 - `wp-ai-publisher.php`, `readme.txt` e `README.md` devono essere sempre aggiornati.
 - Ogni micro o macro modifica deve aggiornare il changelog.
 - Le voci **Impostazioni** e **Stato sistema** devono restare sempre alla fine del menu del plugin.
-- Le altre voci del menu devono essere ordinate per importanza d’uso. Ordine attuale: Bacheca, Idee contenuto, Coda job, Impostazioni, Stato sistema.
+- Le altre voci del menu devono essere ordinate per importanza d’uso. Ordine attuale: Bacheca, Idee contenuto, Diagnostica AI, Coda job, Impostazioni, Stato sistema.
 - Il plugin deve restare funzionante anche se i plugin terzi consigliati non sono installati o non sono attivi.
 - Le chiamate AI future dovranno passare solo dall’adapter centrale.
 
@@ -48,6 +49,26 @@ Dalla versione **0.3.3** il filtro consigliato per fornire output strutturato al
 Per compatibilità con integrazioni create nella versione **0.3.0**, resta supportato anche il filtro legacy `wpai_publisher_structured_content_dry_run`. Il plugin lo richiama solo se il nuovo hook non produce un output utilizzabile: in questo modo le integrazioni aggiornate restano prioritarie e quelle esistenti continuano a funzionare senza causare fallback locale non necessario.
 
 Entrambi gli hook devono restituire solo dati strutturati per anteprima e validazione: il plugin non crea post, non crea bozze, non pubblica contenuti e non chiama OpenAI direttamente.
+
+## Diagnostica AI
+
+La sezione **WP AI Publisher > Diagnostica AI** serve a scoprire cosa espone davvero il sistema AI WordPress installato sul sito prima di implementare un’integrazione definitiva con il connector OpenAI già configurato. È una pagina di debugging runtime: non inventa un’integrazione, ma elenca ciò che WordPress, plugin AI, connector, abilities, classi PHP e route REST rendono disponibile nel processo corrente.
+
+La diagnostica rileva:
+
+- funzioni PHP note o probabili legate ad AI, abilities, connector, models ed experiments;
+- classi PHP probabili del layer WordPress AI, AI Services e registri ability;
+- REST route registrate che contengono keyword AI o di generazione, senza chiamarle automaticamente;
+- option WordPress potenzialmente collegate ad AI, sempre mascherate se il nome o il valore suggeriscono chiavi, token, secret, password, credenziali, bearer, auth, API o OpenAI;
+- plugin attivi collegati ad AI, OpenAI, connector, services, abilities, Git Updater, AIOSEO, Classic Editor e Disable Gutenberg;
+- esperimenti AI deducibili dalle option rilevate;
+- possibili percorsi di generazione, distinguendo `available`, `maybe` e `unavailable`.
+
+La pagina non legge né mostra chiavi API, non salva token, non salva risultati del test nel database, non crea post, non crea bozze, non pubblica contenuti, non genera immagini, non chiama endpoint REST automaticamente e non usa Gutenberg.
+
+Il pulsante **Esegui test AI controllato** è manuale, protetto da nonce e disponibile solo agli amministratori con `manage_options`. Quando viene premuto, il plugin tenta soltanto funzioni o client locali già rilevati, con un prompt brevissimo che richiede JSON valido. Il test non chiama OpenAI direttamente e mostra nella pagina solo path usato, esito, tipo risposta ed estratto mascherato fino a 500 caratteri.
+
+Se il sistema AI WordPress è presente ma non espone una funzione o un client invocabile in modo sicuro, WP AI Publisher può continuare a cadere nel fallback locale durante il dry-run. In quel caso la pagina consiglia di usare Abilities Explorer per individuare la callback reale oppure di registrare un bridge tramite il filtro `wpai_publisher_generate_structured_content_dry_run`, mantenendo il filtro legacy `wpai_publisher_structured_content_dry_run` per compatibilità.
 
 ## Plugin terzi controllati
 
@@ -103,6 +124,15 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.3.4
+- Aggiunta pagina Diagnostica AI.
+- Aggiunto rilevamento runtime di funzioni, classi, REST route, options e plugin collegati al sistema AI WordPress.
+- Aggiunto test AI controllato eseguibile manualmente dall’amministratore.
+- Aggiunta diagnostica dei possibili percorsi di generazione AI.
+- Aggiunta sezione bridge manuale per collegare il connector AI reale.
+- Nessuna chiave API viene mostrata o salvata.
+- Nessuna chiamata OpenAI diretta.
 
 ### 0.3.3
 - Ripristinata compatibilità con il filtro legacy `wpai_publisher_structured_content_dry_run`.

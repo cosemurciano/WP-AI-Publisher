@@ -66,6 +66,32 @@ class System_Status {
 		$wp_ai_available     = $this->ai_provider->is_wordpress_ai_client_available();
 		$validator_available       = class_exists( __NAMESPACE__ . '\Structured_Output_Validator' );
 		$classic_builder_available = class_exists( __NAMESPACE__ . '\Classic_Content_Builder' );
+		$ai_diagnostics_available  = class_exists( __NAMESPACE__ . '\AI_Diagnostics' );
+		$ai_diagnostics_paths      = array();
+		$ai_diagnostics_routes     = array();
+
+		if ( $ai_diagnostics_available ) {
+			$ai_diagnostics        = new AI_Diagnostics( $this->ai_provider, $this->logger );
+			$ai_diagnostics_paths  = $ai_diagnostics->get_possible_generation_paths();
+			$ai_diagnostics_routes = $ai_diagnostics->get_detected_rest_routes();
+		}
+
+		$available_generation_paths = array_filter(
+			$ai_diagnostics_paths,
+			static function ( $path ) {
+				return 'available' === ( $path['status'] ?? '' ) && false === stripos( $path['label'] ?? '', 'fallback' );
+			}
+		);
+		$maybe_generation_paths = array_filter(
+			$ai_diagnostics_paths,
+			static function ( $path ) {
+				return 'maybe' === ( $path['status'] ?? '' );
+			}
+		);
+		$generation_paths_status = ! empty( $available_generation_paths ) ? 'ok' : ( ! empty( $maybe_generation_paths ) ? 'warning' : 'warning' );
+		$generation_paths_label  = ! empty( $available_generation_paths )
+			? sprintf( __( '%d percorso/i available rilevati', 'wp-ai-publisher' ), count( $available_generation_paths ) )
+			: ( ! empty( $maybe_generation_paths ) ? sprintf( __( '%d percorso/i maybe rilevati; serve bridge o verifica manuale', 'wp-ai-publisher' ), count( $maybe_generation_paths ) ) : __( 'Solo fallback locale disponibile', 'wp-ai-publisher' ) );
 		$checks                    = array(
 			$this->row( __( 'Versione plugin', 'wp-ai-publisher' ), WPAIP_VERSION, 'ok' ),
 			$this->row( __( 'Versione WordPress', 'wp-ai-publisher' ), (string) $wp_version, version_compare( $wp_version, '7.0', '>=' ) ? 'ok' : 'error' ),
@@ -79,6 +105,9 @@ class System_Status {
 			$this->row( __( 'Validatore output strutturato', 'wp-ai-publisher' ), $validator_available ? __( 'Classe Structured_Output_Validator disponibile', 'wp-ai-publisher' ) : __( 'Validazione interna basilare', 'wp-ai-publisher' ), $validator_available ? 'ok' : 'warning' ),
 			$this->row( __( 'Classic Content Builder', 'wp-ai-publisher' ), $classic_builder_available ? __( 'Classe Classic_Content_Builder disponibile', 'wp-ai-publisher' ) : __( 'Classe Classic_Content_Builder non disponibile', 'wp-ai-publisher' ), $classic_builder_available ? 'ok' : 'error' ),
 			$this->row( __( 'OpenAI diretto', 'wp-ai-publisher' ), __( 'Disabilitato: il plugin non usa un client custom', 'wp-ai-publisher' ), 'not-configured' ),
+			$this->row( __( 'Diagnostica AI', 'wp-ai-publisher' ), $ai_diagnostics_available ? __( 'Classe AI_Diagnostics disponibile', 'wp-ai-publisher' ) : __( 'Classe AI_Diagnostics non disponibile', 'wp-ai-publisher' ), $ai_diagnostics_available ? 'ok' : 'error' ),
+			$this->row( __( 'Percorsi generazione AI', 'wp-ai-publisher' ), $generation_paths_label, $generation_paths_status ),
+			$this->row( __( 'REST route AI', 'wp-ai-publisher' ), ! empty( $ai_diagnostics_routes ) ? sprintf( __( '%d route AI rilevate', 'wp-ai-publisher' ), count( $ai_diagnostics_routes ) ) : __( 'Nessuna route AI rilevata', 'wp-ai-publisher' ), ! empty( $ai_diagnostics_routes ) ? 'ok' : 'warning' ),
 		);
 
 		$checks = array_merge( $checks, $this->get_third_party_checks() );
