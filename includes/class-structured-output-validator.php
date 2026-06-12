@@ -46,6 +46,12 @@ class Structured_Output_Validator {
 			}
 		}
 
+		$classic_notes = $this->validate_classic_editor_preview( $normalized['classic_editor_preview'] ?? array() );
+		if ( ! empty( $classic_notes ) ) {
+			$is_valid = false;
+			$notes    = array_merge( $notes, $classic_notes );
+		}
+
 		$normalized['validation_notes'] = array_values( array_unique( array_filter( array_map( 'strval', $notes ) ) ) );
 
 		return array(
@@ -113,12 +119,17 @@ class Structured_Output_Validator {
 			'validation_notes'       => array(),
 			'language'               => 'it',
 			'source'                 => 'unknown',
+			'classic_editor_preview' => array(
+				'html'               => '',
+				'plain_text_summary' => '',
+				'validation_notes'   => array(),
+			),
 		);
 
 		foreach ( $defaults as $field => $default ) {
 			if ( ! array_key_exists( $field, $output ) ) {
 				$output[ $field ] = $default;
-				if ( ! in_array( $field, $this->get_required_fields(), true ) ) {
+				if ( ! in_array( $field, $this->get_required_fields(), true ) && 'classic_editor_preview' !== $field ) {
 					$notes[] = sprintf( __( 'Campo non critico aggiunto con valore predefinito: %s.', 'wp-ai-publisher' ), $field );
 				}
 			}
@@ -215,6 +226,42 @@ class Structured_Output_Validator {
 		}
 
 		return $normalized;
+	}
+
+	/**
+	 * Validate Classic Editor preview safety constraints when present.
+	 *
+	 * @param mixed $preview Preview data.
+	 * @return array<int,string>
+	 */
+	private function validate_classic_editor_preview( $preview ) {
+		if ( empty( $preview ) || ! is_array( $preview ) ) {
+			return array();
+		}
+
+		$notes = array();
+		$html  = (string) ( $preview['html'] ?? '' );
+
+		if ( '' === trim( wp_strip_all_tags( $html ) ) ) {
+			$notes[] = __( 'classic_editor_preview.html è vuoto.', 'wp-ai-publisher' );
+		}
+
+		$checks = array(
+			'<!-- wp:' => __( 'Nota grave: classic_editor_preview contiene markup Gutenberg.', 'wp-ai-publisher' ),
+			'wp-block' => __( 'Nota grave: classic_editor_preview contiene classi o stringhe Gutenberg.', 'wp-ai-publisher' ),
+			'<script'  => __( 'Nota grave: classic_editor_preview contiene script non consentiti.', 'wp-ai-publisher' ),
+			'<iframe'  => __( 'Nota grave: classic_editor_preview contiene iframe non consentiti.', 'wp-ai-publisher' ),
+			' style='  => __( 'Nota grave: classic_editor_preview contiene style inline non consentiti.', 'wp-ai-publisher' ),
+		);
+
+		$lower_html = strtolower( $html );
+		foreach ( $checks as $needle => $message ) {
+			if ( false !== strpos( $lower_html, strtolower( $needle ) ) ) {
+				$notes[] = $message;
+			}
+		}
+
+		return array_values( array_unique( array_filter( $notes ) ) );
 	}
 
 	/**

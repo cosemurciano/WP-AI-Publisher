@@ -538,6 +538,11 @@ class AI_Provider_Adapter {
 			'validation_notes'       => array( 'string' ),
 			'language'               => 'it',
 			'source'                 => 'wordpress_ai|local_fallback',
+			'classic_editor_preview' => array(
+				'html'               => 'string',
+				'plain_text_summary' => 'string',
+				'validation_notes'   => array( 'string' ),
+			),
 		);
 	}
 
@@ -1055,9 +1060,8 @@ class AI_Provider_Adapter {
 		$language        = sanitize_key( (string) ( $payload['language'] ?? 'it' ) );
 		$target_audience = sanitize_text_field( (string) ( $payload['target_audience'] ?? '' ) );
 		$tutorial_level  = sanitize_key( (string) ( $payload['tutorial_level'] ?? 'base' ) );
-		$title_seed      = '' !== $keyword ? $keyword : wp_trim_words( $topic, 8, '' );
-		$title           = sprintf( __( 'Guida pratica: %s', 'wp-ai-publisher' ), $title_seed );
-		$slug            = sanitize_title( $title );
+		$title           = $this->build_contextual_local_title( $topic, $keyword );
+		$slug            = $this->build_contextual_local_slug( $title );
 		$audience_text   = '' !== $target_audience ? $target_audience : __( 'utenti WordPress', 'wp-ai-publisher' );
 		$outline         = $this->build_contextual_local_outline( $topic, $keyword );
 
@@ -1118,29 +1122,56 @@ class AI_Provider_Adapter {
 			$entity = __( 'il tema scelto', 'wp-ai-publisher' );
 		}
 
-		$topic_lower = strtolower( $topic . ' ' . $keyword );
-		if ( false !== strpos( $topic_lower, 'wpml' ) ) {
+		$patterns = $this->detect_wordpress_editorial_patterns( $topic, $keyword );
+
+		if ( in_array( 'wpml', $patterns, true ) ) {
 			$headings = array(
-				__( 'Cos’è WPML e quando usarlo', 'wp-ai-publisher' ),
+				__( 'Cos’è WPML e a cosa serve', 'wp-ai-publisher' ),
+				__( 'Quando conviene usare WPML', 'wp-ai-publisher' ),
 				__( 'Requisiti prima dell’installazione', 'wp-ai-publisher' ),
 				__( 'Installazione e attivazione del plugin', 'wp-ai-publisher' ),
 				__( 'Configurazione guidata delle lingue', 'wp-ai-publisher' ),
 				__( 'Traduzione di pagine e articoli', 'wp-ai-publisher' ),
-				__( 'Traduzione menu, stringhe e tassonomie', 'wp-ai-publisher' ),
+				__( 'Traduzione menu e stringhe del tema', 'wp-ai-publisher' ),
 				__( 'SEO multilingua e URL', 'wp-ai-publisher' ),
+				__( 'Errori comuni da evitare', 'wp-ai-publisher' ),
+				__( 'Verifica finale', 'wp-ai-publisher' ),
+			);
+		} elseif ( in_array( 'menu', $patterns, true ) ) {
+			$headings = array(
+				__( 'Cos’è un menù di navigazione in WordPress', 'wp-ai-publisher' ),
+				__( 'Dove si gestiscono i menù nel pannello di WordPress', 'wp-ai-publisher' ),
+				__( 'Come creare un nuovo menù', 'wp-ai-publisher' ),
+				__( 'Come aggiungere pagine, articoli e categorie al menù', 'wp-ai-publisher' ),
+				__( 'Come ordinare le voci del menù', 'wp-ai-publisher' ),
+				__( 'Come assegnare il menù a una posizione del tema', 'wp-ai-publisher' ),
+				__( 'Come creare sottovoci e menù a tendina', 'wp-ai-publisher' ),
+				__( 'Come verificare il menù sul sito', 'wp-ai-publisher' ),
+				__( 'Errori comuni da evitare', 'wp-ai-publisher' ),
+				__( 'Prossimi passi', 'wp-ai-publisher' ),
+			);
+		} elseif ( in_array( 'plugin', $patterns, true ) ) {
+			$headings = array(
+				sprintf( __( 'Cos’è il plugin %s', 'wp-ai-publisher' ), $entity ),
+				__( 'Quando conviene usare un plugin WordPress', 'wp-ai-publisher' ),
+				__( 'Requisiti prima dell’installazione', 'wp-ai-publisher' ),
+				__( 'Installazione e attivazione dal pannello Plugin', 'wp-ai-publisher' ),
+				__( 'Configurazione iniziale in sicurezza', 'wp-ai-publisher' ),
+				__( 'Impostazioni da verificare dopo l’attivazione', 'wp-ai-publisher' ),
+				__( 'Compatibilità con tema e altri plugin', 'wp-ai-publisher' ),
 				__( 'Errori comuni da evitare', 'wp-ai-publisher' ),
 				__( 'Verifica finale', 'wp-ai-publisher' ),
 			);
 		} else {
 			$headings = array(
-				sprintf( __( 'Cos’è %s', 'wp-ai-publisher' ), $entity ),
-				sprintf( __( 'Quando serve %s', 'wp-ai-publisher' ), $entity ),
+				sprintf( __( 'Cos’è %s in WordPress', 'wp-ai-publisher' ), $entity ),
+				sprintf( __( 'Quando è utile lavorare su %s', 'wp-ai-publisher' ), $entity ),
 				__( 'Prerequisiti e controlli iniziali', 'wp-ai-publisher' ),
-				__( 'Installazione o preparazione operativa', 'wp-ai-publisher' ),
-				__( 'Configurazione passo passo', 'wp-ai-publisher' ),
-				__( 'Uso pratico nel sito WordPress', 'wp-ai-publisher' ),
+				__( 'Percorso operativo passo passo', 'wp-ai-publisher' ),
+				__( 'Impostazioni da controllare nel pannello WordPress', 'wp-ai-publisher' ),
+				__( 'Verifiche sul sito pubblico', 'wp-ai-publisher' ),
 				__( 'Errori comuni da evitare', 'wp-ai-publisher' ),
-				__( 'Verifica finale e prossimi passi', 'wp-ai-publisher' ),
+				__( 'Prossimi passi consigliati', 'wp-ai-publisher' ),
 			);
 		}
 
@@ -1154,6 +1185,121 @@ class AI_Provider_Adapter {
 		}
 
 		return $outline;
+	}
+
+	/**
+	 * Build a readable fallback title from topic and keyword.
+	 *
+	 * @param string $topic Topic.
+	 * @param string $keyword Keyword.
+	 * @return string
+	 */
+	private function build_contextual_local_title( $topic, $keyword ) {
+		$raw      = trim( '' !== $topic ? $topic : $keyword );
+		$raw      = $this->normalize_brand_capitalization( $raw );
+		$raw_slug = strtolower( remove_accents( $raw ) );
+
+		if ( false !== strpos( $raw_slug, 'wpml' ) ) {
+			return __( 'Come usare WPML in WordPress', 'wp-ai-publisher' );
+		}
+
+		if ( false !== strpos( $raw_slug, 'menu' ) || false !== strpos( $raw_slug, 'navigazione' ) ) {
+			return __( 'Come creare un menù di navigazione in WordPress', 'wp-ai-publisher' );
+		}
+
+		if ( preg_match( '/\bcome\b/i', $raw_slug ) ) {
+			$clean = preg_replace( '/\bwordpress\b/i', 'WordPress', $raw );
+			$clean = preg_replace( '/^come\s+/i', '', (string) $clean );
+			$clean = trim( preg_replace( '/\s+/', ' ', (string) $clean ) );
+			if ( '' !== $clean ) {
+				return 'Come ' . lcfirst( $this->normalize_brand_capitalization( $clean ) );
+			}
+		}
+
+		$clean = '' !== $raw ? $raw : __( 'contenuto WordPress', 'wp-ai-publisher' );
+		$clean = $this->normalize_brand_capitalization( $clean );
+
+		if ( str_word_count( wp_strip_all_tags( $clean ) ) < 3 ) {
+			return sprintf( __( 'Come gestire %s in WordPress', 'wp-ai-publisher' ), lcfirst( $clean ) );
+		}
+
+		return ucfirst( $clean );
+	}
+
+	/**
+	 * Build a clean slug from the generated fallback title.
+	 *
+	 * @param string $title Title.
+	 * @return string
+	 */
+	private function build_contextual_local_slug( $title ) {
+		$slug = sanitize_title( str_replace( 'menù', 'menu', $title ) );
+		$stop_words = array( 'un', 'una', 'il', 'lo', 'la', 'le', 'gli', 'di', 'a', 'in', 'per', 'con' );
+		$parts = array_values( array_filter( explode( '-', $slug ), static function ( $part ) use ( $stop_words ) {
+			return '' !== $part && ! in_array( $part, $stop_words, true );
+		} ) );
+
+		return implode( '-', $parts );
+	}
+
+	/**
+	 * Detect common WordPress editorial patterns.
+	 *
+	 * @param string $topic Topic.
+	 * @param string $keyword Keyword.
+	 * @return array<int,string>
+	 */
+	private function detect_wordpress_editorial_patterns( $topic, $keyword ) {
+		$haystack = strtolower( remove_accents( $topic . ' ' . $keyword ) );
+		$map      = array(
+			'menu'           => array( 'menu', 'menu di navigazione', 'navigazione' ),
+			'plugin'         => array( 'plugin' ),
+			'tema'           => array( 'tema', 'theme' ),
+			'pagina'         => array( 'pagina', 'pagine' ),
+			'articolo'       => array( 'articolo', 'articoli', 'post' ),
+			'categorie'      => array( 'categoria', 'categorie' ),
+			'tag'            => array( 'tag' ),
+			'permalink'      => array( 'permalink' ),
+			'seo'            => array( 'seo' ),
+			'sicurezza'      => array( 'sicurezza', 'security' ),
+			'backup'         => array( 'backup' ),
+			'woocommerce'    => array( 'woocommerce' ),
+			'wpml'           => array( 'wpml' ),
+			'elementor'      => array( 'elementor' ),
+			'classic_editor' => array( 'classic editor', 'editor classico' ),
+			'media_library'  => array( 'media library', 'libreria media' ),
+		);
+
+		$detected = array();
+		foreach ( $map as $pattern => $needles ) {
+			foreach ( $needles as $needle ) {
+				if ( false !== strpos( $haystack, $needle ) ) {
+					$detected[] = $pattern;
+					break;
+				}
+			}
+		}
+
+		return array_values( array_unique( $detected ) );
+	}
+
+	/**
+	 * Normalize well-known product and platform capitalization.
+	 *
+	 * @param string $text Text.
+	 * @return string
+	 */
+	private function normalize_brand_capitalization( $text ) {
+		$replacements = array(
+			'/\bwordpress\b/i'      => 'WordPress',
+			'/\bwpml\b/i'           => 'WPML',
+			'/\bseo\b/i'            => 'SEO',
+			'/\bwoocommerce\b/i'    => 'WooCommerce',
+			'/\belementor\b/i'      => 'Elementor',
+			'/\bclassic editor\b/i' => 'Classic Editor',
+		);
+
+		return preg_replace( array_keys( $replacements ), array_values( $replacements ), (string) $text );
 	}
 
 	/**

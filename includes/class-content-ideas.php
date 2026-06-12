@@ -292,8 +292,20 @@ class Content_Ideas {
 			$notes[] = __( 'Risultato prodotto tramite sistema AI di WordPress.', 'wp-ai-publisher' );
 		}
 
-		$notes                         = array_values( array_unique( array_filter( array_map( 'strval', $notes ) ) ) );
-		$normalized['validation_notes'] = $notes;
+		$classic_builder    = new Classic_Content_Builder();
+		$classic_preview    = $classic_builder->build_from_dry_run( $normalized );
+		$classic_validation = $this->validate_classic_editor_preview( $classic_preview );
+
+		if ( ! $classic_validation['valid'] ) {
+			$is_valid = false;
+		}
+
+		$notes = array_merge( $notes, $classic_preview['validation_notes'], $classic_validation['notes'] );
+		$notes = array_values( array_unique( array_filter( array_map( 'strval', $notes ) ) ) );
+
+		$classic_preview['validation_notes'] = array_values( array_unique( array_filter( array_merge( $classic_preview['validation_notes'], $classic_validation['notes'] ) ) ) );
+		$normalized['classic_editor_preview'] = $classic_preview;
+		$normalized['validation_notes']       = $notes;
 
 		$saved = $this->save_dry_run_output( (int) $idea->id, $normalized, $notes );
 		if ( is_wp_error( $saved ) ) {
@@ -379,6 +391,11 @@ class Content_Ideas {
 			'cluster_topic'          => '',
 			'subtopic'               => '',
 			'validation_notes'       => array(),
+			'classic_editor_preview' => array(
+				'html'               => '',
+				'plain_text_summary' => '',
+				'validation_notes'   => array(),
+			),
 		);
 
 		if ( ! is_array( $output ) ) {
@@ -433,11 +450,12 @@ class Content_Ideas {
 	 * @param mixed $value Value to sanitize.
 	 * @return mixed
 	 */
-	private function sanitize_structured_output( $value ) {
+	private function sanitize_structured_output( $value, $current_key = '' ) {
 		if ( is_array( $value ) ) {
 			$sanitized = array();
 			foreach ( $value as $key => $item ) {
-				$sanitized[ sanitize_key( (string) $key ) ] = $this->sanitize_structured_output( $item );
+				$sanitized_key               = sanitize_key( (string) $key );
+				$sanitized[ $sanitized_key ] = $this->sanitize_structured_output( $item, $sanitized_key );
 			}
 
 			return $sanitized;
@@ -452,10 +470,60 @@ class Content_Ideas {
 		}
 
 		if ( is_scalar( $value ) ) {
+			if ( 'html' === $current_key ) {
+				$classic_builder = new Classic_Content_Builder();
+				return $classic_builder->sanitize_classic_html( (string) $value );
+			}
+
 			return sanitize_textarea_field( (string) $value );
 		}
 
 		return null;
+	}
+
+	/**
+	 * Validate the Classic Editor preview contract.
+	 *
+	 * @param mixed $preview Preview array.
+	 * @return array{valid:bool,notes:array<int,string>}
+	 */
+	private function validate_classic_editor_preview( $preview ) {
+		$notes = array();
+		$valid = true;
+
+		if ( ! is_array( $preview ) ) {
+			return array(
+				'valid' => false,
+				'notes' => array( __( 'Anteprima Classic Editor mancante o non valida.', 'wp-ai-publisher' ) ),
+			);
+		}
+
+		$html = (string) ( $preview['html'] ?? '' );
+		if ( '' === trim( wp_strip_all_tags( $html ) ) ) {
+			$notes[] = __( 'classic_editor_preview.html è vuoto.', 'wp-ai-publisher' );
+			$valid   = false;
+		}
+
+		$checks = array(
+			'<!-- wp:' => __( 'Nota grave: classic_editor_preview contiene markup Gutenberg.', 'wp-ai-publisher' ),
+			'wp-block' => __( 'Nota grave: classic_editor_preview contiene classi o stringhe Gutenberg.', 'wp-ai-publisher' ),
+			'<script'  => __( 'Nota grave: classic_editor_preview contiene script non consentiti.', 'wp-ai-publisher' ),
+			'<iframe'  => __( 'Nota grave: classic_editor_preview contiene iframe non consentiti.', 'wp-ai-publisher' ),
+			' style='  => __( 'Nota grave: classic_editor_preview contiene style inline non consentiti.', 'wp-ai-publisher' ),
+		);
+
+		$lower_html = strtolower( $html );
+		foreach ( $checks as $needle => $message ) {
+			if ( false !== strpos( $lower_html, strtolower( $needle ) ) ) {
+				$notes[] = $message;
+				$valid   = false;
+			}
+		}
+
+		return array(
+			'valid' => $valid,
+			'notes' => array_values( array_unique( array_filter( $notes ) ) ),
+		);
 	}
 
 	/**

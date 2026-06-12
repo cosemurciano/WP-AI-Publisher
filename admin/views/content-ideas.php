@@ -176,6 +176,9 @@ $render_list = static function ( $items ) {
 			$generation_source = 'unknown';
 		}
 		$source_badge_class = 'wordpress_ai' === $generation_source ? 'wpai-badge wpai-badge--ok' : ( 'local_fallback' === $generation_source ? 'wpai-badge wpai-badge--warning' : 'wpai-badge wpai-badge--not-verified' );
+		$classic_preview = isset( $dry_run_data['classic_editor_preview'] ) && is_array( $dry_run_data['classic_editor_preview'] ) ? $dry_run_data['classic_editor_preview'] : array();
+		$classic_html    = isset( $classic_preview['html'] ) ? (string) $classic_preview['html'] : '';
+		$classic_notes   = isset( $classic_preview['validation_notes'] ) && is_array( $classic_preview['validation_notes'] ) ? $classic_preview['validation_notes'] : array();
 		?>
 		<section class="wpai-card" style="margin-top:20px;">
 			<h2><?php echo esc_html__( 'Risultato dry-run', 'wp-ai-publisher' ); ?> #<?php echo esc_html( (string) $selected_idea->id ); ?></h2>
@@ -241,6 +244,26 @@ $render_list = static function ( $items ) {
 
 				<h3><?php echo esc_html__( 'Link interni previsti', 'wp-ai-publisher' ); ?></h3>
 				<?php $render_list( $dry_run_data['internal_link_targets'] ?? array() ); ?>
+
+				<h3><?php echo esc_html__( 'Anteprima contenuto per Editor Classico', 'wp-ai-publisher' ); ?></h3>
+				<p>
+					<span class="wpai-badge wpai-badge--ok"><?php echo esc_html__( 'Compatibile con Editor Classico', 'wp-ai-publisher' ); ?></span>
+				</p>
+				<p><?php echo esc_html__( 'Questa anteprima usa HTML pulito compatibile con l’Editor Classico di WordPress. Non sono presenti blocchi Gutenberg.', 'wp-ai-publisher' ); ?></p>
+				<?php if ( 'local_fallback' === $generation_source ) : ?>
+					<div class="notice notice-warning inline">
+						<p><?php echo esc_html__( 'Il contenuto è una simulazione locale utile per testare il flusso. Prima della bozza reale sarà necessaria generazione AI o revisione umana.', 'wp-ai-publisher' ); ?></p>
+					</div>
+				<?php endif; ?>
+				<div class="wpai-classic-preview">
+					<?php echo wp_kses_post( $classic_html ); ?>
+				</div>
+				<h4><?php echo esc_html__( 'HTML generato per debug o copia manuale', 'wp-ai-publisher' ); ?></h4>
+				<textarea class="large-text code" rows="12" readonly><?php echo esc_textarea( $classic_html ); ?></textarea>
+				<?php if ( ! empty( $classic_notes ) ) : ?>
+					<h4><?php echo esc_html__( 'Diagnostica compatibilità Classic Editor', 'wp-ai-publisher' ); ?></h4>
+					<?php $render_list( $classic_notes ); ?>
+				<?php endif; ?>
 
 				<h3><?php echo esc_html__( 'Note di validazione', 'wp-ai-publisher' ); ?></h3>
 				<?php $render_list( $notes_data ); ?>
