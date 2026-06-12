@@ -294,6 +294,7 @@ class Content_Ideas {
 
 		$classic_builder    = new Classic_Content_Builder();
 		$classic_preview    = $classic_builder->build_from_dry_run( $normalized );
+		$classic_preview['validation_notes'] = $this->remove_generic_placeholder_preview_notes( $classic_preview['validation_notes'] ?? array() );
 		$classic_validation = $this->validate_classic_editor_preview( $classic_preview );
 
 		if ( ! $classic_validation['valid'] ) {
@@ -482,14 +483,33 @@ class Content_Ideas {
 	}
 
 	/**
+	 * Remove legacy generic placeholder notes so the standalone word passaggio is not a false positive.
+	 *
+	 * @param mixed $notes Preview notes.
+	 * @return array<int,string>
+	 */
+	private function remove_generic_placeholder_preview_notes( $notes ) {
+		$filtered = array();
+		foreach ( (array) $notes as $note ) {
+			$note_text = strtolower( remove_accents( (string) $note ) );
+			if ( false !== strpos( $note_text, 'placeholder' ) ) {
+				continue;
+			}
+			$filtered[] = (string) $note;
+		}
+
+		return array_values( array_unique( array_filter( $filtered ) ) );
+	}
+
+	/**
 	 * Validate the Classic Editor preview contract.
 	 *
 	 * @param mixed $preview Preview array.
 	 * @return array{valid:bool,notes:array<int,string>}
 	 */
 	private function validate_classic_editor_preview( $preview ) {
-		$notes = array();
-		$valid = true;
+		$notes       = array();
+		$grave_notes = array();
 
 		if ( ! is_array( $preview ) ) {
 			return array(
@@ -500,31 +520,46 @@ class Content_Ideas {
 
 		$html = (string) ( $preview['html'] ?? '' );
 		if ( '' === trim( wp_strip_all_tags( $html ) ) ) {
-			$notes[] = __( 'classic_editor_preview.html è vuoto.', 'wp-ai-publisher' );
-			$valid   = false;
+			$grave_notes[] = __( 'Nota grave: classic_editor_preview.html è vuoto.', 'wp-ai-publisher' );
 		}
 
-		$checks = array(
+		$grave_checks = array(
 			'<!-- wp:' => __( 'Nota grave: classic_editor_preview contiene markup Gutenberg.', 'wp-ai-publisher' ),
 			'wp-block' => __( 'Nota grave: classic_editor_preview contiene classi o stringhe Gutenberg.', 'wp-ai-publisher' ),
 			'<script'  => __( 'Nota grave: classic_editor_preview contiene script non consentiti.', 'wp-ai-publisher' ),
 			'<iframe'  => __( 'Nota grave: classic_editor_preview contiene iframe non consentiti.', 'wp-ai-publisher' ),
 			' style='  => __( 'Nota grave: classic_editor_preview contiene style inline non consentiti.', 'wp-ai-publisher' ),
-			'descrivere in modo' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
-			'passaggio' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
-			'nel contesto di' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+		);
+		$light_checks = array(
+			'descrivere in modo pratico',
+			'descrivere in modo verificabile',
+			'descrivere il passaggio',
+			'nel contesto di',
+			'evitando dettagli tecnici non confermati',
+			'passaggio “',
+			'passaggio "',
 		);
 
-		$lower_html = strtolower( $html );
-		foreach ( $checks as $needle => $message ) {
-			if ( false !== strpos( $lower_html, strtolower( $needle ) ) ) {
-				$notes[] = $message;
-				$valid   = false;
+		$lower_html = function_exists( 'mb_strtolower' ) ? mb_strtolower( $html ) : strtolower( $html );
+		foreach ( $grave_checks as $needle => $message ) {
+			$needle = function_exists( 'mb_strtolower' ) ? mb_strtolower( $needle ) : strtolower( $needle );
+			if ( false !== strpos( $lower_html, $needle ) ) {
+				$grave_notes[] = $message;
 			}
 		}
 
+		foreach ( $light_checks as $needle ) {
+			$needle = function_exists( 'mb_strtolower' ) ? mb_strtolower( $needle ) : strtolower( $needle );
+			if ( false !== strpos( $lower_html, $needle ) ) {
+				$notes[] = __( 'Nota lieve: l’anteprima contiene frasi placeholder e resta dry-run ready, ma è da revisionare.', 'wp-ai-publisher' );
+				break;
+			}
+		}
+
+		$notes = array_merge( $grave_notes, $notes );
+
 		return array(
-			'valid' => $valid,
+			'valid' => empty( $grave_notes ),
 			'notes' => array_values( array_unique( array_filter( $notes ) ) ),
 		);
 	}
