@@ -1,18 +1,18 @@
 <?php
 /**
  * Plugin Name: WP AI Publisher
- * Plugin URI: https://github.com/OWNER/wp-ai-publisher
- * Description: Modular foundation for assisted AI publishing workflows, structured drafts, media, SEO metadata, internal links, knowledge indexing, queues, dry-runs, duplicate checks, and future OpenAI integrations.
- * Version: 0.1.0
+ * Plugin URI: https://github.com/cosemurciano/WP-AI-Publisher
+ * Description: Base modulare per la pubblicazione assistita da AI in WordPress, con stato sistema, impostazioni, log e adapter per il sistema AI nativo di WordPress.
+ * Version: 0.1.1
  * Requires at least: 7.0
  * Requires PHP: 8.1
  * Author: WP AI Publisher Team
- * Author URI: https://github.com/OWNER
+ * Author URI: https://github.com/cosemurciano
  * License: GPL-3.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-3.0.html
  * Text Domain: wp-ai-publisher
  * Domain Path: /languages
- * Update URI: https://github.com/OWNER/wp-ai-publisher
+ * Update URI: https://github.com/cosemurciano/WP-AI-Publisher
  *
  * @package WPAIPublisher
  */
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WPAIP_VERSION', '0.1.0' );
+define( 'WPAIP_VERSION', '0.1.1' );
 define( 'WPAIP_PLUGIN_FILE', __FILE__ );
 define( 'WPAIP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPAIP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
