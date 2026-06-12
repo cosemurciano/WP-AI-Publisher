@@ -135,12 +135,12 @@ $confidence_labels = array(
 	<?php endif; ?>
 
 	<h2><?php echo esc_html__( '7. Abilities WordPress rilevate', 'wp-ai-publisher' ); ?></h2>
-	<p><?php echo esc_html__( 'Se una ability sembra adatta alla generazione testo, indicarne il nome nelle impostazioni future o nel bridge manuale.', 'wp-ai-publisher' ); ?></p>
+	<p><?php echo esc_html__( 'Il dry-run invoca solo abilities candidate considerate sicure: allowlistate, approvate da filtro o chiaramente read-only/non distruttive.', 'wp-ai-publisher' ); ?></p>
 	<?php if ( empty( $report['abilities'] ) ) : ?>
 		<p><?php echo esc_html__( 'Nessuna ability WordPress rilevata tramite wp_get_abilities.', 'wp-ai-publisher' ); ?></p>
 	<?php else : ?>
 		<table class="widefat striped wpai-status-table">
-			<thead><tr><th><?php echo esc_html__( 'Name', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Label/title', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Description', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Category', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Input schema', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Output schema', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Candidato generazione', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Invocabile', 'wp-ai-publisher' ); ?></th></tr></thead>
+			<thead><tr><th><?php echo esc_html__( 'Name', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Label/title', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Description', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Category', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Input schema', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Output schema', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Candidata generazione', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Sicura per dry-run', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Motivo sicurezza', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Segnali pericolosi rilevati', 'wp-ai-publisher' ); ?></th><th><?php echo esc_html__( 'Invocabile', 'wp-ai-publisher' ); ?></th></tr></thead>
 			<tbody>
 				<?php foreach ( $report['abilities'] as $ability ) : ?>
 					<tr>
@@ -151,12 +151,38 @@ $confidence_labels = array(
 						<td><?php echo esc_html( $ability['input_schema'] ); ?></td>
 						<td><?php echo esc_html( $ability['output_schema'] ); ?></td>
 						<td><?php echo esc_html( $ability['generation_candidate'] ?? __( 'No', 'wp-ai-publisher' ) ); ?></td>
+						<td><?php echo esc_html( $ability['safe_for_dry_run'] ?? __( 'No', 'wp-ai-publisher' ) ); ?></td>
+						<td><?php echo esc_html( $ability['safety_reason'] ?? '' ); ?></td>
+						<td><?php echo esc_html( $ability['dangerous_signals'] ?? __( 'Nessuno', 'wp-ai-publisher' ) ); ?></td>
 						<td><?php echo esc_html( $ability['invocable'] ); ?></td>
 					</tr>
 				<?php endforeach; ?>
 			</tbody>
 		</table>
 	<?php endif; ?>
+
+	<div class="wpai-card">
+		<h3><?php echo esc_html__( 'Come abilitare una ability sicura', 'wp-ai-publisher' ); ?></h3>
+		<p><?php echo esc_html__( 'Aggiungi in allowlist solo abilities testuali e non distruttive. In alternativa registra uno dei filtri seguenti da un plugin mu-plugin o da codice controllato.', 'wp-ai-publisher' ); ?></p>
+		<pre><code><?php echo esc_html("add_filter(
+  'wpai_publisher_safe_ai_ability_names',
+  function ( \$names ) {
+      \$names[] = 'nome/ability/testuale/sicura';
+      return \$names;
+  }
+);"); ?></code></pre>
+		<pre><code><?php echo esc_html("add_filter(
+  'wpai_publisher_is_ability_safe_for_dry_run',
+  function ( \$safe, \$ability, \$metadata ) {
+      if ( isset( \$metadata['name'] ) && 'nome/ability/testuale/sicura' === \$metadata['name'] ) {
+          return true;
+      }
+      return \$safe;
+  },
+  10,
+  3
+);"); ?></code></pre>
+	</div>
 
 	<h2><?php echo esc_html__( '8. Plugin AI rilevati', 'wp-ai-publisher' ); ?></h2>
 	<?php if ( empty( $report['plugins'] ) ) : ?>
@@ -193,7 +219,7 @@ $confidence_labels = array(
 	</table>
 
 	<h2><?php echo esc_html__( '10. Test AI controllato', 'wp-ai-publisher' ); ?></h2>
-	<p><?php echo esc_html__( 'Il test viene eseguito solo quando premi il pulsante. Usa esclusivamente funzioni o client locali rilevati dal sistema AI WordPress e non chiama OpenAI direttamente.', 'wp-ai-publisher' ); ?></p>
+	<p><?php echo esc_html__( 'Il test viene eseguito solo quando premi il pulsante. Le abilities non sicure vengono saltate: se nessuna ability sicura è presente, aggiungi il nome esatto in allowlist o usa il filtro wpai_publisher_safe_ai_ability_names.', 'wp-ai-publisher' ); ?></p>
 	<form method="post">
 		<?php wp_nonce_field( 'wpai_publisher_ai_diagnostics_test', 'wpai_publisher_ai_diagnostics_nonce' ); ?>
 		<input type="hidden" name="wpai_publisher_ai_diagnostics_action" value="run_safe_generation_test" />

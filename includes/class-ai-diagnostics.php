@@ -687,6 +687,115 @@ class AI_Diagnostics {
 		);
 	}
 
+
+	/**
+	 * Return ability names explicitly allowed for diagnostics dry-run tests.
+	 *
+	 * @return array<int,string>
+	 */
+	private function get_safe_ai_ability_names() {
+		$settings = wpai_publisher_get_settings();
+		$names    = array();
+		foreach ( (array) preg_split( '/\r\n|\r|\n/', (string) ( $settings['safe_ai_ability_names'] ?? '' ) ) as $line ) {
+			$name = sanitize_text_field( trim( (string) $line ) );
+			if ( '' !== $name ) {
+				$names[] = $name;
+			}
+		}
+		$names = apply_filters( 'wpai_publisher_safe_ai_ability_names', array_values( array_unique( $names ) ) );
+		return is_array( $names ) ? array_values( array_unique( array_filter( array_map( 'sanitize_text_field', $names ) ) ) ) : array();
+	}
+
+	/**
+	 * Return dangerous safety signals found in ability metadata.
+	 *
+	 * @param array<string,mixed> $metadata Ability metadata.
+	 * @return array<int,string>
+	 */
+	private function get_ability_dangerous_signals( $metadata ) {
+		$signals  = array( 'create_post', 'insert_post', 'publish', 'delete', 'remove', 'update', 'edit', 'save', 'media', 'image', 'upload', 'attachment', 'option', 'setting', 'user', 'comment', 'email', 'send', 'webhook', 'remote', 'external', 'install', 'activate', 'deactivate', 'file', 'filesystem', 'database', 'db', 'cron', 'schedule', 'pubblica', 'pubblicare', 'elimina', 'rimuovi', 'aggiorna', 'modifica', 'salva', 'carica', 'immagine', 'allegato', 'opzione', 'impostazione', 'utente', 'commento', 'invia', 'installa', 'attiva', 'disattiva' );
+		$haystack = $this->build_ability_safety_haystack( $metadata );
+		$found    = array();
+		foreach ( $signals as $signal ) {
+			if ( false !== strpos( $haystack, strtolower( $signal ) ) ) {
+				$found[] = $signal;
+			}
+		}
+		return array_values( array_unique( $found ) );
+	}
+
+	/**
+	 * Detect read-only/text-generation signals.
+	 *
+	 * @param array<string,mixed> $metadata Ability metadata.
+	 * @return bool
+	 */
+	private function ability_has_readonly_signals( $metadata ) {
+		$signals  = array( 'readonly', 'read_only', 'read-only', 'pure', 'no_side_effects', 'non_destructive', 'text', 'text_generation', 'generate_text', 'completion', 'summary', 'title', 'excerpt', 'classification', 'meta_description', 'sola_lettura', 'non_distruttiva', 'testo', 'generazione_testo', 'riassunto', 'titolo', 'estratto', 'classificazione', 'descrizione_meta' );
+		$haystack = $this->build_ability_safety_haystack( $metadata );
+		foreach ( $signals as $signal ) {
+			if ( false !== strpos( $haystack, strtolower( $signal ) ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Check dry-run safety and explain the reason.
+	 *
+	 * @param mixed               $ability Ability object/definition/name.
+	 * @param array<string,mixed> $metadata Ability metadata.
+	 * @return array{safe:bool,reason:string,dangerous_signals:array<int,string>}
+	 */
+	private function get_ability_dry_run_safety( $ability, $metadata ) {
+		$name      = sanitize_text_field( (string) ( $metadata['name'] ?? '' ) );
+		$safe_list = $this->get_safe_ai_ability_names();
+		$signals   = $this->get_ability_dangerous_signals( $metadata );
+
+		if ( '' !== $name && in_array( $name, $safe_list, true ) ) {
+			return array( 'safe' => true, 'reason' => __( 'Allowlist impostazioni/filtro', 'wp-ai-publisher' ), 'dangerous_signals' => $signals );
+		}
+
+		$filtered = apply_filters( 'wpai_publisher_is_ability_safe_for_dry_run', null, $ability, $metadata );
+		if ( true === $filtered ) {
+			return array( 'safe' => true, 'reason' => __( 'Filtro wpai_publisher_is_ability_safe_for_dry_run', 'wp-ai-publisher' ), 'dangerous_signals' => $signals );
+		}
+		if ( false === $filtered ) {
+			return array( 'safe' => false, 'reason' => __( 'Bloccata dal filtro sicurezza', 'wp-ai-publisher' ), 'dangerous_signals' => $signals );
+		}
+
+		$settings = wpai_publisher_get_settings();
+		if ( ! empty( $settings['allow_unverified_ai_abilities'] ) ) {
+			return empty( $signals )
+				? array( 'safe' => true, 'reason' => __( 'Abilities non verificate consentite, senza segnali pericolosi', 'wp-ai-publisher' ), 'dangerous_signals' => $signals )
+				: array( 'safe' => false, 'reason' => __( 'Segnali pericolosi rilevati', 'wp-ai-publisher' ), 'dangerous_signals' => $signals );
+		}
+
+		if ( empty( $signals ) && $this->ability_has_readonly_signals( $metadata ) ) {
+			return array( 'safe' => true, 'reason' => __( 'Metadata read-only / text generation', 'wp-ai-publisher' ), 'dangerous_signals' => $signals );
+		}
+
+		return array( 'safe' => false, 'reason' => empty( $signals ) ? __( 'Non verificata in modo conservativo', 'wp-ai-publisher' ) : __( 'Segnali pericolosi rilevati', 'wp-ai-publisher' ), 'dangerous_signals' => $signals );
+	}
+
+	/**
+	 * Build compact safety haystack including schema/meta without displaying them.
+	 *
+	 * @param array<string,mixed> $metadata Ability metadata.
+	 * @return string
+	 */
+	private function build_ability_safety_haystack( $metadata ) {
+		$parts = array( $metadata['name'] ?? '', $metadata['label'] ?? '', $metadata['description'] ?? '', $metadata['category'] ?? '', $metadata['haystack'] ?? '' );
+		foreach ( array( 'input_schema', 'output_schema', 'meta' ) as $field ) {
+			$encoded = wp_json_encode( $metadata[ $field ] ?? array() );
+			if ( false !== $encoded ) {
+				$parts[] = $encoded;
+			}
+		}
+		return strtolower( implode( ' ', array_map( 'sanitize_text_field', array_filter( $parts, 'is_scalar' ) ) ) );
+	}
+
 	/**
 	 * Summarize one ability row defensively.
 	 *
@@ -698,6 +807,7 @@ class AI_Diagnostics {
 		$data = $this->extract_ability_metadata( $ability, is_string( $key ) ? $key : '' );
 		$name = '' !== $data['name'] ? $data['name'] : ( is_string( $key ) ? sanitize_text_field( $key ) : '' );
 
+		$safety   = $this->get_ability_dry_run_safety( $ability, $data );
 		$invocable = __( 'Non deducibile', 'wp-ai-publisher' );
 		if ( is_object( $ability ) ) {
 			foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $method ) {
@@ -718,6 +828,9 @@ class AI_Diagnostics {
 			'input_schema'         => ! empty( $data['input_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
 			'output_schema'        => ! empty( $data['output_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
 			'generation_candidate' => $this->contains_keyword( $data['haystack'], $this->get_generation_ability_keywords() ) ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
+			'safe_for_dry_run'     => $safety['safe'] ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
+			'safety_reason'        => $safety['reason'],
+			'dangerous_signals'    => empty( $safety['dangerous_signals'] ) ? __( 'Nessuno', 'wp-ai-publisher' ) : implode( ', ', $safety['dangerous_signals'] ),
 			'invocable'            => $invocable,
 		);
 	}
@@ -938,7 +1051,7 @@ class AI_Diagnostics {
 			$row      = $this->summarize_ability( $key, $ability_data );
 			$name     = $row['name'];
 			$haystack = strtolower( $name . ' ' . $row['label'] . ' ' . $row['description'] . ' ' . $row['category'] );
-			if ( '' === $name || ! $this->contains_keyword( $haystack, $this->get_generation_ability_keywords() ) ) {
+			if ( '' === $name || ! $this->contains_keyword( $haystack, $this->get_generation_ability_keywords() ) || 'Sì' !== $row['safe_for_dry_run'] ) {
 				continue;
 			}
 
@@ -950,6 +1063,12 @@ class AI_Diagnostics {
 			}
 
 			if ( ! is_object( $ability ) ) {
+				continue;
+			}
+
+			$runtime_metadata = $this->extract_ability_metadata( $ability, $name );
+			$runtime_safety   = $this->get_ability_dry_run_safety( $ability, $runtime_metadata );
+			if ( empty( $runtime_safety['safe'] ) ) {
 				continue;
 			}
 
@@ -980,7 +1099,15 @@ class AI_Diagnostics {
 			}
 		}
 
-		return array( 'attempted' => false );
+		return array(
+			'path'          => 'wp_get_abilities()',
+			'ability'       => '',
+			'success'       => false,
+			'error'         => __( 'Nessuna ability AI sicura per il test controllato è stata trovata. Aggiungi il nome dell’ability nelle impostazioni o registra il filtro wpai_publisher_safe_ai_ability_names.', 'wp-ai-publisher' ),
+			'response_type' => '',
+			'excerpt'       => '',
+			'attempted'     => true,
+		);
 	}
 
 	/**

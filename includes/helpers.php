@@ -46,14 +46,16 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 	 */
 	function wpai_publisher_default_settings() {
 		return array(
-			'ai_provider_preference' => 'wordpress_ai_client_only',
-			'default_text_model'     => '',
-			'enable_logging'         => true,
-			'log_retention_days'     => 30,
-			'monthly_cost_limit'     => '',
-			'daily_cost_limit'       => '',
-			'github_updater_enabled' => false,
-			'site_context'           => wpai_publisher_default_site_context(),
+			'ai_provider_preference'        => 'wordpress_ai_client_only',
+			'default_text_model'            => '',
+			'enable_logging'                => true,
+			'log_retention_days'            => 30,
+			'monthly_cost_limit'            => '',
+			'daily_cost_limit'              => '',
+			'github_updater_enabled'        => false,
+			'safe_ai_ability_names'         => '',
+			'allow_unverified_ai_abilities' => false,
+			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
 }
@@ -73,8 +75,10 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['ai_provider_preference'] = 'wordpress_ai_client_only';
 		unset( $settings['fallback_to_openai_direct'], $settings['default_image_model'] );
 
-		$defaults                 = wpai_publisher_default_settings();
-		$settings['site_context'] = wpai_publisher_normalize_site_context( $settings['site_context'] ?? array() );
+		$defaults                                  = wpai_publisher_default_settings();
+		$settings['site_context']                  = wpai_publisher_normalize_site_context( $settings['site_context'] ?? array() );
+		$settings['safe_ai_ability_names']         = sanitize_textarea_field( (string) ( $settings['safe_ai_ability_names'] ?? '' ) );
+		$settings['allow_unverified_ai_abilities'] = ! empty( $settings['allow_unverified_ai_abilities'] );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );
@@ -113,7 +117,7 @@ if ( ! function_exists( 'wpai_publisher_normalize_site_context' ) ) {
 		}
 
 		$context['default_editor']                       = 'classic';
-		$context['default_post_status_after_generation'] = in_array( $context['default_post_status_after_generation'], array( 'draft', 'pending' ), true ) ? $context['default_post_status_after_generation'] : 'draft';
+		$context['default_post_status_after_generation'] = in_array( $context['default_post_status_after_generation'], array( 'draft', 'pending', 'publish' ), true ) ? $context['default_post_status_after_generation'] : 'draft';
 
 		return array_intersect_key( $context, $defaults );
 	}
@@ -130,7 +134,7 @@ if ( ! function_exists( 'wpai_publisher_site_context_allowed_values' ) ) {
 			'default_tone'                         => array( 'chiaro_didattico_e_operativo', 'chiaro_didattico_operativo', 'professionale_tecnico', 'divulgativo_semplice', 'commerciale_informativo', 'editoriale_narrativo', 'personalizzato' ),
 			'default_language'                     => array( 'it', 'en', 'fr', 'es', 'de' ),
 			'default_editor'                       => array( 'classic' ),
-			'default_post_status_after_generation' => array( 'draft', 'pending' ),
+			'default_post_status_after_generation' => array( 'draft', 'pending', 'publish' ),
 			'internal_link_strategy'               => array( 'semantic_targets', 'future_existing_content', 'disabled' ),
 			'seo_plugin_preference'                => array( 'aioseo', 'none', 'other_future' ),
 			'content_format_preference'            => array( 'tutorial_html_classic', 'informational_article', 'product_sheet', 'local_guide', 'affiliate_content', 'other_future' ),
@@ -213,6 +217,7 @@ if ( ! function_exists( 'wpai_publisher_site_context_label' ) ) {
 			'default_post_status_after_generation' => array(
 				'draft'   => __( 'Bozza', 'wp-ai-publisher' ),
 				'pending' => __( 'In attesa di revisione', 'wp-ai-publisher' ),
+				'publish' => __( 'Pubblicato', 'wp-ai-publisher' ),
 			),
 			'internal_link_strategy' => array(
 				'semantic_targets'        => __( 'Target semantici, non URL', 'wp-ai-publisher' ),

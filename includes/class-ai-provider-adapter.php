@@ -927,6 +927,135 @@ class AI_Provider_Adapter {
 		);
 	}
 
+
+	/**
+	 * Return AI ability names explicitly allowed for dry-run invocation.
+	 *
+	 * @return array<int,string>
+	 */
+	private function get_safe_ai_ability_names() {
+		$settings = wpai_publisher_get_settings();
+		$raw      = (string) ( $settings['safe_ai_ability_names'] ?? '' );
+		$names    = array();
+
+		foreach ( (array) preg_split( '/\r\n|\r|\n/', $raw ) as $line ) {
+			$name = sanitize_text_field( trim( (string) $line ) );
+			if ( '' !== $name ) {
+				$names[] = $name;
+			}
+		}
+
+		/**
+		 * Filters ability names considered safe for WP AI Publisher dry-runs.
+		 *
+		 * @param array<int,string> $names Safe ability names.
+		 */
+		$names = apply_filters( 'wpai_publisher_safe_ai_ability_names', array_values( array_unique( $names ) ) );
+		if ( ! is_array( $names ) ) {
+			return array();
+		}
+
+		return array_values( array_unique( array_filter( array_map( 'sanitize_text_field', $names ) ) ) );
+	}
+
+	/**
+	 * Check whether an ability may be invoked during a dry-run.
+	 *
+	 * @param mixed               $ability Ability object/definition/name.
+	 * @param array<string,mixed> $metadata Extracted metadata.
+	 * @return bool
+	 */
+	private function is_ability_safe_for_dry_run( $ability, $metadata ) {
+		$name       = sanitize_text_field( (string) ( $metadata['name'] ?? ( is_string( $ability ) ? $ability : '' ) ) );
+		$safe_names = $this->get_safe_ai_ability_names();
+
+		if ( '' !== $name && in_array( $name, $safe_names, true ) ) {
+			return true;
+		}
+
+		/**
+		 * Allows integrations to explicitly allow or deny a dry-run ability.
+		 *
+		 * Return true to allow, false to deny, null to keep conservative automatic checks.
+		 *
+		 * @param bool|null           $safe Current decision.
+		 * @param mixed               $ability Ability object/definition/name.
+		 * @param array<string,mixed> $metadata Extracted metadata.
+		 */
+		$filtered = apply_filters( 'wpai_publisher_is_ability_safe_for_dry_run', null, $ability, $metadata );
+		if ( true === $filtered ) {
+			return true;
+		}
+		if ( false === $filtered ) {
+			return false;
+		}
+
+		$dangerous = $this->ability_has_dangerous_signals( $metadata );
+		$settings  = wpai_publisher_get_settings();
+		if ( ! empty( $settings['allow_unverified_ai_abilities'] ) ) {
+			return ! $dangerous;
+		}
+
+		return ! $dangerous && $this->ability_has_readonly_signals( $metadata );
+	}
+
+	/**
+	 * Detect signals that suggest side effects or destructive behavior.
+	 *
+	 * @param array<string,mixed> $metadata Extracted metadata.
+	 * @return bool
+	 */
+	private function ability_has_dangerous_signals( $metadata ) {
+		$dangerous = array( 'create_post', 'insert_post', 'publish', 'delete', 'remove', 'update', 'edit', 'save', 'media', 'image', 'upload', 'attachment', 'option', 'setting', 'user', 'comment', 'email', 'send', 'webhook', 'remote', 'external', 'install', 'activate', 'deactivate', 'file', 'filesystem', 'database', 'db', 'cron', 'schedule', 'pubblica', 'pubblicare', 'elimina', 'rimuovi', 'aggiorna', 'modifica', 'salva', 'carica', 'immagine', 'allegato', 'opzione', 'impostazione', 'utente', 'commento', 'invia', 'installa', 'attiva', 'disattiva' );
+		$haystack  = $this->build_ability_safety_haystack( $metadata );
+		return $this->metadata_contains_safety_signal( $haystack, $dangerous );
+	}
+
+	/**
+	 * Detect signals compatible with read-only text generation.
+	 *
+	 * @param array<string,mixed> $metadata Extracted metadata.
+	 * @return bool
+	 */
+	private function ability_has_readonly_signals( $metadata ) {
+		$readonly = array( 'readonly', 'read_only', 'read-only', 'pure', 'no_side_effects', 'non_destructive', 'text', 'text_generation', 'generate_text', 'completion', 'summary', 'title', 'excerpt', 'classification', 'meta_description', 'sola_lettura', 'non_distruttiva', 'testo', 'generazione_testo', 'riassunto', 'titolo', 'estratto', 'classificazione', 'descrizione_meta' );
+		$haystack = $this->build_ability_safety_haystack( $metadata );
+		return $this->metadata_contains_safety_signal( $haystack, $readonly );
+	}
+
+	/**
+	 * Build compact metadata text for safety checks.
+	 *
+	 * @param array<string,mixed> $metadata Extracted metadata.
+	 * @return string
+	 */
+	private function build_ability_safety_haystack( $metadata ) {
+		$parts = array( $metadata['name'] ?? '', $metadata['label'] ?? '', $metadata['description'] ?? '', $metadata['category'] ?? '', $metadata['haystack'] ?? '' );
+		foreach ( array( 'input_schema', 'output_schema', 'meta' ) as $field ) {
+			$encoded = wp_json_encode( $metadata[ $field ] ?? array() );
+			if ( false !== $encoded ) {
+				$parts[] = $encoded;
+			}
+		}
+		return strtolower( implode( ' ', array_map( 'sanitize_text_field', array_filter( $parts, 'is_scalar' ) ) ) );
+	}
+
+	/**
+	 * Match a safety signal as a substring in compact metadata text.
+	 *
+	 * @param string            $haystack Text to inspect.
+	 * @param array<int,string> $signals Signal words.
+	 * @return bool
+	 */
+	private function metadata_contains_safety_signal( $haystack, $signals ) {
+		foreach ( $signals as $signal ) {
+			if ( false !== strpos( $haystack, strtolower( $signal ) ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * Try WordPress 7 Abilities API through wp_get_abilities/wp_get_ability.
 	 *
@@ -951,11 +1080,24 @@ class AI_Provider_Adapter {
 			return new WP_Error( 'wpai_wp_abilities_no_candidate', __( 'Nessuna ability candidata per generazione contenuti trovata tramite wp_get_abilities.', 'wp-ai-publisher' ) );
 		}
 
+		$safe_candidates = array();
+		foreach ( $candidates as $candidate ) {
+			$metadata = $candidate['metadata'];
+			if ( $this->is_ability_safe_for_dry_run( $candidate['name'], $metadata ) ) {
+				$safe_candidates[] = $candidate;
+			}
+		}
+
+		if ( empty( $safe_candidates ) ) {
+			return new WP_Error( 'wpai_wp_abilities_no_safe_candidate', __( 'Nessuna ability AI sicura per il dry-run è stata trovata. Aggiungi il nome dell’ability nelle impostazioni o registra il filtro wpai_publisher_safe_ai_ability_names.', 'wp-ai-publisher' ) );
+		}
+
 		if ( ! function_exists( 'wp_get_ability' ) ) {
 			return new WP_Error( 'wpai_wp_get_ability_unavailable', __( 'wp_get_ability non è disponibile per invocare le ability candidate.', 'wp-ai-publisher' ) );
 		}
 
-		foreach ( $candidates as $name ) {
+		foreach ( $safe_candidates as $candidate ) {
+			$name = $candidate['name'];
 			try {
 				$ability = wp_get_ability( $name );
 			} catch ( Throwable $error ) {
@@ -968,6 +1110,9 @@ class AI_Provider_Adapter {
 			}
 
 			$metadata = $this->extract_ability_metadata( $ability, $name );
+			if ( ! $this->is_ability_safe_for_dry_run( $ability, $metadata ) ) {
+				continue;
+			}
 			$inputs   = $this->get_ability_invocation_inputs( $prompt, $payload, $schema, $metadata['input_schema'] );
 
 			foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $method ) {
@@ -999,7 +1144,7 @@ class AI_Provider_Adapter {
 	 * Filter raw wp_get_abilities output to text/content generation ability names.
 	 *
 	 * @param mixed $abilities Raw abilities.
-	 * @return array<int,string>
+	 * @return array<int,array{name:string,metadata:array<string,mixed>}>
 	 */
 	private function filter_wp_abilities_api_generation_candidates( $abilities ) {
 		$keywords   = $this->get_generation_ability_keywords();
@@ -1015,13 +1160,16 @@ class AI_Provider_Adapter {
 
 			foreach ( $keywords as $keyword ) {
 				if ( false !== strpos( $metadata['haystack'], strtolower( $keyword ) ) ) {
-					$candidates[] = $name;
+					$candidates[ $name ] = array(
+						'name'     => $name,
+						'metadata' => $metadata,
+					);
 					break;
 				}
 			}
 		}
 
-		return array_values( array_unique( $candidates ) );
+		return array_values( $candidates );
 	}
 
 	/**
@@ -1172,6 +1320,19 @@ class AI_Provider_Adapter {
 		$relevant  = array();
 
 		foreach ( $abilities as $ability ) {
+			$metadata = array(
+				'name'          => (string) ( $ability['id'] ?? '' ),
+				'label'         => (string) ( $ability['label'] ?? '' ),
+				'description'   => (string) ( $ability['description'] ?? '' ),
+				'category'      => (string) ( $ability['category'] ?? '' ),
+				'input_schema'  => array(),
+				'output_schema' => array(),
+				'meta'          => array(),
+				'haystack'      => (string) ( $ability['haystack'] ?? '' ),
+			);
+			if ( ! $this->is_ability_safe_for_dry_run( $ability, $metadata ) ) {
+				continue;
+			}
 			$haystack = strtolower( (string) ( $ability['haystack'] ?? implode( ' ', array( $ability['id'], $ability['label'], $ability['description'] ) ) ) );
 			foreach ( $keywords as $keyword ) {
 				if ( false !== strpos( $haystack, $keyword ) ) {
@@ -1354,6 +1515,9 @@ class AI_Provider_Adapter {
 
 			if ( is_object( $ability ) ) {
 				$metadata = $this->extract_ability_metadata( $ability, $ability_id );
+				if ( ! $this->is_ability_safe_for_dry_run( $ability, $metadata ) ) {
+					continue;
+				}
 				$inputs   = $this->get_ability_invocation_inputs( $prompt, $payload, $schema, $metadata['input_schema'] );
 				foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $ability_method ) {
 					if ( method_exists( $ability, $ability_method ) ) {

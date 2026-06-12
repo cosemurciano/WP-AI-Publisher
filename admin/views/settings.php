@@ -73,6 +73,20 @@ $language_options = array(
 				</tr>
 
 				<tr>
+					<th colspan="2"><h2><?php echo esc_html__( 'Sicurezza Abilities AI', 'wp-ai-publisher' ); ?></h2><p class="description"><?php echo esc_html__( 'Per impostazione predefinita WP AI Publisher non esegue abilities arbitrarie. Usa questa sezione solo se conosci il nome esatto dell’ability e sai che non modifica contenuti, media, opzioni o dati del sito.', 'wp-ai-publisher' ); ?></p></th>
+				</tr>
+
+				<tr>
+					<th scope="row"><label for="wpai-safe-ai-ability-names"><?php echo esc_html__( 'Abilities AI sicure', 'wp-ai-publisher' ); ?></label></th>
+					<td><textarea id="wpai-safe-ai-ability-names" name="wpai_publisher_settings[safe_ai_ability_names]" rows="5" class="large-text code"><?php echo esc_textarea( $settings['safe_ai_ability_names'] ?? '' ); ?></textarea><p class="description"><?php echo esc_html__( 'Nomi delle abilities AI considerate sicure per il dry-run, una per riga. Lascia vuoto per usare solo il filtro o i controlli automatici conservativi.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Consenti abilities non verificate', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[allow_unverified_ai_abilities]" value="1" <?php checked( ! empty( $settings['allow_unverified_ai_abilities'] ) ); ?>> <?php echo esc_html__( 'Consenti l’uso di abilities AI non verificate. Sconsigliato: può eseguire callback non pensate per il dry-run.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+
+				<tr>
 					<th scope="row"><?php echo esc_html__( 'Log attivi', 'wp-ai-publisher' ); ?></th>
 					<td><label><input type="checkbox" name="wpai_publisher_settings[enable_logging]" value="1" <?php checked( ! empty( $settings['enable_logging'] ) ); ?>> <?php echo esc_html__( 'Salva i log tecnici nella tabella del plugin.', 'wp-ai-publisher' ); ?></label></td>
 				</tr>
@@ -138,7 +152,7 @@ $language_options = array(
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-future-post-status"><?php echo esc_html__( 'Stato post dopo generazione', 'wp-ai-publisher' ); ?></label></th>
-					<td><select id="wpai-future-post-status" name="wpai_publisher_settings[site_context][default_post_status_after_generation]"><option value="draft" <?php selected( $site_context['default_post_status_after_generation'], 'draft' ); ?>><?php echo esc_html__( 'Bozza', 'wp-ai-publisher' ); ?></option><option value="pending" <?php selected( $site_context['default_post_status_after_generation'], 'pending' ); ?>><?php echo esc_html__( 'In attesa di revisione', 'wp-ai-publisher' ); ?></option></select><p class="description"><?php echo esc_html__( 'Non esiste un’opzione Pubblica in questa fase.', 'wp-ai-publisher' ); ?></p></td>
+					<td><select id="wpai-future-post-status" name="wpai_publisher_settings[site_context][default_post_status_after_generation]"><option value="draft" <?php selected( $site_context['default_post_status_after_generation'], 'draft' ); ?>><?php echo esc_html__( 'Bozza', 'wp-ai-publisher' ); ?></option><option value="pending" <?php selected( $site_context['default_post_status_after_generation'], 'pending' ); ?>><?php echo esc_html__( 'In attesa di revisione', 'wp-ai-publisher' ); ?></option><option value="publish" <?php selected( $site_context['default_post_status_after_generation'], 'publish' ); ?>><?php echo esc_html__( 'Pubblicato', 'wp-ai-publisher' ); ?></option></select><p class="description"><?php echo esc_html__( 'Pubblicato sarà disponibile nelle fasi future. Per sicurezza il plugin non pubblica nulla in questa fase e il valore predefinito resta Bozza.', 'wp-ai-publisher' ); ?></p></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-allowed-categories"><?php echo esc_html__( 'Categorie consentite', 'wp-ai-publisher' ); ?></label></th>

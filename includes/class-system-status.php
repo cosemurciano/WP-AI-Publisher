@@ -102,7 +102,7 @@ class System_Status {
 			$this->row( __( 'Target editoriale', 'wp-ai-publisher' ), __( 'Editor Classico', 'wp-ai-publisher' ), 'ok' ),
 			$this->row( __( 'Contesto editoriale', 'wp-ai-publisher' ), $context_configured ? __( 'Descrizione o nicchia contenuti configurata', 'wp-ai-publisher' ) : __( 'Descrizione sito e nicchia contenuti assenti', 'wp-ai-publisher' ), $context_configured ? 'ok' : 'warning' ),
 			$this->row( __( 'Editor target', 'wp-ai-publisher' ), wpai_publisher_site_context_label( 'default_editor', $site_context['default_editor'] ), 'classic' === $site_context['default_editor'] ? 'ok' : 'warning' ),
-			$this->row( __( 'Stato post futuro', 'wp-ai-publisher' ), wpai_publisher_site_context_label( 'default_post_status_after_generation', $site_context['default_post_status_after_generation'] ), 'ok' ),
+			$this->row( __( 'Stato post futuro', 'wp-ai-publisher' ), wpai_publisher_site_context_label( 'default_post_status_after_generation', $site_context['default_post_status_after_generation'] ), 'publish' === $site_context['default_post_status_after_generation'] ? 'warning' : 'ok' ),
 			$this->row( __( 'Stato sistema AI WordPress', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? 'ok' : 'not-verified' ),
 			$this->row( __( 'Modelli AI disponibili', 'wp-ai-publisher' ), sprintf( __( '%d modelli rilevati', 'wp-ai-publisher' ), $models_count ), $models_count > 0 ? 'ok' : 'not-verified' ),
 			$this->row( __( 'Abilità AI WordPress', 'wp-ai-publisher' ), sprintf( __( '%d abilità rilevate', 'wp-ai-publisher' ), $abilities_count ), $abilities_count > 0 ? 'ok' : 'not-verified' ),
