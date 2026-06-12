@@ -64,17 +64,20 @@ class System_Status {
 		$models_count        = (int) $ai_status['available_text_models_count'];
 		$abilities_count     = (int) $ai_status['available_abilities_count'];
 		$wp_ai_available     = $this->ai_provider->is_wordpress_ai_client_available();
-		$validator_available = class_exists( __NAMESPACE__ . '\Structured_Output_Validator' );
-		$checks              = array(
+		$validator_available       = class_exists( __NAMESPACE__ . '\Structured_Output_Validator' );
+		$classic_builder_available = class_exists( __NAMESPACE__ . '\Classic_Content_Builder' );
+		$checks                    = array(
 			$this->row( __( 'Versione plugin', 'wp-ai-publisher' ), WPAIP_VERSION, 'ok' ),
 			$this->row( __( 'Versione WordPress', 'wp-ai-publisher' ), (string) $wp_version, version_compare( $wp_version, '7.0', '>=' ) ? 'ok' : 'error' ),
 			$this->row( __( 'Versione PHP', 'wp-ai-publisher' ), PHP_VERSION, version_compare( PHP_VERSION, '8.1', '>=' ) ? 'ok' : 'error' ),
 			$this->row( __( 'Provider AI operativo', 'wp-ai-publisher' ), __( 'Solo sistema AI di WordPress', 'wp-ai-publisher' ), 'ok' ),
+			$this->row( __( 'Target editoriale', 'wp-ai-publisher' ), __( 'Editor Classico', 'wp-ai-publisher' ), 'ok' ),
 			$this->row( __( 'Stato sistema AI WordPress', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? 'ok' : 'not-verified' ),
 			$this->row( __( 'Modelli AI disponibili', 'wp-ai-publisher' ), sprintf( __( '%d modelli rilevati', 'wp-ai-publisher' ), $models_count ), $models_count > 0 ? 'ok' : 'not-verified' ),
 			$this->row( __( 'Abilità AI WordPress', 'wp-ai-publisher' ), sprintf( __( '%d abilità rilevate', 'wp-ai-publisher' ), $abilities_count ), $abilities_count > 0 ? 'ok' : 'not-verified' ),
 			$this->row( __( 'Dry-run AI', 'wp-ai-publisher' ), $wp_ai_available ? __( 'WordPress AI disponibile per tentativi reali; fallback locale solo se l’output non è utilizzabile', 'wp-ai-publisher' ) : __( 'Solo fallback locale disponibile: WordPress AI non rilevato', 'wp-ai-publisher' ), $wp_ai_available ? 'ok' : 'warning' ),
 			$this->row( __( 'Validatore output strutturato', 'wp-ai-publisher' ), $validator_available ? __( 'Classe Structured_Output_Validator disponibile', 'wp-ai-publisher' ) : __( 'Validazione interna basilare', 'wp-ai-publisher' ), $validator_available ? 'ok' : 'warning' ),
+			$this->row( __( 'Classic Content Builder', 'wp-ai-publisher' ), $classic_builder_available ? __( 'Classe Classic_Content_Builder disponibile', 'wp-ai-publisher' ) : __( 'Classe Classic_Content_Builder non disponibile', 'wp-ai-publisher' ), $classic_builder_available ? 'ok' : 'error' ),
 			$this->row( __( 'OpenAI diretto', 'wp-ai-publisher' ), __( 'Disabilitato: il plugin non usa un client custom', 'wp-ai-publisher' ), 'not-configured' ),
 		);
 

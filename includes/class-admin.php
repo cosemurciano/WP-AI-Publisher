@@ -239,6 +239,12 @@ class Admin {
 				$decoded_notes  = json_decode( (string) $selected_idea->validation_notes, true );
 				$dry_run_data   = is_array( $decoded_output ) ? $decoded_output : array();
 				$notes_data     = is_array( $decoded_notes ) ? $decoded_notes : array();
+
+				if ( ! empty( $dry_run_data ) && empty( $dry_run_data['classic_editor_preview'] ) ) {
+					$classic_builder = new Classic_Content_Builder();
+					$dry_run_data['classic_editor_preview'] = $classic_builder->build_from_dry_run( $dry_run_data );
+				}
+
 			}
 		}
 

@@ -99,3 +99,22 @@
 	overflow-x: auto;
 	max-width: 100%;
 }
+
+.wpai-classic-preview {
+	max-width: 860px;
+	margin: 12px 0;
+	padding: 18px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+}
+
+.wpai-classic-preview h2,
+.wpai-classic-preview h3,
+.wpai-classic-preview h4 {
+	margin-top: 1.2em;
+}
+
+.wpai-classic-preview p {
+	font-size: 14px;
+	line-height: 1.7;
+}

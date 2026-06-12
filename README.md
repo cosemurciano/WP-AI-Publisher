@@ -1,12 +1,20 @@
 # WP AI Publisher
 
-Versione corrente: **0.3.1**
+Versione corrente: **0.3.2**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
 ## Stato sviluppo
 
 Il plugin è in fase operativa controllata. Non crea ancora post, bozze, immagini reali o metadati SEO definitivi, ma consente di testare idee editoriali con un dry-run strutturato.
+
+## Target editoriale: Editor Classico
+
+Dalla versione **0.3.2** il target editoriale principale è l’**Editor Classico** di WordPress. Il plugin non deve produrre blocchi Gutenberg, commenti `<!-- wp:... -->` o serializzazione a blocchi.
+
+La futura bozza WordPress userà `post_content` con HTML pulito e sicuro, ad esempio paragrafi, titoli `h2`/`h3`, liste e altri tag consentiti da allowlist. L’anteprima del dry-run passa da sanitizzazione dedicata e viene mostrata nell’admin come contenuto compatibile con Classic Editor.
+
+AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.2.
 
 Funzioni presenti:
 
@@ -21,7 +29,7 @@ Funzioni presenti:
 - pagina Coda job;
 - sezione Idee contenuto;
 - salvataggio idee editoriali in tabella dedicata;
-- dry-run articolo con output JSON validabile e visualizzazione leggibile;
+- dry-run articolo con output JSON validabile, visualizzazione leggibile e anteprima HTML per Editor Classico;
 - migrazione database durante aggiornamento plugin.
 
 ## Regole operative
@@ -66,16 +74,16 @@ In questa fase la sezione è sicura e reversibile:
 
 ## Dry-run articolo
 
-Il pulsante **Esegui dry-run** genera una struttura articolo validabile con titolo, slug, estratto, outline, categorie, tag, metadati SEO proposti, prompt immagine solo testuale, link interni previsti, sintesi conoscenza e note di validazione.
+Il pulsante **Esegui dry-run** genera una struttura articolo validabile con titolo, slug, estratto, outline, categorie, tag, metadati SEO proposti, prompt immagine solo testuale, link interni previsti, sintesi conoscenza, anteprima HTML per Editor Classico e note di validazione.
 
-L’output viene salvato come JSON nella tabella delle idee contenuto e mostrato anche in forma leggibile nell’admin. Se nessuna chiamata WordPress AI reale è disponibile, l’adapter può produrre un fallback locale controllato solo quando il payload abilita `allow_local_fallback`.
+L’output viene salvato come JSON nella tabella delle idee contenuto e mostrato anche in forma leggibile nell’admin. Il campo `classic_editor_preview` contiene HTML sanificato, riepilogo testuale e note diagnostiche dedicate. Se nessuna chiamata WordPress AI reale è disponibile, l’adapter può produrre un fallback locale controllato solo quando il payload abilita `allow_local_fallback`.
 
 
 ## Dry-run AI reale e fallback locale
 
 Dalla versione **0.3.1**, il dry-run delle Idee contenuto tenta prima una generazione reale tramite il sistema AI di WordPress disponibile sul sito: Abilities API, funzioni WordPress AI note, client AI locali o filtro di integrazione `wpai_publisher_generate_structured_content_dry_run`.
 
-Se WordPress AI non è disponibile o non restituisce un JSON utilizzabile, il plugin usa un fallback locale più contestuale solo per testare il workflow admin. Il fallback locale è marcato con `source: local_fallback`, mostra note di validazione visibili e non deve essere considerato contenuto finale generato da AI reale.
+Se WordPress AI non è disponibile o non restituisce un JSON utilizzabile, il plugin usa un fallback locale più contestuale solo per testare il workflow admin, con outline WordPress più concreti per menù, plugin, WPML, SEO, sicurezza, backup, WooCommerce, Elementor, Classic Editor e Media Library. Il fallback locale è marcato con `source: local_fallback`, mostra note di validazione visibili e non deve essere considerato contenuto finale generato da AI reale.
 
 Anche con WordPress AI disponibile, il dry-run resta sicuro:
 
@@ -87,6 +95,15 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.3.2
+- Impostato Editor Classico come target editoriale principale.
+- Aggiunto Classic Content Builder.
+- Aggiunta anteprima HTML compatibile con Editor Classico.
+- Esclusa generazione di blocchi Gutenberg.
+- Migliorato fallback locale per outline WordPress più concreti.
+- Migliorati titoli e slug del dry-run.
+- Aggiornata documentazione progetto.
 
 ### 0.3.1
 
