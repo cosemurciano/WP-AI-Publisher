@@ -17,15 +17,13 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 	 */
 	function wpai_publisher_default_settings() {
 		return array(
-			'ai_provider_preference'     => 'wordpress_ai_client_first',
-			'fallback_to_openai_direct'  => true,
-			'default_text_model'         => '',
-			'default_image_model'        => '',
-			'enable_logging'             => true,
-			'log_retention_days'         => 30,
-			'monthly_cost_limit'         => '',
-			'daily_cost_limit'           => '',
-			'github_updater_enabled'     => false,
+			'ai_provider_preference'  => 'wordpress_ai_client_only',
+			'default_text_model'      => '',
+			'enable_logging'          => true,
+			'log_retention_days'      => 30,
+			'monthly_cost_limit'      => '',
+			'daily_cost_limit'        => '',
+			'github_updater_enabled'  => false,
 		);
 	}
 }
@@ -43,7 +41,13 @@ if ( ! function_exists( 'wpai_publisher_get_settings' ) ) {
 			$settings = array();
 		}
 
-		return wp_parse_args( $settings, wpai_publisher_default_settings() );
+		$settings = wp_parse_args( $settings, wpai_publisher_default_settings() );
+
+		// Migrazione leggera delle vecchie impostazioni di fase 1: da ora il plugin usa solo il sistema AI di WordPress.
+		$settings['ai_provider_preference'] = 'wordpress_ai_client_only';
+		unset( $settings['fallback_to_openai_direct'], $settings['default_image_model'] );
+
+		return $settings;
 	}
 }
 
