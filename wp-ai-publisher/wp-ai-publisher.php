@@ -1,0 +1,59 @@
+<?php
+/**
+ * Plugin Name: WP AI Publisher
+ * Plugin URI: https://github.com/OWNER/wp-ai-publisher
+ * Description: Modular foundation for assisted AI publishing workflows, structured drafts, media, SEO metadata, internal links, knowledge indexing, queues, dry-runs, duplicate checks, and future OpenAI integrations.
+ * Version: 0.1.0
+ * Requires at least: 7.0
+ * Requires PHP: 8.1
+ * Author: WP AI Publisher Team
+ * Author URI: https://github.com/OWNER
+ * License: GPL-3.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-3.0.html
+ * Text Domain: wp-ai-publisher
+ * Domain Path: /languages
+ * Update URI: https://github.com/OWNER/wp-ai-publisher
+ *
+ * @package WPAIPublisher
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+define( 'WPAIP_VERSION', '0.1.0' );
+define( 'WPAIP_PLUGIN_FILE', __FILE__ );
+define( 'WPAIP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+define( 'WPAIP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+define( 'WPAIP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
+define( 'WPAIP_DB_SCHEMA_VERSION', '1' );
+
+require_once WPAIP_PLUGIN_DIR . 'includes/helpers.php';
+
+spl_autoload_register(
+	static function ( $class_name ) {
+		$prefix = 'WPAIPublisher\\';
+
+		if ( 0 !== strpos( $class_name, $prefix ) ) {
+			return;
+		}
+
+		$relative_class = substr( $class_name, strlen( $prefix ) );
+		$file_name      = 'class-' . strtolower( str_replace( '_', '-', $relative_class ) ) . '.php';
+		$file_path      = WPAIP_PLUGIN_DIR . 'includes/' . $file_name;
+
+		if ( is_readable( $file_path ) ) {
+			require_once $file_path;
+		}
+	}
+);
+
+register_activation_hook( __FILE__, array( 'WPAIPublisher\\Activator', 'activate' ) );
+register_deactivation_hook( __FILE__, array( 'WPAIPublisher\\Deactivator', 'deactivate' ) );
+
+add_action(
+	'plugins_loaded',
+	static function () {
+		WPAIPublisher\Plugin::instance();
+	}
+);
