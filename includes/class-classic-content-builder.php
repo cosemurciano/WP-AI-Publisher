@@ -47,6 +47,9 @@ class Classic_Content_Builder {
 			'<script'  => __( 'Rilevato tag script non consentito nell’anteprima.', 'wp-ai-publisher' ),
 			'<iframe'  => __( 'Rilevato tag iframe non consentito nell’anteprima.', 'wp-ai-publisher' ),
 			' style='  => __( 'Rilevato attributo style inline non consentito nell’anteprima.', 'wp-ai-publisher' ),
+			'descrivere in modo' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+			'passaggio' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
+			'nel contesto di' => __( 'L’anteprima contiene frasi placeholder e richiede revisione.', 'wp-ai-publisher' ),
 		);
 
 		$lower_html = strtolower( $html );
@@ -131,8 +134,8 @@ class Classic_Content_Builder {
 				continue;
 			}
 
-			if ( '' === $summary ) {
-				$summary = sprintf( __( 'Approfondire la sezione “%s” con indicazioni pratiche, esempi verificabili e passaggi chiari.', 'wp-ai-publisher' ), $heading );
+			if ( '' === $summary || $this->looks_like_placeholder_summary( $summary ) ) {
+				$summary = $this->build_editorial_summary_from_heading( $heading );
 			}
 
 			$html .= sprintf( '<%1$s>%2$s</%1$s>', $tag, esc_html( $heading ) ) . "\n";
@@ -140,8 +143,9 @@ class Classic_Content_Builder {
 
 			if ( $this->section_should_have_checklist( $heading ) ) {
 				$html .= '<ul>' . "\n";
-				$html .= '<li>' . esc_html__( 'Controlla le impostazioni prima di procedere.', 'wp-ai-publisher' ) . '</li>' . "\n";
-				$html .= '<li>' . esc_html__( 'Verifica il risultato dal pannello di amministrazione e dal front-end.', 'wp-ai-publisher' ) . '</li>' . "\n";
+				foreach ( $this->build_section_bullets( $heading ) as $bullet ) {
+					$html .= '<li>' . esc_html( $bullet ) . '</li>' . "\n";
+				}
 				$html .= '</ul>' . "\n";
 			}
 		}
@@ -215,12 +219,82 @@ class Classic_Content_Builder {
 	 */
 	private function section_should_have_checklist( $heading ) {
 		$heading = strtolower( remove_accents( $heading ) );
-		foreach ( array( 'prima', 'requisiti', 'verifica', 'errori', 'controlli' ) as $keyword ) {
+		foreach ( array( 'prima', 'requisiti', 'verifica', 'errori', 'controlli', 'aggiungere', 'ordinare', 'configurazione', 'installazione' ) as $keyword ) {
 			if ( false !== strpos( $heading, $keyword ) ) {
 				return true;
 			}
 		}
 
 		return false;
+	}
+
+	/**
+	 * Detect generic placeholder sentences in section summaries.
+	 *
+	 * @param string $summary Summary text.
+	 * @return bool
+	 */
+	private function looks_like_placeholder_summary( $summary ) {
+		$summary = strtolower( remove_accents( (string) $summary ) );
+		foreach ( array( 'descrivere in modo', 'passaggio', 'nel contesto di' ) as $needle ) {
+			if ( false !== strpos( $summary, $needle ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Build a concrete editorial paragraph when the source summary is missing.
+	 *
+	 * @param string $heading Section heading.
+	 * @return string
+	 */
+	private function build_editorial_summary_from_heading( $heading ) {
+		$normalized = strtolower( remove_accents( (string) $heading ) );
+
+		if ( false !== strpos( $normalized, 'widget' ) ) {
+			return __( 'Spiegare il ruolo dei widget nelle aree predisposte dal tema e indicare cosa controllare prima di salvarli sul sito pubblico.', 'wp-ai-publisher' );
+		}
+
+		if ( false !== strpos( $normalized, 'menu' ) || false !== strpos( $normalized, 'navigazione' ) ) {
+			return __( 'Collegare la sezione alla navigazione del sito, chiarendo come ordinare le voci e verificare che ogni link sia utile per l’utente.', 'wp-ai-publisher' );
+		}
+
+		if ( false !== strpos( $normalized, 'wpml' ) || false !== strpos( $normalized, 'traduz' ) || false !== strpos( $normalized, 'lingu' ) ) {
+			return __( 'Inquadrare la gestione multilingua, ricordando di verificare traduzioni, URL, menu e contenuti collegati in ogni lingua attiva.', 'wp-ai-publisher' );
+		}
+
+		return sprintf( __( 'Presentare “%s” con indicazioni operative, controlli nel pannello WordPress e una verifica finale dal front-end.', 'wp-ai-publisher' ), sanitize_text_field( (string) $heading ) );
+	}
+
+	/**
+	 * Build contextual bullets for sections that benefit from a checklist.
+	 *
+	 * @param string $heading Section heading.
+	 * @return array<int,string>
+	 */
+	private function build_section_bullets( $heading ) {
+		$normalized = strtolower( remove_accents( (string) $heading ) );
+
+		if ( false !== strpos( $normalized, 'errori' ) ) {
+			return array(
+				__( 'Evita modifiche non documentate o difficili da annullare.', 'wp-ai-publisher' ),
+				__( 'Controlla desktop e mobile prima di considerare conclusa la modifica.', 'wp-ai-publisher' ),
+			);
+		}
+
+		if ( false !== strpos( $normalized, 'verifica' ) ) {
+			return array(
+				__( 'Apri il sito pubblico in una nuova finestra e controlla il risultato reale.', 'wp-ai-publisher' ),
+				__( 'Ripeti il controllo da mobile o con una larghezza schermo ridotta.', 'wp-ai-publisher' ),
+			);
+		}
+
+		return array(
+			__( 'Salva una modifica alla volta e annota cosa è stato cambiato.', 'wp-ai-publisher' ),
+			__( 'Verifica il risultato dal pannello di amministrazione e dal front-end.', 'wp-ai-publisher' ),
+		);
 	}
 }
