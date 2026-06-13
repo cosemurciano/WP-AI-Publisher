@@ -346,6 +346,7 @@ class Content_Ideas {
 			'approved'       => __( 'Approvata', 'wp-ai-publisher' ),
 			'rejected'       => __( 'Rifiutata', 'wp-ai-publisher' ),
 			'draft_created'  => __( 'Bozza creata', 'wp-ai-publisher' ),
+			'draft_failed'   => __( 'Creazione bozza fallita', 'wp-ai-publisher' ),
 		);
 
 		$status = sanitize_key( (string) $status );
@@ -359,7 +360,122 @@ class Content_Ideas {
 	 * @return array<int,string>
 	 */
 	public function get_allowed_statuses() {
-		return array( 'new', 'dry_run_ready', 'dry_run_failed', 'approved', 'rejected', 'draft_created' );
+		return array( 'new', 'dry_run_ready', 'dry_run_failed', 'approved', 'rejected', 'draft_created', 'draft_failed' );
+	}
+
+
+	/**
+	 * Approve a dry-run ready idea.
+	 *
+	 * @param int $id Idea ID.
+	 * @return bool|WP_Error
+	 */
+	public function approve_idea( $id ) {
+		global $wpdb;
+
+		$idea = $this->get_idea( $id );
+		if ( ! $idea ) {
+			return new WP_Error( 'wpai_content_idea_not_found', __( 'Idea non trovata.', 'wp-ai-publisher' ) );
+		}
+		if ( empty( $idea->dry_run_output ) ) {
+			return new WP_Error( 'wpai_content_idea_missing_dry_run', __( 'Dry-run assente.', 'wp-ai-publisher' ) );
+		}
+
+		return false !== $wpdb->update(
+			$this->get_table_name(),
+			array(
+				'status'      => 'approved',
+				'approved_at' => current_time( 'mysql' ),
+				'updated_at'  => current_time( 'mysql' ),
+			),
+			array( 'id' => absint( $id ) ),
+			array( '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
+	 * Reject an idea dry-run.
+	 *
+	 * @param int $id Idea ID.
+	 * @return bool|WP_Error
+	 */
+	public function reject_idea( $id ) {
+		$idea = $this->get_idea( $id );
+		if ( ! $idea ) {
+			return new WP_Error( 'wpai_content_idea_not_found', __( 'Idea non trovata.', 'wp-ai-publisher' ) );
+		}
+
+		return $this->update_idea_status( $id, 'rejected' );
+	}
+
+	/**
+	 * Mark a draft as created.
+	 *
+	 * @param int    $id Idea ID.
+	 * @param int    $post_id Draft post ID.
+	 * @param string $status Post status.
+	 * @return bool
+	 */
+	public function mark_draft_created( $id, $post_id, $status ) {
+		$creator = new Draft_Creator( $this->db, $this->logger );
+		return $creator->update_idea_after_draft_created( $id, $post_id, $status );
+	}
+
+	/**
+	 * Mark draft creation as failed.
+	 *
+	 * @param int    $id Idea ID.
+	 * @param string $error_message Error message.
+	 * @return bool
+	 */
+	public function mark_draft_failed( $id, $error_message ) {
+		$creator = new Draft_Creator( $this->db, $this->logger );
+		return $creator->update_idea_after_draft_failed( $id, $error_message );
+	}
+
+	/**
+	 * Get linked draft post ID.
+	 *
+	 * @param int $id Idea ID.
+	 * @return int
+	 */
+	public function get_draft_post_id( $id ) {
+		$idea = $this->get_idea( $id );
+		return $idea ? absint( $idea->draft_post_id ?? 0 ) : 0;
+	}
+
+	/**
+	 * Get edit URL for linked draft.
+	 *
+	 * @param int $id Idea ID.
+	 * @return string
+	 */
+	public function get_edit_draft_url( $id ) {
+		$post_id = $this->get_draft_post_id( $id );
+		if ( $post_id <= 0 || ! get_post( $post_id ) ) {
+			return '';
+		}
+
+		$url = get_edit_post_link( $post_id, '' );
+		return is_string( $url ) ? $url : '';
+	}
+
+	/**
+	 * Count ideas by status.
+	 *
+	 * @return array<string,int>
+	 */
+	public function count_by_status() {
+		global $wpdb;
+
+		$rows   = $wpdb->get_results( "SELECT status, COUNT(*) AS total FROM {$this->get_table_name()} GROUP BY status" );
+		$counts = array();
+		foreach ( (array) $rows as $row ) {
+			$counts[ sanitize_key( (string) $row->status ) ] = absint( $row->total );
+		}
+
+		return $counts;
 	}
 
 

@@ -21,7 +21,7 @@ if ( ! function_exists( 'wpai_publisher_default_site_context' ) ) {
 			'site_description'                     => '',
 			'content_niche'                        => '',
 			'default_audience'                     => '',
-			'default_tone'                         => 'chiaro, didattico e operativo',
+			'default_tone'                         => 'chiaro_didattico_e_operativo',
 			'default_language'                     => 'it',
 			'default_editor'                       => 'classic',
 			'default_post_status_after_generation' => 'draft',
@@ -57,6 +57,25 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'allow_unverified_ai_abilities' => false,
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
+	}
+}
+
+
+if ( ! function_exists( 'wpai_publisher_normalize_default_tone' ) ) {
+	/**
+	 * Normalize legacy/corrupted default tone values to sanitize_key-compatible choices.
+	 *
+	 * @param string $value Raw default tone key.
+	 * @return string
+	 */
+	function wpai_publisher_normalize_default_tone( $value ) {
+		$value = sanitize_key( (string) $value );
+		$legacy_map = array(
+			'chiarodidatticoeoperativo'   => 'chiaro_didattico_e_operativo',
+			'chiaro_didattico_operativo' => 'chiaro_didattico_e_operativo',
+		);
+
+		return $legacy_map[ $value ] ?? $value;
 	}
 }
 
@@ -110,6 +129,9 @@ if ( ! function_exists( 'wpai_publisher_normalize_site_context' ) ) {
 		$allowed_values = wpai_publisher_site_context_allowed_values();
 		foreach ( $allowed_values as $field => $values ) {
 			$value = sanitize_key( (string) ( $context[ $field ] ?? $defaults[ $field ] ) );
+			if ( 'default_tone' === $field ) {
+				$value = wpai_publisher_normalize_default_tone( $value );
+			}
 			if ( ! in_array( $value, $values, true ) ) {
 				$value = sanitize_key( (string) $defaults[ $field ] );
 			}
@@ -131,7 +153,7 @@ if ( ! function_exists( 'wpai_publisher_site_context_allowed_values' ) ) {
 	 */
 	function wpai_publisher_site_context_allowed_values() {
 		return array(
-			'default_tone'                         => array( 'chiaro_didattico_e_operativo', 'chiaro_didattico_operativo', 'professionale_tecnico', 'divulgativo_semplice', 'commerciale_informativo', 'editoriale_narrativo', 'personalizzato' ),
+			'default_tone'                         => array( 'chiaro_didattico_e_operativo', 'professionale_tecnico', 'divulgativo_semplice', 'commerciale_informativo', 'editoriale_narrativo', 'personalizzato' ),
 			'default_language'                     => array( 'it', 'en', 'fr', 'es', 'de' ),
 			'default_editor'                       => array( 'classic' ),
 			'default_post_status_after_generation' => array( 'draft', 'pending', 'publish' ),
@@ -196,8 +218,6 @@ if ( ! function_exists( 'wpai_publisher_site_context_label' ) ) {
 		$labels = array(
 			'default_tone' => array(
 				'chiaro_didattico_e_operativo' => __( 'chiaro, didattico e operativo', 'wp-ai-publisher' ),
-				'chiaro_didattico_operativo'   => __( 'chiaro, didattico e operativo', 'wp-ai-publisher' ),
-				'chiaro, didattico e operativo' => __( 'chiaro, didattico e operativo', 'wp-ai-publisher' ),
 				'professionale_tecnico'      => __( 'professionale e tecnico', 'wp-ai-publisher' ),
 				'divulgativo_semplice'       => __( 'divulgativo e semplice', 'wp-ai-publisher' ),
 				'commerciale_informativo'    => __( 'commerciale ma informativo', 'wp-ai-publisher' ),

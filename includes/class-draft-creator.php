@@ -1,0 +1,354 @@
+<?php
+/**
+ * Draft creation from approved content ideas.
+ *
+ * @package WPAIPublisher
+ */
+
+namespace WPAIPublisher;
+
+use WP_Error;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Creates safe Classic Editor WordPress drafts from approved dry-runs.
+ */
+class Draft_Creator {
+	/**
+	 * Database service.
+	 *
+	 * @var DB
+	 */
+	private $db;
+
+	/**
+	 * Logger service.
+	 *
+	 * @var Logger
+	 */
+	private $logger;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param DB     $db Database service.
+	 * @param Logger $logger Logger service.
+	 */
+	public function __construct( DB $db, Logger $logger ) {
+		$this->db     = $db;
+		$this->logger = $logger;
+	}
+
+	/**
+	 * Create a WordPress draft/pending post from an approved idea dry-run.
+	 *
+	 * @param mixed $idea Idea row object.
+	 * @return int|WP_Error Created post ID or error.
+	 */
+	public function create_draft_from_idea( $idea ) {
+		if ( ! is_object( $idea ) || empty( $idea->id ) ) {
+			return new WP_Error( 'wpai_draft_creator_invalid_idea', __( 'Idea non valida.', 'wp-ai-publisher' ) );
+		}
+
+		if ( 'approved' !== sanitize_key( (string) ( $idea->status ?? '' ) ) ) {
+			return new WP_Error( 'wpai_draft_creator_not_approved', __( 'Non puoi creare una bozza da un dry-run non approvato.', 'wp-ai-publisher' ) );
+		}
+
+		$existing_post_id = absint( $idea->draft_post_id ?? 0 );
+		if ( $existing_post_id > 0 && get_post( $existing_post_id ) ) {
+			return $existing_post_id;
+		}
+
+		if ( empty( $idea->dry_run_output ) ) {
+			$error = new WP_Error( 'wpai_draft_creator_missing_dry_run', __( 'Dry-run assente.', 'wp-ai-publisher' ) );
+			$this->update_idea_after_draft_failed( (int) $idea->id, $error->get_error_message() );
+			return $error;
+		}
+
+		$dry_run = json_decode( (string) $idea->dry_run_output, true );
+		if ( ! is_array( $dry_run ) ) {
+			$error = new WP_Error( 'wpai_draft_creator_invalid_dry_run', __( 'Dry-run non decodificabile.', 'wp-ai-publisher' ) );
+			$this->update_idea_after_draft_failed( (int) $idea->id, $error->get_error_message() );
+			return $error;
+		}
+
+		if ( empty( $dry_run['classic_editor_preview']['html'] ) || ! is_string( $dry_run['classic_editor_preview']['html'] ) ) {
+			$error = new WP_Error( 'wpai_draft_creator_missing_classic_html', __( 'Anteprima HTML Classic Editor assente.', 'wp-ai-publisher' ) );
+			$this->update_idea_after_draft_failed( (int) $idea->id, $error->get_error_message() );
+			return $error;
+		}
+
+		$post_data = $this->prepare_post_data( $idea, $dry_run );
+		if ( is_wp_error( $post_data ) ) {
+			$this->update_idea_after_draft_failed( (int) $idea->id, $post_data->get_error_message() );
+			return $post_data;
+		}
+
+		$post_id = wp_insert_post( $post_data, true );
+		if ( is_wp_error( $post_id ) ) {
+			$this->update_idea_after_draft_failed( (int) $idea->id, $post_id->get_error_message() );
+			return $post_id;
+		}
+
+		$post_id = absint( $post_id );
+		$this->assign_categories_and_tags( $post_id, $dry_run );
+		$this->update_idea_after_draft_created( (int) $idea->id, $post_id, (string) $post_data['post_status'] );
+
+		return $post_id;
+	}
+
+	/**
+	 * Get safe target post status for version 0.4.0.
+	 *
+	 * @return string
+	 */
+	public function get_target_post_status() {
+		$settings = wpai_publisher_get_settings();
+		$context  = wpai_publisher_normalize_site_context( $settings['site_context'] ?? array() );
+		$status   = sanitize_key( (string) ( $context['default_post_status_after_generation'] ?? 'draft' ) );
+
+		if ( ! in_array( $status, array( 'draft', 'pending', 'publish' ), true ) ) {
+			$status = 'draft';
+		}
+
+		$status = apply_filters( 'wpai_publisher_draft_creator_target_status', $status, $settings );
+		$status = sanitize_key( (string) $status );
+		if ( ! in_array( $status, array( 'draft', 'pending', 'publish' ), true ) ) {
+			$status = 'draft';
+		}
+
+		if ( 'publish' === $status && ( ! defined( 'WPAIP_ALLOW_DIRECT_PUBLISH' ) || true !== WPAIP_ALLOW_DIRECT_PUBLISH ) ) {
+			$this->logger->warning( __( 'Pubblicazione automatica richiesta ma bloccata in 0.4.0: uso draft.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator' ) );
+			$status = 'draft';
+		}
+
+		return $status;
+	}
+
+	/**
+	 * Sanitize Classic Editor HTML with a strict allowlist.
+	 *
+	 * @param string $html Raw HTML.
+	 * @return string|WP_Error Sanitized HTML or error.
+	 */
+	public function sanitize_post_content( $html ) {
+		$html = (string) $html;
+		if ( $this->contains_gutenberg_blocks( $html ) ) {
+			return new WP_Error( 'wpai_draft_creator_gutenberg_blocks', __( 'Il contenuto contiene blocchi Gutenberg non consentiti.', 'wp-ai-publisher' ) );
+		}
+
+		$allowed_html = array(
+			'p'          => array(),
+			'h2'         => array(),
+			'h3'         => array(),
+			'h4'         => array(),
+			'ul'         => array(),
+			'ol'         => array(),
+			'li'         => array(),
+			'strong'     => array(),
+			'em'         => array(),
+			'a'          => array(
+				'href'   => true,
+				'title'  => true,
+				'target' => true,
+				'rel'    => true,
+			),
+			'blockquote' => array(),
+			'code'       => array(),
+			'pre'        => array(),
+			'br'         => array(),
+		);
+
+		$sanitized = wp_kses( $html, $allowed_html );
+		if ( '' === trim( wp_strip_all_tags( $sanitized ) ) ) {
+			return new WP_Error( 'wpai_draft_creator_empty_content', __( 'Il contenuto è vuoto dopo la sanitizzazione.', 'wp-ai-publisher' ) );
+		}
+
+		return $sanitized;
+	}
+
+	/**
+	 * Prepare wp_insert_post data.
+	 *
+	 * @param object              $idea Idea row.
+	 * @param array<string,mixed> $dry_run Dry-run data.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	public function prepare_post_data( $idea, $dry_run ) {
+		$html = (string) ( $dry_run['classic_editor_preview']['html'] ?? '' );
+		$content = $this->sanitize_post_content( $html );
+		if ( is_wp_error( $content ) ) {
+			return $content;
+		}
+
+		$title = sanitize_text_field( (string) ( $dry_run['title'] ?? '' ) );
+		if ( '' === $title ) {
+			$title = wp_trim_words( wp_strip_all_tags( (string) ( $idea->topic ?? '' ) ), 12, '' );
+		}
+		if ( '' === $title ) {
+			return new WP_Error( 'wpai_draft_creator_missing_title', __( 'Titolo mancante.', 'wp-ai-publisher' ) );
+		}
+
+		$author_id = get_current_user_id();
+		if ( $author_id <= 0 ) {
+			$author_id = 1;
+		}
+
+		return array(
+			'post_title'   => $title,
+			'post_name'    => sanitize_title( (string) ( $dry_run['slug'] ?? '' ) ),
+			'post_excerpt' => sanitize_textarea_field( (string) ( $dry_run['excerpt'] ?? '' ) ),
+			'post_content' => $content,
+			'post_status'  => $this->get_target_post_status(),
+			'post_type'    => 'post',
+			'post_author'  => absint( $author_id ),
+		);
+	}
+
+	/**
+	 * Create or get term IDs for a taxonomy.
+	 *
+	 * @param string           $taxonomy Taxonomy name.
+	 * @param array<int,mixed> $terms Terms.
+	 * @return array<int,int>
+	 */
+	public function create_or_get_terms( $taxonomy, $terms ) {
+		$taxonomy = sanitize_key( (string) $taxonomy );
+		$ids      = array();
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			return $ids;
+		}
+
+		foreach ( (array) $terms as $term ) {
+			$name = sanitize_text_field( is_scalar( $term ) ? (string) $term : '' );
+			if ( '' === trim( $name ) ) {
+				continue;
+			}
+			$existing = term_exists( $name, $taxonomy );
+			if ( is_array( $existing ) && ! empty( $existing['term_id'] ) ) {
+				$ids[] = absint( $existing['term_id'] );
+				continue;
+			}
+			$created = wp_insert_term( $name, $taxonomy );
+			if ( is_wp_error( $created ) ) {
+				$this->logger->warning( __( 'Creazione termine non riuscita.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'taxonomy' => $taxonomy, 'term' => $name, 'error' => $created->get_error_message() ) );
+				continue;
+			}
+			$ids[] = absint( $created['term_id'] );
+		}
+
+		return array_values( array_unique( array_filter( $ids ) ) );
+	}
+
+	/**
+	 * Assign categories and tags suggested by dry-run.
+	 *
+	 * @param int                 $post_id Post ID.
+	 * @param array<string,mixed> $dry_run Dry-run data.
+	 * @return void
+	 */
+	public function assign_categories_and_tags( $post_id, $dry_run ) {
+		$post_id = absint( $post_id );
+		if ( 0 === $post_id ) {
+			return;
+		}
+
+		$site_context       = wpai_publisher_get_site_context();
+		$allowed_categories = wpai_publisher_split_context_list( $site_context['allowed_categories'] ?? '' );
+		$allowed_lookup     = array();
+		foreach ( $allowed_categories as $category ) {
+			$allowed_lookup[ strtolower( remove_accents( $category ) ) ] = $category;
+		}
+
+		$categories = array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $dry_run['categories'] ?? array() ) ) ) );
+		if ( ! empty( $allowed_lookup ) ) {
+			$categories = array_values(
+				array_filter(
+					$categories,
+					function ( $category ) use ( $allowed_lookup ) {
+						$allowed = isset( $allowed_lookup[ strtolower( remove_accents( $category ) ) ] );
+						if ( ! $allowed ) {
+							$this->logger->warning( __( 'Categoria AI non consentita ignorata.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'category' => $category ) );
+						}
+						return $allowed;
+					}
+				)
+			);
+		}
+
+		$category_ids = $this->create_or_get_terms( 'category', $categories );
+		if ( ! empty( $category_ids ) ) {
+			wp_set_post_categories( $post_id, $category_ids, false );
+		}
+
+		$tags = array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $dry_run['tags'] ?? array() ) ) ) );
+		$tags = array_slice( array_values( array_unique( $tags ) ), 0, 12 );
+		$tag_ids = $this->create_or_get_terms( 'post_tag', $tags );
+		if ( ! empty( $tag_ids ) ) {
+			wp_set_post_terms( $post_id, $tag_ids, 'post_tag', false );
+		}
+	}
+
+	/**
+	 * Update idea after draft creation.
+	 *
+	 * @param int    $idea_id Idea ID.
+	 * @param int    $post_id Post ID.
+	 * @param string $status Post status.
+	 * @return bool
+	 */
+	public function update_idea_after_draft_created( $idea_id, $post_id, $status ) {
+		global $wpdb;
+
+		return false !== $wpdb->update(
+			$this->db->get_content_ideas_table_name(),
+			array(
+				'status'           => 'draft_created',
+				'updated_at'       => current_time( 'mysql' ),
+				'draft_created_at' => current_time( 'mysql' ),
+				'draft_post_id'    => absint( $post_id ),
+				'draft_status'     => sanitize_key( (string) $status ),
+				'draft_error'      => null,
+			),
+			array( 'id' => absint( $idea_id ) ),
+			array( '%s', '%s', '%s', '%d', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
+	 * Update idea after draft creation failure.
+	 *
+	 * @param int    $idea_id Idea ID.
+	 * @param string $error_message Error message.
+	 * @return bool
+	 */
+	public function update_idea_after_draft_failed( $idea_id, $error_message ) {
+		global $wpdb;
+
+		return false !== $wpdb->update(
+			$this->db->get_content_ideas_table_name(),
+			array(
+				'status'      => 'draft_failed',
+				'updated_at'  => current_time( 'mysql' ),
+				'draft_error' => sanitize_textarea_field( (string) $error_message ),
+			),
+			array( 'id' => absint( $idea_id ) ),
+			array( '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
+	 * Detect Gutenberg block markers.
+	 *
+	 * @param string $html HTML.
+	 * @return bool
+	 */
+	private function contains_gutenberg_blocks( $html ) {
+		return false !== stripos( $html, '<!-- wp:' ) || false !== stripos( $html, 'wp-block' );
+	}
+}

@@ -1006,7 +1006,7 @@ class AI_Provider_Adapter {
 	 * @return bool
 	 */
 	private function ability_has_dangerous_signals( $metadata ) {
-		$dangerous = array( 'create_post', 'insert_post', 'publish', 'delete', 'remove', 'update', 'edit', 'save', 'media', 'image', 'upload', 'attachment', 'option', 'setting', 'user', 'comment', 'email', 'send', 'webhook', 'remote', 'external', 'install', 'activate', 'deactivate', 'file', 'filesystem', 'database', 'db', 'cron', 'schedule', 'pubblica', 'pubblicare', 'elimina', 'rimuovi', 'aggiorna', 'modifica', 'salva', 'carica', 'immagine', 'allegato', 'opzione', 'impostazione', 'utente', 'commento', 'invia', 'installa', 'attiva', 'disattiva' );
+		$dangerous = array( 'create_post', 'insert_post', 'publish_post', 'publish', 'delete', 'delete_post', 'remove_post', 'update_post', 'edit_post', 'save_post', 'create_media', 'upload_media', 'media_upload', 'delete_media', 'attachment', 'update_option', 'delete_option', 'settings_update', 'create_user', 'delete_user', 'send_email', 'webhook', 'remote_request', 'install_plugin', 'activate_plugin', 'deactivate_plugin', 'filesystem', 'database_write', 'schedule_event', 'pubblica', 'pubblicare', 'elimina', 'eliminare', 'rimuovi', 'rimuovere', 'aggiorna articolo', 'modifica articolo', 'salva articolo', 'carica media', 'crea allegato', 'elimina allegato', 'aggiorna opzione', 'crea utente', 'elimina utente', 'invia email', 'installa plugin', 'attiva plugin', 'disattiva plugin' );
 		$haystack  = $this->build_ability_safety_haystack( $metadata );
 		return $this->metadata_contains_safety_signal( $haystack, $dangerous );
 	}
@@ -1041,15 +1041,23 @@ class AI_Provider_Adapter {
 	}
 
 	/**
-	 * Match a safety signal as a substring in compact metadata text.
+	 * Match a safety signal with token/boundary semantics in compact metadata text.
 	 *
 	 * @param string            $haystack Text to inspect.
 	 * @param array<int,string> $signals Signal words.
 	 * @return bool
 	 */
 	private function metadata_contains_safety_signal( $haystack, $signals ) {
+		$haystack = strtolower( remove_accents( (string) $haystack ) );
 		foreach ( $signals as $signal ) {
-			if ( false !== strpos( $haystack, strtolower( $signal ) ) ) {
+			$signal = strtolower( remove_accents( trim( (string) $signal ) ) );
+			if ( '' === $signal || strlen( $signal ) < 4 ) {
+				continue;
+			}
+
+			$pattern_signal = preg_quote( $signal, '/' );
+			$pattern_signal = str_replace( array( '\ ', '\-' ), '[^a-z0-9_]+', $pattern_signal );
+			if ( 1 === preg_match( '/(^|[^a-z0-9_])' . $pattern_signal . '([^a-z0-9_]|$)/i', $haystack ) ) {
 				return true;
 			}
 		}
