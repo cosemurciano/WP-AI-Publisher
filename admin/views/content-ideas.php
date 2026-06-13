@@ -19,6 +19,7 @@ $notices    = array(
 	'draft_created'            => array( 'success', __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) ),
 	'full_article_generated'   => array( 'success', __( 'Articolo completo generato. Ora puoi approvare il contenuto e creare la bozza.', 'wp-ai-publisher' ) ),
 	'full_article_failed'      => array( 'error', __( 'Non è stato possibile generare un articolo completo.', 'wp-ai-publisher' ) ),
+	'missing_full_article'     => array( 'warning', __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ) ),
 	'draft_already_exists'     => array( 'warning', __( 'La bozza esiste già.', 'wp-ai-publisher' ) ),
 	'draft_creation_failed'    => array( 'error', __( 'Creazione bozza fallita.', 'wp-ai-publisher' ) ),
 	'draft_not_approved'       => array( 'error', __( 'Non puoi creare una bozza da un dry-run non approvato.', 'wp-ai-publisher' ) ),

@@ -264,6 +264,9 @@ class Content_Ideas {
 		}
 		$builder = new Classic_Content_Builder();
 		$validation = $builder->validate_publishable_article_html( (string) ( $full_article['html'] ?? '' ) );
+		if ( empty( $validation['valid'] ) ) {
+			return new WP_Error( 'wpai_full_article_not_publishable', __( 'Articolo completo non valido per la bozza.', 'wp-ai-publisher' ), $validation );
+		}
 		$full_article['validation_notes'] = array_values( array_unique( array_merge( (array) ( $full_article['validation_notes'] ?? array() ), $validation['notes'] ) ) );
 		$output['full_article'] = $full_article;
 		$notes = isset( $output['validation_notes'] ) && is_array( $output['validation_notes'] ) ? $output['validation_notes'] : array();
