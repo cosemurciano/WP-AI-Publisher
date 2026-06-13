@@ -786,6 +786,13 @@ class AI_Provider_Adapter {
 				'plain_text_summary' => 'string',
 				'validation_notes'   => array( 'string' ),
 			),
+			'full_article' => array(
+				'html'               => 'string',
+				'plain_text_summary' => 'string',
+				'source'             => 'wordpress_ai|local_fallback',
+				'validation_notes'   => array( 'string' ),
+				'quality_notes'      => array( 'string' ),
+			),
 		);
 	}
 
@@ -904,6 +911,169 @@ class AI_Provider_Adapter {
 	}
 
 	/**
+	 * Generate a complete Classic Editor article from dry-run output.
+	 *
+	 * This method only uses WordPress-provided AI integration hooks/functions; it never
+	 * calls OpenAI directly. If no safe AI output is usable, a local deterministic
+	 * fallback builds reader-facing HTML from the approved structure.
+	 *
+	 * @param array<string,mixed> $dry_run_output Dry-run output.
+	 * @param array<string,mixed> $site_context Internal editorial context.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	public function generate_full_classic_article( $dry_run_output, $site_context = array() ) {
+		$dry_run_output = is_array( $dry_run_output ) ? $dry_run_output : array();
+		$site_context   = wpai_publisher_normalize_site_context( ! empty( $site_context ) ? $site_context : wpai_publisher_get_site_context() );
+		$prompt         = $this->build_full_article_prompt( $dry_run_output, $site_context );
+		$builder        = new Classic_Content_Builder( $site_context );
+
+		$filtered = apply_filters( 'wpai_publisher_generate_full_classic_article', null, $dry_run_output, $site_context, $prompt );
+		if ( null !== $filtered ) {
+			$candidate = $this->normalize_full_article_candidate( $filtered, 'wordpress_ai', $builder );
+			if ( ! is_wp_error( $candidate ) ) {
+				return $candidate;
+			}
+		}
+
+		$ability_candidate = $this->try_generate_full_article_with_wp_abilities( $dry_run_output, $site_context, $prompt, $builder );
+		if ( ! is_wp_error( $ability_candidate ) ) {
+			return $ability_candidate;
+		}
+
+		if ( function_exists( 'wp_ai_generate_text' ) ) {
+			foreach ( array( array( 'prompt' => $prompt, 'temperature' => 0.2, 'format' => 'html' ), $prompt ) as $args ) {
+				try {
+					$result = call_user_func( 'wp_ai_generate_text', $args );
+					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder );
+					if ( ! is_wp_error( $candidate ) ) {
+						return $candidate;
+					}
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+		}
+
+		$fallback = $builder->build_full_article_from_dry_run( $dry_run_output, $site_context );
+		$fallback['source'] = 'local_fallback';
+		return $fallback;
+	}
+
+	/**
+	 * Try safe WordPress Abilities API candidates for full article generation.
+	 *
+	 * @param array<string,mixed>     $dry_run_output Dry-run output.
+	 * @param array<string,mixed>     $site_context Site context.
+	 * @param string                  $prompt Prompt.
+	 * @param Classic_Content_Builder $builder Builder/validator.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private function try_generate_full_article_with_wp_abilities( $dry_run_output, $site_context, $prompt, Classic_Content_Builder $builder ) {
+		unset( $site_context );
+		if ( ! function_exists( 'wp_get_abilities' ) || ! function_exists( 'wp_get_ability' ) ) {
+			return new WP_Error( 'wpai_full_article_abilities_unavailable', __( 'WordPress Abilities API non disponibile.', 'wp-ai-publisher' ) );
+		}
+		try {
+			$abilities = wp_get_abilities();
+		} catch ( Throwable $error ) {
+			return new WP_Error( 'wpai_full_article_abilities_read_failed', $error->getMessage() );
+		}
+		foreach ( (array) $abilities as $key => $ability_def ) {
+			$metadata = $this->extract_ability_metadata( $ability_def, is_string( $key ) ? $key : '' );
+			$haystack = strtolower( (string) ( $metadata['haystack'] ?? '' ) );
+			if ( false === strpos( $haystack, 'article' ) && false === strpos( $haystack, 'content' ) && false === strpos( $haystack, 'text' ) && false === strpos( $haystack, 'testo' ) && false === strpos( $haystack, 'contenuto' ) ) {
+				continue;
+			}
+			if ( ! $this->is_ability_safe_for_dry_run( $ability_def, $metadata ) ) {
+				continue;
+			}
+			$name = sanitize_text_field( (string) ( $metadata['name'] ?? '' ) );
+			if ( '' === $name ) {
+				continue;
+			}
+			try {
+				$ability = wp_get_ability( $name );
+			} catch ( Throwable $error ) {
+				unset( $error );
+				continue;
+			}
+			if ( ! is_object( $ability ) ) {
+				continue;
+			}
+			foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $method ) {
+				if ( ! method_exists( $ability, $method ) || ! is_callable( array( $ability, $method ) ) ) {
+					continue;
+				}
+				try {
+					$result = $ability->{$method}( array( 'prompt' => $prompt, 'dry_run_output' => $dry_run_output, 'format' => 'html' ) );
+					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder );
+					if ( ! is_wp_error( $candidate ) ) {
+						$candidate['quality_notes'][] = __( 'Articolo generato tramite WordPress Abilities API sicura.', 'wp-ai-publisher' );
+						return $candidate;
+					}
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+		}
+		return new WP_Error( 'wpai_full_article_abilities_unusable', __( 'Nessuna ability sicura ha generato un articolo completo valido.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Build the full-article prompt for WordPress AI integrations.
+	 *
+	 * @param array<string,mixed> $dry_run_output Dry-run output.
+	 * @param array<string,mixed> $site_context Internal site context.
+	 * @return string
+	 */
+	private function build_full_article_prompt( $dry_run_output, $site_context ) {
+		$payload = array(
+			'title'            => $dry_run_output['title'] ?? '',
+			'excerpt'          => $dry_run_output['excerpt'] ?? '',
+			'content_outline'  => $dry_run_output['content_outline'] ?? array(),
+			'knowledge_summary'=> $dry_run_output['knowledge_summary'] ?? '',
+			'entities'         => $dry_run_output['entities'] ?? array(),
+			'search_intent'    => $dry_run_output['search_intent'] ?? '',
+			'tutorial_level'   => $dry_run_output['tutorial_level'] ?? '',
+			'site_context'     => $site_context,
+			'validation_notes' => $dry_run_output['validation_notes'] ?? array(),
+		);
+		return "Scrivi l’articolo finale per il lettore, non una scaletta editoriale. Restituisci solo HTML pulito compatibile con Editor Classico. Non usare frasi come ‘Spiegare’, ‘Descrivere’, ‘Indicare’, ‘Mostrare’. Non includere il pubblico target, tono, regole editoriali o note interne nel corpo dell’articolo. Usa solo tag consentiti: p, h2, h3, ul, ol, li, strong, em, blockquote, code, pre, br. Non usare Markdown. Non usare blocchi Gutenberg. Non usare script, iframe, style inline, shortcode. Non includere metadati o prompt immagini nel corpo articolo. Dati e vincoli interni:
+" . wp_json_encode( $payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
+	}
+
+	/**
+	 * Normalize and validate full article candidate.
+	 *
+	 * @param mixed                   $candidate Candidate output.
+	 * @param string                  $source Source label.
+	 * @param Classic_Content_Builder $builder Builder/validator.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private function normalize_full_article_candidate( $candidate, $source, Classic_Content_Builder $builder ) {
+		$html = '';
+		if ( is_array( $candidate ) ) {
+			$html = (string) ( $candidate['html'] ?? $candidate['content'] ?? $candidate['post_content'] ?? '' );
+		} elseif ( is_object( $candidate ) ) {
+			$html = (string) ( $candidate->html ?? $candidate->content ?? $candidate->text ?? '' );
+		} elseif ( is_string( $candidate ) ) {
+			$html = $candidate;
+		}
+		$html = $builder->sanitize_classic_html( $html );
+		$validation = $builder->validate_publishable_article_html( $html );
+		if ( empty( $validation['valid'] ) ) {
+			return new WP_Error( 'wpai_full_article_invalid', __( 'Output articolo completo non pubblicabile.', 'wp-ai-publisher' ), $validation );
+		}
+		return array(
+			'html'               => $html,
+			'plain_text_summary' => wp_trim_words( wp_strip_all_tags( $html ), 55, '…' ),
+			'source'             => $source,
+			'validation_notes'   => $validation['notes'],
+			'quality_notes'      => array( __( 'Articolo completo valido per bozza Classic Editor.', 'wp-ai-publisher' ) ),
+		);
+	}
+
+	/**
 	 * Normalize payload shape and preserve backward compatibility with previous nested idea payloads.
 	 *
 	 * @param array<string,mixed> $payload Request payload.
@@ -1013,7 +1183,32 @@ class AI_Provider_Adapter {
 	private function ability_has_dangerous_signals( $metadata ) {
 		$dangerous = array( 'create_post', 'insert_post', 'publish_post', 'delete_post', 'remove_post', 'update_post', 'edit_post', 'save_post', 'create_media', 'upload_media', 'media_upload', 'delete_media', 'update_option', 'delete_option', 'update_setting', 'create_user', 'delete_user', 'send_email', 'webhook', 'remote_request', 'install_plugin', 'activate_plugin', 'deactivate_plugin', 'filesystem', 'database_write', 'schedule_event', 'pubblica', 'pubblicare', 'elimina', 'eliminare', 'rimuovi', 'rimuovere', 'aggiorna articolo', 'modifica articolo', 'salva articolo', 'carica media', 'crea allegato', 'elimina allegato', 'aggiorna opzione', 'crea utente', 'elimina utente', 'invia email', 'installa plugin', 'attiva plugin', 'disattiva plugin' );
 		$haystack  = $this->build_ability_safety_haystack( $metadata );
-		return $this->metadata_contains_safety_signal( $haystack, $dangerous );
+		if ( $this->metadata_contains_safety_signal( $haystack, $dangerous ) ) {
+			return true;
+		}
+
+		$tokens = $this->tokenize_safety_text( $haystack );
+		foreach ( array( 'publish', 'delete', 'remove', 'insert', 'pubblica', 'pubblicare', 'elimina', 'eliminare', 'rimuovi', 'rimuovere' ) as $token ) {
+			if ( in_array( $token, $tokens, true ) ) {
+				return true;
+			}
+		}
+
+		$objects = array( 'post', 'content', 'media', 'option', 'setting', 'user', 'file', 'database', 'article', 'articolo', 'contenuto', 'opzione', 'utente', 'allegato' );
+		if ( array_intersect( array( 'update', 'create', 'aggiorna', 'crea' ), $tokens ) && array_intersect( $objects, $tokens ) ) {
+			return true;
+		}
+
+		foreach ( (array) ( $metadata['meta'] ?? array() ) as $key => $value ) {
+			if ( in_array( sanitize_key( (string) $key ), array( 'action', 'operation', 'capability' ), true ) ) {
+				$meta_tokens = $this->tokenize_safety_text( is_scalar( $value ) ? (string) $value : '' );
+				if ( array_intersect( array( 'update', 'create' ), $meta_tokens ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -1043,6 +1238,18 @@ class AI_Provider_Adapter {
 			}
 		}
 		return strtolower( implode( ' ', array_map( 'sanitize_text_field', array_filter( $parts, 'is_scalar' ) ) ) );
+	}
+
+	/**
+	 * Tokenize metadata text for exact safety checks.
+	 *
+	 * @param string $text Text to tokenize.
+	 * @return array<int,string>
+	 */
+	private function tokenize_safety_text( $text ) {
+		$normalized = strtolower( remove_accents( (string) $text ) );
+		$normalized = preg_replace( '/[^a-z0-9]+/i', ' ', $normalized );
+		return array_values( array_filter( preg_split( '/\s+/', trim( (string) $normalized ) ) ) );
 	}
 
 	/**

@@ -40,11 +40,9 @@ class Classic_Content_Builder {
 	public function build_from_dry_run( $dry_run_output ) {
 		$dry_run_output = is_array( $dry_run_output ) ? $dry_run_output : array();
 		$notes          = array();
-		$context_notes  = $this->build_context_notes();
 
 		$html_parts = array(
 			$this->build_intro( $dry_run_output ),
-			$context_notes,
 			$this->build_outline_sections( $dry_run_output ),
 			$this->outline_has_conclusion_section( $dry_run_output ) ? '' : $this->build_conclusion( $dry_run_output ),
 		);
@@ -96,24 +94,111 @@ class Classic_Content_Builder {
 		);
 	}
 
+
 	/**
-	 * Build a small editorial note from configured site context.
+	 * Build a complete publishable Classic Editor article from a dry-run.
 	 *
-	 * @return string
+	 * @param array<string,mixed> $dry_run_output Structured dry-run output.
+	 * @param array<string,mixed> $site_context Optional internal editorial context.
+	 * @return array{html:string,plain_text_summary:string,validation_notes:array<int,string>,quality_notes:array<int,string>}
 	 */
-	private function build_context_notes() {
-		$parts = array();
-		if ( '' !== $this->site_context['default_audience'] ) {
-			$parts[] = sprintf( __( 'Pubblico: %s.', 'wp-ai-publisher' ), $this->site_context['default_audience'] );
-		}
-		$parts[] = sprintf( __( 'Tono: %s.', 'wp-ai-publisher' ), wpai_publisher_site_context_label( 'default_tone', $this->site_context['default_tone'] ) );
-		$parts[] = sprintf( __( 'Formato preferito: %s.', 'wp-ai-publisher' ), wpai_publisher_site_context_label( 'content_format_preference', $this->site_context['content_format_preference'] ) );
-		$parts[] = __( 'Target tecnico: Editor Classico con HTML pulito; nessun blocco Gutenberg.', 'wp-ai-publisher' );
-		if ( '' !== $this->site_context['writing_rules'] ) {
-			$parts[] = sprintf( __( 'Nota editoriale: %s', 'wp-ai-publisher' ), $this->site_context['writing_rules'] );
+	public function build_full_article_from_dry_run( $dry_run_output, $site_context = array() ) {
+		$dry_run_output = is_array( $dry_run_output ) ? $dry_run_output : array();
+		if ( ! empty( $site_context ) ) {
+			$this->site_context = wpai_publisher_normalize_site_context( $site_context );
 		}
 
-		return '<blockquote><p>' . esc_html( implode( ' ', $parts ) ) . '</p></blockquote>';
+		$title   = sanitize_text_field( (string) ( $dry_run_output['title'] ?? $dry_run_output['subtopic'] ?? $dry_run_output['cluster_topic'] ?? '' ) );
+		$excerpt = $this->finalize_reader_sentence( (string) ( $dry_run_output['excerpt'] ?? '' ), $title );
+		$outline = isset( $dry_run_output['content_outline'] ) && is_array( $dry_run_output['content_outline'] ) ? $dry_run_output['content_outline'] : array();
+		if ( count( $outline ) < 3 ) {
+			$outline[] = array( 'heading' => __( 'Panoramica', 'wp-ai-publisher' ), 'level' => 2, 'summary' => $excerpt );
+			$outline[] = array( 'heading' => __( 'Passaggi principali', 'wp-ai-publisher' ), 'level' => 2, 'summary' => __( 'Una sequenza pratica aiuta a procedere senza perdere controlli importanti.', 'wp-ai-publisher' ) );
+			$outline[] = array( 'heading' => __( 'Controlli finali', 'wp-ai-publisher' ), 'level' => 2, 'summary' => __( 'La verifica finale permette di confermare che il risultato sia chiaro e utilizzabile.', 'wp-ai-publisher' ) );
+		}
+
+		$html = '<p>' . esc_html( $excerpt ) . '</p>' . "\n\n";
+		$html .= '<h2>' . esc_html__( 'Indice dei contenuti', 'wp-ai-publisher' ) . '</h2>' . "\n<ul>\n";
+		foreach ( $outline as $section ) {
+			$heading = sanitize_text_field( (string) ( is_array( $section ) ? ( $section['heading'] ?? '' ) : $section ) );
+			if ( '' !== $heading ) {
+				$html .= '<li>' . esc_html( $heading ) . '</li>' . "\n";
+			}
+		}
+		$html .= '</ul>' . "\n\n";
+
+		foreach ( $outline as $section ) {
+			$heading = sanitize_text_field( (string) ( is_array( $section ) ? ( $section['heading'] ?? '' ) : $section ) );
+			if ( '' === $heading ) {
+				continue;
+			}
+			$summary = is_array( $section ) ? (string) ( $section['summary'] ?? '' ) : '';
+			$paragraphs = $this->expand_summary_to_reader_paragraphs( $heading, $summary, $dry_run_output );
+			$html .= '<h2>' . esc_html( $heading ) . '</h2>' . "\n";
+			foreach ( $paragraphs as $paragraph ) {
+				$html .= '<p>' . esc_html( $paragraph ) . '</p>' . "\n";
+			}
+		}
+
+		if ( ! $this->outline_has_conclusion_section( $dry_run_output ) ) {
+			$html .= '<h2>' . esc_html__( 'Conclusione e prossimi passi', 'wp-ai-publisher' ) . '</h2>' . "\n";
+			$html .= '<p>' . esc_html( sprintf( __( 'A questo punto hai una visione completa di %s e puoi applicare i passaggi descritti con maggiore sicurezza. Rileggi le sezioni principali, verifica il risultato nel sito reale e aggiorna il contenuto quando cambiano strumenti, tema o impostazioni.', 'wp-ai-publisher' ), '' !== $title ? $title : __( 'questo argomento', 'wp-ai-publisher' ) ) ) . '</p>';
+		}
+
+		$html = $this->sanitize_classic_html( $html );
+		$validation = $this->validate_publishable_article_html( $html );
+
+		return array(
+			'html'               => $html,
+			'plain_text_summary' => wp_trim_words( wp_strip_all_tags( $html ), 55, '…' ),
+			'validation_notes'   => $validation['notes'],
+			'quality_notes'      => empty( $validation['valid'] ) ? array( __( 'Articolo da revisionare prima della bozza.', 'wp-ai-publisher' ) ) : array( __( 'Articolo pronto per una bozza Classic Editor.', 'wp-ai-publisher' ) ),
+		);
+	}
+
+	/**
+	 * Validate final Classic Editor article HTML before draft creation.
+	 *
+	 * @param string $html Article HTML.
+	 * @return array{valid:bool,notes:array<int,string>,word_count:int,h2_count:int}
+	 */
+	public function validate_publishable_article_html( $html ) {
+		$html = (string) $html;
+		$notes = array();
+		$plain = trim( wp_strip_all_tags( $html ) );
+		$lower = strtolower( remove_accents( $html ) );
+		$min_words = absint( apply_filters( 'wpai_publisher_min_full_article_words', 300 ) );
+		$word_count = str_word_count( strtolower( remove_accents( $plain ) ) );
+		$h2_count = preg_match_all( '/<h2\b[^>]*>/i', $html );
+
+		if ( '' === $plain ) { $notes[] = __( 'Articolo completo vuoto.', 'wp-ai-publisher' ); }
+		foreach ( array( '<!-- wp:', 'wp-block', '<script', '<iframe', ' style=', '<style', '[caption', '[gallery' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Markup non consentito nel contenuto finale.', 'wp-ai-publisher' ); break; } }
+		foreach ( array( 'pubblico:', 'tono:', 'formato preferito:', 'target tecnico:', 'nota editoriale:', 'regole editoriali:', 'claim vietati:', 'termini brand:', 'contesto editoriale:', 'writing rules:', 'forbidden_claims', 'site_context', 'validation_notes', 'knowledge_summary' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene note interne visibili.', 'wp-ai-publisher' ); break; } }
+		foreach ( array( 'spiegare', 'indicare', 'descrivere', 'mostrare', 'illustrare', 'suggerire', 'riassumere', 'chiudere', 'elencare', 'presentare', 'approfondire', 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'procedi per passaggi ordinati e annota le verifiche necessarie', 'verifica il risultato finale prima di usare il contenuto in una bozza' ) as $needle ) { if ( 1 === preg_match( '/<(p|li)>\s*' . preg_quote( $needle, '/' ) . '\b/i', $lower ) || false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); break; } }
+		if ( $h2_count < 3 ) { $notes[] = __( 'Il contenuto finale deve contenere almeno 3 sezioni H2.', 'wp-ai-publisher' ); }
+		if ( $word_count < $min_words ) { $notes[] = sprintf( __( 'Il contenuto finale contiene %1$d parole: minimo richiesto %2$d.', 'wp-ai-publisher' ), $word_count, $min_words ); }
+		if ( 1 === preg_match( '/^\s*[\{\[]|"(title|content_outline|validation_notes)"\s*:/i', $plain ) ) { $notes[] = __( 'Il contenuto finale sembra contenere JSON grezzo.', 'wp-ai-publisher' ); }
+		if ( false !== strpos( $lower, 'prompt immagine' ) || false !== strpos( $lower, 'featured_image_prompt' ) || false !== strpos( $lower, 'internal_image_prompts' ) ) { $notes[] = __( 'Il contenuto finale contiene prompt immagine visibili.', 'wp-ai-publisher' ); }
+
+		return array( 'valid' => empty( $notes ), 'notes' => array_values( array_unique( $notes ) ), 'word_count' => $word_count, 'h2_count' => (int) $h2_count );
+	}
+
+	private function finalize_reader_sentence( $text, $fallback_topic ) {
+		$text = trim( wp_strip_all_tags( (string) $text ) );
+		if ( '' === $text || $this->looks_like_placeholder_summary( $text ) ) {
+			$text = sprintf( __( 'Questa guida accompagna il lettore nella gestione di %s con spiegazioni pratiche, esempi chiari e controlli finali utili per evitare errori comuni.', 'wp-ai-publisher' ), '' !== $fallback_topic ? $fallback_topic : __( 'questo argomento', 'wp-ai-publisher' ) );
+		}
+		return $text;
+	}
+
+	private function expand_summary_to_reader_paragraphs( $heading, $summary, $dry_run_output ) {
+		$summary = $this->finalize_reader_sentence( $summary, $heading );
+		$topic = sanitize_text_field( (string) ( $dry_run_output['title'] ?? $dry_run_output['cluster_topic'] ?? $heading ) );
+		return array(
+			$summary,
+			sprintf( __( 'In pratica, questa parte aiuta a collegare “%1$s” al risultato che il lettore vuole ottenere. Conviene procedere con calma, controllare ogni impostazione rilevante e confrontare il risultato con le esigenze reali del sito.', 'wp-ai-publisher' ), $heading ),
+			sprintf( __( 'Per %1$s è utile mantenere un approccio semplice: parti dagli elementi essenziali, evita modifiche non necessarie e verifica sempre che il contenuto rimanga chiaro, accessibile e coerente con l’obiettivo dell’articolo.', 'wp-ai-publisher' ), '' !== $topic ? $topic : $heading ),
+		);
 	}
 
 	/**
@@ -229,7 +314,7 @@ class Classic_Content_Builder {
 	public function build_conclusion( $dry_run_output ) {
 		$title = sanitize_text_field( (string) ( $dry_run_output['title'] ?? __( 'il contenuto', 'wp-ai-publisher' ) ) );
 
-		return '<h2>' . esc_html__( 'Conclusione', 'wp-ai-publisher' ) . '</h2>' . "\n" . '<p>' . esc_html( sprintf( __( 'Prima di trasformare “%s” in una bozza reale, conviene rileggere la struttura, verificare dati, tono e regole editoriali del sito e completare eventuali esempi specifici.', 'wp-ai-publisher' ), $title ) ) . '</p>';
+		return '<h2>' . esc_html__( 'Conclusione', 'wp-ai-publisher' ) . '</h2>' . "\n" . '<p>' . esc_html( sprintf( __( 'Con “%s” hai un percorso ordinato da seguire e controllare. Rileggi i passaggi principali, verifica il risultato nel sito reale e aggiorna il contenuto quando cambiano strumenti o impostazioni.', 'wp-ai-publisher' ), $title ) ) . '</p>';
 	}
 
 	/**
@@ -322,18 +407,18 @@ class Classic_Content_Builder {
 		$normalized = strtolower( remove_accents( (string) $heading ) );
 
 		if ( false !== strpos( $normalized, 'widget' ) ) {
-			return __( 'Spiegare il ruolo dei widget nelle aree predisposte dal tema e indicare cosa controllare prima di salvarli sul sito pubblico.', 'wp-ai-publisher' );
+			return __( 'I widget permettono di aggiungere contenuti e funzioni nelle aree predisposte dal tema. Controlla posizione, visibilità e coerenza prima del salvataggio definitivo, così il sito resta ordinato e comprensibile per chi lo visita.', 'wp-ai-publisher' );
 		}
 
 		if ( false !== strpos( $normalized, 'menu' ) || false !== strpos( $normalized, 'navigazione' ) ) {
-			return __( 'Collegare la sezione alla navigazione del sito, chiarendo come ordinare le voci e verificare che ogni link sia utile per l’utente.', 'wp-ai-publisher' );
+			return __( 'La navigazione del sito deve aiutare il visitatore a trovare rapidamente le pagine principali. Ordina le voci in modo logico, usa etichette chiare e verifica che ogni collegamento sia davvero utile.', 'wp-ai-publisher' );
 		}
 
 		if ( false !== strpos( $normalized, 'wpml' ) || false !== strpos( $normalized, 'traduz' ) || false !== strpos( $normalized, 'lingu' ) ) {
-			return __( 'Inquadrare la gestione multilingua, ricordando di verificare traduzioni, URL, menu e contenuti collegati in ogni lingua attiva.', 'wp-ai-publisher' );
+			return __( 'La gestione multilingua richiede attenzione a traduzioni, URL, menu e contenuti collegati. Ogni lingua attiva dovrebbe offrire un percorso coerente e completo per il visitatore.', 'wp-ai-publisher' );
 		}
 
-		return sprintf( __( 'Presentare “%s” con indicazioni operative, verifiche pratiche e una revisione finale coerente con il contesto del sito.', 'wp-ai-publisher' ), sanitize_text_field( (string) $heading ) );
+		return sprintf( __( 'La sezione “%s” introduce gli aspetti pratici più importanti, indica cosa controllare e aiuta a mantenere il risultato coerente con l’obiettivo del contenuto.', 'wp-ai-publisher' ), sanitize_text_field( (string) $heading ) );
 	}
 
 	/**
@@ -360,8 +445,8 @@ class Classic_Content_Builder {
 		}
 
 		return array(
-			__( 'Procedi per passaggi ordinati e annota le verifiche necessarie.', 'wp-ai-publisher' ),
-			__( 'Verifica il risultato finale prima di usare il contenuto in una bozza.', 'wp-ai-publisher' ),
+			__( 'Lavora un passaggio alla volta e conserva solo le modifiche davvero utili.', 'wp-ai-publisher' ),
+			__( 'Controlla il risultato finale nel sito prima di considerare concluso il lavoro.', 'wp-ai-publisher' ),
 		);
 	}
 }

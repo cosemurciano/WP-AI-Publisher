@@ -75,8 +75,17 @@ class Draft_Creator {
 			return $error;
 		}
 
-		if ( empty( $dry_run['classic_editor_preview']['html'] ) || ! is_string( $dry_run['classic_editor_preview']['html'] ) ) {
-			$error = new WP_Error( 'wpai_draft_creator_missing_classic_html', __( 'Anteprima HTML Classic Editor assente.', 'wp-ai-publisher' ) );
+		if ( empty( $dry_run['full_article']['html'] ) || ! is_string( $dry_run['full_article']['html'] ) ) {
+			$error = new WP_Error( 'wpai_draft_creator_missing_full_article', __( 'Non è stato possibile generare un articolo completo dalla struttura approvata.', 'wp-ai-publisher' ) );
+			$this->update_idea_after_draft_failed( (int) $idea->id, $error->get_error_message() );
+			return $error;
+		}
+
+		$builder = new Classic_Content_Builder();
+		$validation = $builder->validate_publishable_article_html( (string) $dry_run['full_article']['html'] );
+		if ( empty( $validation['valid'] ) ) {
+			$error = new WP_Error( 'wpai_draft_creator_full_article_not_publishable', __( 'Non è stato possibile generare un articolo completo dalla struttura approvata.', 'wp-ai-publisher' ), $validation );
+			$this->logger->warning( $error->get_error_message(), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'notes' => $validation['notes'] ) );
 			$this->update_idea_after_draft_failed( (int) $idea->id, $error->get_error_message() );
 			return $error;
 		}
@@ -163,6 +172,11 @@ class Draft_Creator {
 		);
 
 		$sanitized = wp_kses( $html, $allowed_html );
+		$builder = new Classic_Content_Builder();
+		$validation = $builder->validate_publishable_article_html( $sanitized );
+		if ( empty( $validation['valid'] ) ) {
+			return new WP_Error( 'wpai_draft_creator_unpublishable_content', __( 'Il contenuto completo non è pubblicabile come bozza Classic Editor.', 'wp-ai-publisher' ), $validation );
+		}
 		if ( '' === trim( wp_strip_all_tags( $sanitized ) ) ) {
 			return new WP_Error( 'wpai_draft_creator_empty_content', __( 'Il contenuto è vuoto dopo la sanitizzazione.', 'wp-ai-publisher' ) );
 		}
@@ -178,7 +192,7 @@ class Draft_Creator {
 	 * @return array<string,mixed>|WP_Error
 	 */
 	public function prepare_post_data( $idea, $dry_run ) {
-		$html = (string) ( $dry_run['classic_editor_preview']['html'] ?? '' );
+		$html = (string) ( $dry_run['full_article']['html'] ?? '' );
 		$content = $this->sanitize_post_content( $html );
 		if ( is_wp_error( $content ) ) {
 			return $content;

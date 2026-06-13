@@ -90,7 +90,7 @@ class AI_Diagnostics {
 	 *
 	 * @var array<int,string>
 	 */
-	private $keywords = array( 'ai', 'ability', 'abilities', 'connector', 'connectors', 'openai', 'generation', 'generate', 'experiments', 'classification', 'excerpt', 'meta', 'summary', 'title', 'image' );
+	private $keywords = array( 'ai', 'ability', 'abilities', 'connector', 'connectors', 'openai', 'generation', 'generate', 'experiments', 'classification', 'excerpt', 'meta', 'summary', 'title', 'article', 'full_article', 'classic_editor', 'image' );
 
 	/**
 	 * Constructor.

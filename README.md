@@ -1,12 +1,24 @@
 # WP AI Publisher
 
-Versione corrente: **0.4.1**
+Versione corrente: **0.4.2**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
 ## Stato sviluppo
 
 Il plugin è in fase operativa controllata. Crea bozze WordPress reali solo dopo approvazione esplicita del dry-run. Non pubblica automaticamente, non genera immagini reali e non scrive metadati SEO definitivi.
+
+## Articolo completo per bozza
+
+Dalla versione **0.4.2** il workflow distingue chiaramente tre livelli di contenuto:
+
+- **dry-run**: struttura editoriale, vincoli e dati di pianificazione usati per controllare l’idea prima della bozza;
+- **classic_editor_preview**: anteprima strutturale in HTML pulito utile per leggere la scaletta nell’admin;
+- **full_article**: articolo finale in HTML pulito compatibile con Editor Classico, usato come `post_content` della bozza WordPress.
+
+Il contenuto finale salvato in `full_article.html` non include istruzioni interne, pubblico target, tono di voce, regole editoriali, note di validazione, JSON grezzo, prompt immagini o placeholder come “Spiegare”, “Descrivere”, “Indicare” e “Mostrare”.
+
+La bozza viene creata solo quando `full_article.html` supera la validazione di pubblicabilità: niente blocchi Gutenberg, niente script/iframe/style inline, almeno tre sezioni H2, almeno 300 parole per impostazione predefinita e nessuna nota interna visibile. Il plugin continua a creare esclusivamente bozze o contenuti pending autorizzati dal flusso: **non pubblica nulla automaticamente** e non scrive metadati AIOSEO in questa fase.
 
 
 ## Contesto editoriale riutilizzabile
@@ -250,6 +262,19 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.4.2
+
+- Aggiunta generazione articolo completo da dry-run approvato.
+- Distinta anteprima strutturale da contenuto finale per bozza.
+- La bozza usa `full_article.html` quando disponibile.
+- Rimosse istruzioni interne, pubblico, tono e regole editoriali dal corpo della bozza.
+- Aggiunta validazione articolo pubblicabile per Editor Classico.
+- Aggiunto pulsante “Genera articolo completo”.
+- Bloccata la creazione di bozze con placeholder editoriali.
+- Rafforzati i segnali distruttivi standalone per WordPress Abilities.
+- Confermata assenza di pubblicazione automatica.
+
 
 ### 0.4.0
 
