@@ -247,6 +247,59 @@ class Content_Ideas {
 	}
 
 	/**
+	 * Save full article output inside dry_run_output without changing schema.
+	 *
+	 * @param int                 $id Idea ID.
+	 * @param array<string,mixed> $full_article Full article output.
+	 * @return bool|WP_Error
+	 */
+	public function save_full_article_output( $id, $full_article ) {
+		$idea = $this->get_idea( $id );
+		if ( ! $idea || empty( $idea->dry_run_output ) ) {
+			return new WP_Error( 'wpai_full_article_missing_dry_run', __( 'Dry-run assente.', 'wp-ai-publisher' ) );
+		}
+		$output = json_decode( (string) $idea->dry_run_output, true );
+		if ( ! is_array( $output ) ) {
+			return new WP_Error( 'wpai_full_article_invalid_dry_run', __( 'Dry-run non decodificabile.', 'wp-ai-publisher' ) );
+		}
+		$builder = new Classic_Content_Builder();
+		$validation = $builder->validate_publishable_article_html( (string) ( $full_article['html'] ?? '' ) );
+		$full_article['validation_notes'] = array_values( array_unique( array_merge( (array) ( $full_article['validation_notes'] ?? array() ), $validation['notes'] ) ) );
+		$output['full_article'] = $full_article;
+		$notes = isset( $output['validation_notes'] ) && is_array( $output['validation_notes'] ) ? $output['validation_notes'] : array();
+		return $this->save_dry_run_output( $id, $output, $notes );
+	}
+
+	/**
+	 * Generate and persist a full article for a dry-run ready or approved idea.
+	 *
+	 * @param int $id Idea ID.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	public function generate_full_article( $id ) {
+		$idea = $this->get_idea( $id );
+		if ( ! $idea ) {
+			return new WP_Error( 'wpai_content_idea_not_found', __( 'Idea non trovata.', 'wp-ai-publisher' ) );
+		}
+		if ( ! in_array( sanitize_key( (string) $idea->status ), array( 'dry_run_ready', 'approved' ), true ) ) {
+			return new WP_Error( 'wpai_full_article_invalid_status', __( 'Stato idea non valido per generare l’articolo completo.', 'wp-ai-publisher' ) );
+		}
+		$dry_run = json_decode( (string) $idea->dry_run_output, true );
+		if ( ! is_array( $dry_run ) ) {
+			return new WP_Error( 'wpai_full_article_missing_dry_run', __( 'Dry-run assente.', 'wp-ai-publisher' ) );
+		}
+		$full_article = $this->ai_provider->generate_full_classic_article( $dry_run, wpai_publisher_get_site_context() );
+		if ( is_wp_error( $full_article ) ) {
+			return $full_article;
+		}
+		$saved = $this->save_full_article_output( $id, $full_article );
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
+		return $full_article;
+	}
+
+	/**
 	 * Run a safe structured content dry-run without creating posts or media.
 	 *
 	 * @param int $id Idea ID.
@@ -540,6 +593,7 @@ class Content_Ideas {
 				'plain_text_summary' => '',
 				'validation_notes'   => array(),
 			),
+			'full_article' => array(),
 		);
 
 		if ( ! is_array( $output ) ) {

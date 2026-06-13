@@ -17,6 +17,8 @@ $notices    = array(
 	'dry_run_approved'         => array( 'success', __( 'Dry-run approvato. Ora puoi creare la bozza.', 'wp-ai-publisher' ) ),
 	'dry_run_rejected'         => array( 'success', __( 'Dry-run rifiutato.', 'wp-ai-publisher' ) ),
 	'draft_created'            => array( 'success', __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) ),
+	'full_article_generated'   => array( 'success', __( 'Articolo completo generato. Ora puoi approvare il contenuto e creare la bozza.', 'wp-ai-publisher' ) ),
+	'full_article_failed'      => array( 'error', __( 'Non è stato possibile generare un articolo completo.', 'wp-ai-publisher' ) ),
 	'draft_already_exists'     => array( 'warning', __( 'La bozza esiste già.', 'wp-ai-publisher' ) ),
 	'draft_creation_failed'    => array( 'error', __( 'Creazione bozza fallita.', 'wp-ai-publisher' ) ),
 	'draft_not_approved'       => array( 'error', __( 'Non puoi creare una bozza da un dry-run non approvato.', 'wp-ai-publisher' ) ),
@@ -217,6 +219,14 @@ $render_list = static function ( $items ) {
 							<?php if ( ! empty( $idea->dry_run_output ) ) : ?>
 								<a class="button button-small" href="<?php echo esc_url( $view_url ); ?>"><?php echo esc_html__( 'Visualizza risultato', 'wp-ai-publisher' ); ?></a>
 							<?php endif; ?>
+							<?php if ( in_array( (string) $idea->status, array( 'dry_run_ready', 'approved' ), true ) && ! empty( $idea->dry_run_output ) ) : ?>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+									<input type="hidden" name="action" value="wpai_publisher_generate_full_article" />
+									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+									<?php wp_nonce_field( 'wpai_publisher_generate_full_article_' . $idea_id ); ?>
+									<?php submit_button( __( 'Genera articolo completo', 'wp-ai-publisher' ), 'secondary small', 'submit', false ); ?>
+								</form>
+							<?php endif; ?>
 							<?php if ( 'dry_run_ready' === (string) $idea->status && ! empty( $idea->dry_run_output ) ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_approve_content_idea" />
@@ -259,6 +269,11 @@ $render_list = static function ( $items ) {
 		$classic_preview = isset( $dry_run_data['classic_editor_preview'] ) && is_array( $dry_run_data['classic_editor_preview'] ) ? $dry_run_data['classic_editor_preview'] : array();
 		$classic_html    = isset( $classic_preview['html'] ) ? (string) $classic_preview['html'] : '';
 		$classic_notes   = isset( $classic_preview['validation_notes'] ) && is_array( $classic_preview['validation_notes'] ) ? $classic_preview['validation_notes'] : array();
+		$full_article   = isset( $dry_run_data['full_article'] ) && is_array( $dry_run_data['full_article'] ) ? $dry_run_data['full_article'] : array();
+		$full_html      = isset( $full_article['html'] ) ? (string) $full_article['html'] : '';
+		$full_source    = sanitize_key( (string) ( $full_article['source'] ?? 'unknown' ) );
+		$full_notes     = isset( $full_article['validation_notes'] ) && is_array( $full_article['validation_notes'] ) ? $full_article['validation_notes'] : array();
+		$full_valid     = '' !== trim( $full_html ) && empty( $full_notes );
 		$all_notes       = array_values( array_unique( array_filter( array_merge( (array) $notes_data, $classic_notes ) ) ) );
 		$review_notes    = array();
 		$blocking_notes  = array();
@@ -378,6 +393,32 @@ $render_list = static function ( $items ) {
 				<?php if ( ! empty( $classic_notes ) ) : ?>
 					<h4><?php echo esc_html__( 'Diagnostica compatibilità Classic Editor', 'wp-ai-publisher' ); ?></h4>
 					<?php $render_list( $classic_notes ); ?>
+				<?php endif; ?>
+
+
+				<h3><?php echo esc_html__( 'Articolo completo per bozza', 'wp-ai-publisher' ); ?></h3>
+				<ul>
+					<li><strong><?php echo esc_html__( 'Stato:', 'wp-ai-publisher' ); ?></strong> <span class="<?php echo esc_attr( $full_valid ? 'wpai-badge wpai-badge--ok' : ( '' !== $full_html ? 'wpai-badge wpai-badge--warning' : 'wpai-badge wpai-badge--not-verified' ) ); ?>"><?php echo esc_html( $full_valid ? __( 'generato', 'wp-ai-publisher' ) : ( '' !== $full_html ? __( 'da revisionare', 'wp-ai-publisher' ) : __( 'non generato', 'wp-ai-publisher' ) ) ); ?></span></li>
+					<li><strong><?php echo esc_html__( 'Fonte:', 'wp-ai-publisher' ); ?></strong> <?php echo esc_html( $source_labels[ $full_source ] ?? __( 'Non disponibile', 'wp-ai-publisher' ) ); ?></li>
+					<li><strong><?php echo esc_html__( 'Qualità:', 'wp-ai-publisher' ); ?></strong> <?php echo esc_html( $full_valid ? __( 'pronto', 'wp-ai-publisher' ) : ( '' !== $full_html ? __( 'da revisionare', 'wp-ai-publisher' ) : __( 'non valido', 'wp-ai-publisher' ) ) ); ?></li>
+				</ul>
+				<?php if ( in_array( (string) $selected_idea->status, array( 'dry_run_ready', 'approved' ), true ) ) : ?>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin: 0 0 1em;">
+						<input type="hidden" name="action" value="wpai_publisher_generate_full_article" />
+						<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) absint( $selected_idea->id ) ); ?>" />
+						<?php wp_nonce_field( 'wpai_publisher_generate_full_article_' . absint( $selected_idea->id ) ); ?>
+						<?php submit_button( __( 'Genera articolo completo', 'wp-ai-publisher' ), 'secondary', 'submit', false ); ?>
+					</form>
+				<?php endif; ?>
+				<?php if ( '' !== $full_html ) : ?>
+					<div class="wpai-classic-preview"><?php echo wp_kses_post( $full_html ); ?></div>
+					<h4><?php echo esc_html__( 'HTML articolo completo', 'wp-ai-publisher' ); ?></h4>
+					<textarea class="large-text code" rows="12" readonly><?php echo esc_textarea( $full_html ); ?></textarea>
+					<?php if ( ! empty( $full_notes ) ) : ?>
+						<div class="notice notice-warning inline"><?php $render_list( $full_notes ); ?></div>
+					<?php endif; ?>
+				<?php else : ?>
+					<div class="notice notice-info inline"><p><?php echo esc_html__( 'Genera l’articolo completo prima di approvare e creare la bozza. La bozza userà full_article.html, non l’anteprima strutturale.', 'wp-ai-publisher' ); ?></p></div>
 				<?php endif; ?>
 
 				<h3><?php echo esc_html__( 'Note di revisione', 'wp-ai-publisher' ); ?></h3>

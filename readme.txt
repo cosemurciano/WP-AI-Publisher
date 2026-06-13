@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.4.1
+Stable tag: 0.4.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,17 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.4.2 =
+* Aggiunta generazione articolo completo da dry-run approvato.
+* Distinta anteprima strutturale da contenuto finale per bozza.
+* La bozza usa full_article.html quando disponibile.
+* Rimosse istruzioni interne, pubblico, tono e regole editoriali dal corpo della bozza.
+* Aggiunta validazione articolo pubblicabile per Editor Classico.
+* Aggiunto pulsante “Genera articolo completo”.
+* Bloccata la creazione di bozze con placeholder editoriali.
+* Rafforzati i segnali distruttivi standalone per WordPress Abilities.
+* Confermata assenza di pubblicazione automatica.
 
 = 0.4.1 =
 * Corretto e migliorato il salvataggio delle nuove idee contenuto.
