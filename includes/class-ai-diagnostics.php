@@ -713,7 +713,7 @@ class AI_Diagnostics {
 	 * @return array<int,string>
 	 */
 	private function get_ability_dangerous_signals( $metadata ) {
-		$signals  = array( 'create_post', 'insert_post', 'publish_post', 'publish', 'delete', 'delete_post', 'remove_post', 'update_post', 'edit_post', 'save_post', 'create_media', 'upload_media', 'media_upload', 'delete_media', 'attachment', 'update_option', 'delete_option', 'settings_update', 'create_user', 'delete_user', 'send_email', 'webhook', 'remote_request', 'install_plugin', 'activate_plugin', 'deactivate_plugin', 'filesystem', 'database_write', 'schedule_event', 'pubblica', 'pubblicare', 'elimina', 'eliminare', 'rimuovi', 'rimuovere', 'aggiorna articolo', 'modifica articolo', 'salva articolo', 'carica media', 'crea allegato', 'elimina allegato', 'aggiorna opzione', 'crea utente', 'elimina utente', 'invia email', 'installa plugin', 'attiva plugin', 'disattiva plugin' );
+		$signals  = array( 'create_post', 'insert_post', 'publish_post', 'delete_post', 'remove_post', 'update_post', 'edit_post', 'save_post', 'create_media', 'upload_media', 'media_upload', 'delete_media', 'update_option', 'delete_option', 'update_setting', 'create_user', 'delete_user', 'send_email', 'webhook', 'remote_request', 'install_plugin', 'activate_plugin', 'deactivate_plugin', 'filesystem', 'database_write', 'schedule_event', 'pubblica', 'pubblicare', 'elimina', 'eliminare', 'rimuovi', 'rimuovere', 'aggiorna articolo', 'modifica articolo', 'salva articolo', 'carica media', 'crea allegato', 'elimina allegato', 'aggiorna opzione', 'crea utente', 'elimina utente', 'invia email', 'installa plugin', 'attiva plugin', 'disattiva plugin' );
 		$haystack = $this->build_ability_safety_haystack( $metadata );
 		$found    = array();
 		foreach ( $signals as $signal ) {
@@ -745,16 +745,24 @@ class AI_Diagnostics {
 	 * @return bool
 	 */
 	private function metadata_contains_safety_signal( $haystack, $signals ) {
-		$haystack = strtolower( remove_accents( (string) $haystack ) );
+		$normalized_haystack = strtolower( remove_accents( (string) $haystack ) );
+		$normalized_haystack = preg_replace( '/[^a-z0-9]+/i', ' ', $normalized_haystack );
+		$normalized_haystack = trim( preg_replace( '/\s+/', ' ', (string) $normalized_haystack ) );
+
 		foreach ( $signals as $signal ) {
-			$signal = strtolower( remove_accents( trim( (string) $signal ) ) );
-			if ( '' === $signal || strlen( $signal ) < 4 ) {
+			$normalized_signal = strtolower( remove_accents( trim( (string) $signal ) ) );
+			$normalized_signal = preg_replace( '/[_\-\s]+/', ' ', $normalized_signal );
+			$normalized_signal = preg_replace( '/[^a-z0-9]+/i', ' ', (string) $normalized_signal );
+			$normalized_signal = trim( preg_replace( '/\s+/', ' ', (string) $normalized_signal ) );
+
+			if ( '' === $normalized_signal || strlen( $normalized_signal ) < 4 ) {
 				continue;
 			}
 
-			$pattern_signal = preg_quote( $signal, '/' );
-			$pattern_signal = str_replace( array( '\ ', '\-' ), '[^a-z0-9_]+', $pattern_signal );
-			if ( 1 === preg_match( '/(^|[^a-z0-9_])' . $pattern_signal . '([^a-z0-9_]|$)/i', $haystack ) ) {
+			$tokens  = preg_split( '/\s+/', $normalized_signal );
+			$parts   = array_map( static function ( $token ) { return preg_quote( $token, '/' ); }, $tokens );
+			$pattern = '/(^|\s)' . implode( '\s+', $parts ) . '(\s|$)/i';
+			if ( 1 === preg_match( $pattern, $normalized_haystack ) ) {
 				return true;
 			}
 		}
@@ -852,19 +860,24 @@ class AI_Diagnostics {
 			'label'                => wp_trim_words( sanitize_text_field( $data['label'] ), 12, '…' ),
 			'description'          => $this->trim_text( sanitize_text_field( $data['description'] ), 160 ),
 			'category'             => sanitize_text_field( $data['category'] ),
-			'input_schema'         => ! empty( $data['input_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
-			'output_schema'        => ! empty( $data['output_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
+			'has_input_schema_bool'     => ! empty( $data['input_schema'] ),
+			'has_input_schema_label'    => ! empty( $data['input_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
+			'input_schema'              => ! empty( $data['input_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
+			'has_output_schema_bool'    => ! empty( $data['output_schema'] ),
+			'has_output_schema_label'   => ! empty( $data['output_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
+			'output_schema'             => ! empty( $data['output_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
 			'generation_candidate_bool' => $generation_candidate,
-			'generation_candidate'      => $generation_candidate ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
+			'generation_candidate_label' => $generation_candidate ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
 			'safe_for_dry_run_bool'     => (bool) $safety['safe'],
-			'safe_for_dry_run'          => $safety['safe'] ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
 			'safe_for_dry_run_label'    => $safety['safe'] ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
 			'safety_reason'             => $safety['reason'],
 			'dangerous_signals_bool'    => $dangerous_signals,
-			'dangerous_signals'         => empty( $safety['dangerous_signals'] ) ? __( 'Nessuno', 'wp-ai-publisher' ) : implode( ', ', $safety['dangerous_signals'] ),
+			'dangerous_signals_label'   => empty( $safety['dangerous_signals'] ) ? __( 'Nessuno', 'wp-ai-publisher' ) : implode( ', ', $safety['dangerous_signals'] ),
 			'read_only_bool'            => $read_only,
-			'read_only'                 => $read_only ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
+			'readonly_signals_label'    => $read_only ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
 			'invocable_bool'            => $invocable_bool,
+			'invokable_bool'            => $invocable_bool,
+			'invokable_label'           => $invocable,
 			'invocable'                 => $invocable,
 		);
 	}

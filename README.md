@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.4.0**
+Versione corrente: **0.4.1**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
@@ -21,6 +21,19 @@ Il contesto guida:
 - futura creazione controllata di bozze.
 
 Il target editoriale corrente resta **Editor Classico**: il plugin produce HTML pulito e non genera blocchi Gutenberg. La creazione 0.4.0 può produrre **bozze** o contenuti **in attesa di revisione**, ma non pubblicazioni automatiche.
+
+
+## Pubblico target dal contesto editoriale
+
+Dalla versione **0.4.1** il pubblico target non viene più richiesto per ogni nuova idea contenuto. Il dry-run legge il valore globale da **Impostazioni → Contesto editoriale del sito → Pubblico target predefinito** e lo usa come priorità per costruire il payload editoriale.
+
+Le singole idee restano più semplici: argomento, keyword, lingua, livello tutorial e note editoriali. Le vecchie idee che hanno ancora un valore `target_audience` mantengono quel dato solo come fallback di retrocompatibilità se il contesto editoriale non contiene un pubblico predefinito. Eventuali override specifici potranno essere aggiunti in futuro come opzione avanzata.
+
+## Sicurezza safety signals
+
+Dalla versione **0.4.1** il matching dei safety signal delle WordPress Abilities normalizza underscore, spazi, trattini e altri separatori non alfanumerici come equivalenti. Un signal come `create_post` intercetta quindi metadata scritti come `create post`, `create-post`, `create/post`, `create.post` o `create:post`.
+
+Il controllo usa boundary su parole complete e non substring ambigue: parole editoriali come `editorial` o `editing` non vengono bloccate solo perché contengono frammenti simili a segnali generici. Le abilities non sicure non vengono invocate durante il dry-run.
 
 ## Target editoriale: Editor Classico
 

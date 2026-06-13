@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,16 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.4.1 =
+* Corretto e migliorato il salvataggio delle nuove idee contenuto.
+* Aggiunta diagnostica più chiara in caso di errore database durante il salvataggio idee.
+* Rimosso il campo Pubblico target dal form nuova idea.
+* Il pubblico target viene ora letto dal Contesto editoriale del sito.
+* Corretto il matching dei safety signal delle WordPress Abilities trattando underscore, spazi e trattini come separatori equivalenti.
+* Rafforzata la protezione contro abilities con effetti collaterali.
+* Consolidato l’uso di booleani interni nella diagnostica AI, separati dalle label tradotte.
+* Mantenuta la creazione bozza da dry-run approvato.
 
 = 0.4.0 =
 * Aggiunta creazione bozza WordPress da dry-run approvato.
