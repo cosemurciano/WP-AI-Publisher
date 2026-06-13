@@ -86,6 +86,9 @@ class Settings {
 		$allowed_values = wpai_publisher_site_context_allowed_values();
 		foreach ( $allowed_values as $field => $allowed ) {
 			$value = isset( $input[ $field ] ) ? sanitize_key( $input[ $field ] ) : sanitize_key( $defaults[ $field ] );
+			if ( 'default_tone' === $field && function_exists( 'wpai_publisher_normalize_default_tone' ) ) {
+				$value = wpai_publisher_normalize_default_tone( $value );
+			}
 			if ( ! in_array( $value, $allowed, true ) ) {
 				$value = sanitize_key( $defaults[ $field ] );
 			}

@@ -1,12 +1,12 @@
 # WP AI Publisher
 
-Versione corrente: **0.3.8**
+Versione corrente: **0.4.0**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
 ## Stato sviluppo
 
-Il plugin è in fase operativa controllata. Non crea ancora post, bozze, immagini reali o metadati SEO definitivi, ma consente di testare idee editoriali con un dry-run strutturato.
+Il plugin è in fase operativa controllata. Crea bozze WordPress reali solo dopo approvazione esplicita del dry-run. Non pubblica automaticamente, non genera immagini reali e non scrive metadati SEO definitivi.
 
 
 ## Contesto editoriale riutilizzabile
@@ -20,15 +20,15 @@ Il contesto guida:
 - anteprima HTML compatibile con Classic Editor;
 - futura creazione controllata di bozze.
 
-Il target editoriale corrente resta **Editor Classico**: il plugin produce HTML pulito e non genera blocchi Gutenberg. La generazione futura potrà creare **bozze** o contenuti **in attesa di revisione**, ma non pubblicazioni automatiche.
+Il target editoriale corrente resta **Editor Classico**: il plugin produce HTML pulito e non genera blocchi Gutenberg. La creazione 0.4.0 può produrre **bozze** o contenuti **in attesa di revisione**, ma non pubblicazioni automatiche.
 
 ## Target editoriale: Editor Classico
 
 Dalla versione **0.3.2** il target editoriale principale è l’**Editor Classico** di WordPress. Il plugin non deve produrre blocchi Gutenberg, commenti `<!-- wp:... -->` o serializzazione a blocchi.
 
-La futura bozza WordPress userà `post_content` con HTML pulito e sicuro, ad esempio paragrafi, titoli `h2`/`h3`, liste e altri tag consentiti da allowlist. L’anteprima del dry-run passa da sanitizzazione dedicata e viene mostrata nell’admin come contenuto compatibile con Classic Editor.
+La bozza WordPress usa `post_content` con HTML pulito e sicuro, ad esempio paragrafi, titoli `h2`/`h3`, liste e altri tag consentiti da allowlist. L’anteprima del dry-run passa da sanitizzazione dedicata e viene mostrata nell’admin come contenuto compatibile con Classic Editor.
 
-AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.3.8.
+AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.4.0.
 
 Funzioni presenti:
 
@@ -45,7 +45,11 @@ Funzioni presenti:
 - pagina Diagnostica AI;
 - salvataggio idee editoriali in tabella dedicata;
 - dry-run articolo con output JSON validabile, visualizzazione leggibile e anteprima HTML per Editor Classico;
-- migrazione database durante aggiornamento plugin.
+- migrazione database durante aggiornamento plugin;
+- approvazione dry-run;
+- creazione bozza WordPress da dry-run approvato;
+- collegamento tra idea contenuto e post bozza;
+- link “Modifica bozza” nell’admin.
 
 ## Regole operative
 
@@ -55,6 +59,31 @@ Funzioni presenti:
 - Le altre voci del menu devono essere ordinate per importanza d’uso. Ordine attuale: Bacheca, Idee contenuto, Diagnostica AI, Coda job, Impostazioni, Stato sistema.
 - Il plugin deve restare funzionante anche se i plugin terzi consigliati non sono installati o non sono attivi.
 - Le chiamate AI future dovranno passare solo dall’adapter centrale.
+
+
+## Creazione bozza WordPress
+
+Dalla versione **0.4.0** WP AI Publisher introduce la prima creazione reale di contenuto WordPress con un flusso a due passaggi:
+
+1. generare e verificare un dry-run;
+2. approvare il dry-run;
+3. cliccare **Crea bozza**.
+
+La bozza viene creata solo se l’idea è in stato **Approvata** e contiene un output `classic_editor_preview.html` valido. Il plugin usa `wp_insert_post()` con `post_type: post`, titolo, slug, excerpt e `post_content` HTML sanificato per **Editor Classico**. Non genera blocchi Gutenberg, non inserisce commenti `<!-- wp:... -->` e rifiuta contenuti con segnali Gutenberg.
+
+Lo stato post è prudente:
+
+- `draft` resta `draft`;
+- `pending` resta `pending`;
+- `publish` viene convertito in `draft` in 0.4.0, salvo costante di sviluppo esplicita `WPAIP_ALLOW_DIRECT_PUBLISH`.
+
+La pubblicazione automatica resta disabilitata. La creazione assegna categorie e tag sanificati, rispetta le categorie consentite nel contesto sito, limita i tag e collega l’idea alla bozza con `draft_post_id`, `draft_status` e `draft_created_at`. Se una bozza collegata esiste già, il plugin non crea duplicati e mostra il link **Modifica bozza**.
+
+## Sicurezza Abilities e diagnostica
+
+Le ability non sicure non vengono invocate durante il dry-run. Il matching dei segnali pericolosi usa token o boundary regex e non substring generiche: parole innocue come `editorial`, `editing summary`, `credit` o `mediazione` non devono essere bloccate solo perché contengono frammenti come `edit` o `media`.
+
+La diagnostica separa i valori logici dalle label tradotte: ad esempio una riga ability espone booleani come `safe_for_dry_run_bool`, `generation_candidate_bool`, `dangerous_signals_bool`, `read_only_bool` e `invocable_bool`, mentre la view mostra label localizzate come “Sì” o “No”. Le stringhe localizzate non sono usate per decidere flussi interni.
 
 ## Compatibilità filtri dry-run
 
@@ -115,13 +144,13 @@ Se nessuna ability sicura è disponibile, l’adapter restituisce un errore diag
 
 ## Stato post dopo generazione
 
-Il contesto editoriale permette di scegliere lo stato post previsto per fasi future:
+Il contesto editoriale permette di scegliere lo stato post previsto per la creazione controllata:
 
 - **Bozza** (`draft`) — valore predefinito e più sicuro;
 - **In attesa di revisione** (`pending`) — previsto per workflow editoriali con revisione;
-- **Pubblicato** (`publish`) — selezionabile ora solo come intenzione futura.
+- **Pubblicato** (`publish`) — selezionabile come intenzione futura, ma in 0.4.0 viene convertito in `draft` salvo costante di sviluppo esplicita.
 
-Nella fase 0.3.8 il plugin non crea bozze, non crea post e non pubblica nulla. L’eventuale pubblicazione automatica richiederà una fase futura, conferma esplicita e controlli dedicati.
+Nella fase 0.4.0 il plugin crea solo bozze o post in attesa di revisione da dry-run approvati. L’eventuale pubblicazione automatica richiederà una fase futura, conferma esplicita e controlli dedicati.
 
 ## Diagnostica AI
 
@@ -208,6 +237,20 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.4.0
+
+- Aggiunta creazione bozza WordPress da dry-run approvato.
+- Aggiunto flusso Approva dry-run / Crea bozza.
+- Aggiunta classe `Draft_Creator`.
+- Aggiunta relazione tra idea contenuto e post bozza.
+- Aggiunta sanitizzazione HTML per Editor Classico.
+- Aggiunta assegnazione categorie e tag.
+- Aggiunta protezione contro creazione duplicata della bozza.
+- Pubblicazione automatica non attiva in questa fase.
+- Corretto `default_tone` con chiave valida `chiaro_didattico_e_operativo`.
+- Rafforzato safety matching delle WordPress Abilities per evitare falsi positivi su parole come `editorial`/`editing`.
+- Corretta la diagnostica AI per usare booleani reali invece di label localizzate come “Sì”.
 
 ### 0.3.8
 

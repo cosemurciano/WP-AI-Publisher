@@ -68,6 +68,7 @@ class System_Status {
 		$validator_available       = class_exists( __NAMESPACE__ . '\Structured_Output_Validator' );
 		$classic_builder_available = class_exists( __NAMESPACE__ . '\Classic_Content_Builder' );
 		$ai_diagnostics_available  = class_exists( __NAMESPACE__ . '\AI_Diagnostics' );
+		$draft_creator_available  = class_exists( __NAMESPACE__ . '\Draft_Creator' );
 		$ai_diagnostics_paths      = array();
 		$ai_diagnostics_routes     = array();
 
@@ -109,6 +110,9 @@ class System_Status {
 			$this->row( __( 'Dry-run AI', 'wp-ai-publisher' ), $wp_ai_available ? __( 'WordPress AI disponibile per tentativi reali; fallback locale solo se l’output non è utilizzabile', 'wp-ai-publisher' ) : __( 'Solo fallback locale disponibile: WordPress AI non rilevato', 'wp-ai-publisher' ), $wp_ai_available ? 'ok' : 'warning' ),
 			$this->row( __( 'Validatore output strutturato', 'wp-ai-publisher' ), $validator_available ? __( 'Classe Structured_Output_Validator disponibile', 'wp-ai-publisher' ) : __( 'Validazione interna basilare', 'wp-ai-publisher' ), $validator_available ? 'ok' : 'warning' ),
 			$this->row( __( 'Classic Content Builder', 'wp-ai-publisher' ), $classic_builder_available ? __( 'Classe Classic_Content_Builder disponibile', 'wp-ai-publisher' ) : __( 'Classe Classic_Content_Builder non disponibile', 'wp-ai-publisher' ), $classic_builder_available ? 'ok' : 'error' ),
+			$this->row( __( 'Draft Creator', 'wp-ai-publisher' ), $draft_creator_available ? __( 'Classe Draft_Creator disponibile', 'wp-ai-publisher' ) : __( 'Classe Draft_Creator non disponibile', 'wp-ai-publisher' ), $draft_creator_available ? 'ok' : 'error' ),
+			$this->row( __( 'Creazione bozze', 'wp-ai-publisher' ), function_exists( 'wp_insert_post' ) && 'classic' === $site_context['default_editor'] ? __( 'wp_insert_post disponibile; target Editor Classico', 'wp-ai-publisher' ) : __( 'Requisiti creazione bozza non completi', 'wp-ai-publisher' ), function_exists( 'wp_insert_post' ) && 'classic' === $site_context['default_editor'] ? 'ok' : 'error' ),
+			$this->row( __( 'Pubblicazione automatica', 'wp-ai-publisher' ), 'publish' === $site_context['default_post_status_after_generation'] ? __( 'Disabilitata in 0.4.0; setting publish verrà convertito in draft', 'wp-ai-publisher' ) : __( 'Disabilitata in 0.4.0', 'wp-ai-publisher' ), 'publish' === $site_context['default_post_status_after_generation'] ? 'warning' : 'ok' ),
 			$this->row( __( 'OpenAI diretto', 'wp-ai-publisher' ), __( 'Disabilitato: il plugin non usa un client custom', 'wp-ai-publisher' ), 'not-configured' ),
 			$this->row( __( 'Diagnostica AI', 'wp-ai-publisher' ), $ai_diagnostics_available ? __( 'Classe AI_Diagnostics disponibile', 'wp-ai-publisher' ) : __( 'Classe AI_Diagnostics non disponibile', 'wp-ai-publisher' ), $ai_diagnostics_available ? 'ok' : 'error' ),
 			$this->row( __( 'Percorsi generazione AI', 'wp-ai-publisher' ), $generation_paths_label, $generation_paths_status ),

@@ -713,11 +713,11 @@ class AI_Diagnostics {
 	 * @return array<int,string>
 	 */
 	private function get_ability_dangerous_signals( $metadata ) {
-		$signals  = array( 'create_post', 'insert_post', 'publish', 'delete', 'remove', 'update', 'edit', 'save', 'media', 'image', 'upload', 'attachment', 'option', 'setting', 'user', 'comment', 'email', 'send', 'webhook', 'remote', 'external', 'install', 'activate', 'deactivate', 'file', 'filesystem', 'database', 'db', 'cron', 'schedule', 'pubblica', 'pubblicare', 'elimina', 'rimuovi', 'aggiorna', 'modifica', 'salva', 'carica', 'immagine', 'allegato', 'opzione', 'impostazione', 'utente', 'commento', 'invia', 'installa', 'attiva', 'disattiva' );
+		$signals  = array( 'create_post', 'insert_post', 'publish_post', 'publish', 'delete', 'delete_post', 'remove_post', 'update_post', 'edit_post', 'save_post', 'create_media', 'upload_media', 'media_upload', 'delete_media', 'attachment', 'update_option', 'delete_option', 'settings_update', 'create_user', 'delete_user', 'send_email', 'webhook', 'remote_request', 'install_plugin', 'activate_plugin', 'deactivate_plugin', 'filesystem', 'database_write', 'schedule_event', 'pubblica', 'pubblicare', 'elimina', 'eliminare', 'rimuovi', 'rimuovere', 'aggiorna articolo', 'modifica articolo', 'salva articolo', 'carica media', 'crea allegato', 'elimina allegato', 'aggiorna opzione', 'crea utente', 'elimina utente', 'invia email', 'installa plugin', 'attiva plugin', 'disattiva plugin' );
 		$haystack = $this->build_ability_safety_haystack( $metadata );
 		$found    = array();
 		foreach ( $signals as $signal ) {
-			if ( false !== strpos( $haystack, strtolower( $signal ) ) ) {
+			if ( $this->metadata_contains_safety_signal( $haystack, array( $signal ) ) ) {
 				$found[] = $signal;
 			}
 		}
@@ -733,11 +733,32 @@ class AI_Diagnostics {
 	private function ability_has_readonly_signals( $metadata ) {
 		$signals  = array( 'readonly', 'read_only', 'read-only', 'pure', 'no_side_effects', 'non_destructive', 'text', 'text_generation', 'generate_text', 'completion', 'summary', 'title', 'excerpt', 'classification', 'meta_description', 'sola_lettura', 'non_distruttiva', 'testo', 'generazione_testo', 'riassunto', 'titolo', 'estratto', 'classificazione', 'descrizione_meta' );
 		$haystack = $this->build_ability_safety_haystack( $metadata );
+		return $this->metadata_contains_safety_signal( $haystack, $signals );
+	}
+
+
+	/**
+	 * Match safety signals with token/boundary semantics.
+	 *
+	 * @param string            $haystack Text to inspect.
+	 * @param array<int,string> $signals Signals.
+	 * @return bool
+	 */
+	private function metadata_contains_safety_signal( $haystack, $signals ) {
+		$haystack = strtolower( remove_accents( (string) $haystack ) );
 		foreach ( $signals as $signal ) {
-			if ( false !== strpos( $haystack, strtolower( $signal ) ) ) {
+			$signal = strtolower( remove_accents( trim( (string) $signal ) ) );
+			if ( '' === $signal || strlen( $signal ) < 4 ) {
+				continue;
+			}
+
+			$pattern_signal = preg_quote( $signal, '/' );
+			$pattern_signal = str_replace( array( '\ ', '\-' ), '[^a-z0-9_]+', $pattern_signal );
+			if ( 1 === preg_match( '/(^|[^a-z0-9_])' . $pattern_signal . '([^a-z0-9_]|$)/i', $haystack ) ) {
 				return true;
 			}
 		}
+
 		return false;
 	}
 
@@ -807,17 +828,23 @@ class AI_Diagnostics {
 		$data = $this->extract_ability_metadata( $ability, is_string( $key ) ? $key : '' );
 		$name = '' !== $data['name'] ? $data['name'] : ( is_string( $key ) ? sanitize_text_field( $key ) : '' );
 
-		$safety   = $this->get_ability_dry_run_safety( $ability, $data );
+		$safety               = $this->get_ability_dry_run_safety( $ability, $data );
+		$generation_candidate = $this->contains_keyword( $data['haystack'], $this->get_generation_ability_keywords() );
+		$dangerous_signals    = ! empty( $safety['dangerous_signals'] );
+		$read_only            = $this->ability_has_readonly_signals( $data );
+		$invocable_bool       = false;
 		$invocable = __( 'Non deducibile', 'wp-ai-publisher' );
 		if ( is_object( $ability ) ) {
 			foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $method ) {
 				if ( method_exists( $ability, $method ) && is_callable( array( $ability, $method ) ) ) {
-					$invocable = __( 'Sì', 'wp-ai-publisher' );
+					$invocable_bool = true;
+					$invocable      = __( 'Sì', 'wp-ai-publisher' );
 					break;
 				}
 			}
 		} elseif ( is_callable( $ability ) || ( is_array( $ability ) && ! empty( $ability['callback'] ) ) ) {
-			$invocable = __( 'Sì', 'wp-ai-publisher' );
+			$invocable_bool = true;
+			$invocable      = __( 'Sì', 'wp-ai-publisher' );
 		}
 
 		return array(
@@ -827,11 +854,18 @@ class AI_Diagnostics {
 			'category'             => sanitize_text_field( $data['category'] ),
 			'input_schema'         => ! empty( $data['input_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
 			'output_schema'        => ! empty( $data['output_schema'] ) ? __( 'Presente', 'wp-ai-publisher' ) : __( 'Assente', 'wp-ai-publisher' ),
-			'generation_candidate' => $this->contains_keyword( $data['haystack'], $this->get_generation_ability_keywords() ) ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
-			'safe_for_dry_run'     => $safety['safe'] ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
-			'safety_reason'        => $safety['reason'],
-			'dangerous_signals'    => empty( $safety['dangerous_signals'] ) ? __( 'Nessuno', 'wp-ai-publisher' ) : implode( ', ', $safety['dangerous_signals'] ),
-			'invocable'            => $invocable,
+			'generation_candidate_bool' => $generation_candidate,
+			'generation_candidate'      => $generation_candidate ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
+			'safe_for_dry_run_bool'     => (bool) $safety['safe'],
+			'safe_for_dry_run'          => $safety['safe'] ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
+			'safe_for_dry_run_label'    => $safety['safe'] ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
+			'safety_reason'             => $safety['reason'],
+			'dangerous_signals_bool'    => $dangerous_signals,
+			'dangerous_signals'         => empty( $safety['dangerous_signals'] ) ? __( 'Nessuno', 'wp-ai-publisher' ) : implode( ', ', $safety['dangerous_signals'] ),
+			'read_only_bool'            => $read_only,
+			'read_only'                 => $read_only ? __( 'Sì', 'wp-ai-publisher' ) : __( 'No', 'wp-ai-publisher' ),
+			'invocable_bool'            => $invocable_bool,
+			'invocable'                 => $invocable,
 		);
 	}
 
@@ -1051,7 +1085,7 @@ class AI_Diagnostics {
 			$row      = $this->summarize_ability( $key, $ability_data );
 			$name     = $row['name'];
 			$haystack = strtolower( $name . ' ' . $row['label'] . ' ' . $row['description'] . ' ' . $row['category'] );
-			if ( '' === $name || ! $this->contains_keyword( $haystack, $this->get_generation_ability_keywords() ) || 'Sì' !== $row['safe_for_dry_run'] ) {
+			if ( '' === $name || empty( $row['generation_candidate_bool'] ) || empty( $row['safe_for_dry_run_bool'] ) ) {
 				continue;
 			}
 

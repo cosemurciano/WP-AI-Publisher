@@ -151,7 +151,7 @@ $confidence_labels = array(
 						<td><?php echo esc_html( $ability['input_schema'] ); ?></td>
 						<td><?php echo esc_html( $ability['output_schema'] ); ?></td>
 						<td><?php echo esc_html( $ability['generation_candidate'] ?? __( 'No', 'wp-ai-publisher' ) ); ?></td>
-						<td><?php echo esc_html( $ability['safe_for_dry_run'] ?? __( 'No', 'wp-ai-publisher' ) ); ?></td>
+						<td><?php echo esc_html( $ability['safe_for_dry_run_label'] ?? ( $ability['safe_for_dry_run'] ?? __( 'No', 'wp-ai-publisher' ) ) ); ?></td>
 						<td><?php echo esc_html( $ability['safety_reason'] ?? '' ); ?></td>
 						<td><?php echo esc_html( $ability['dangerous_signals'] ?? __( 'Nessuno', 'wp-ai-publisher' ) ); ?></td>
 						<td><?php echo esc_html( $ability['invocable'] ); ?></td>

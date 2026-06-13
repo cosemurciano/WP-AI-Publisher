@@ -151,10 +151,21 @@ $site_context = wpai_publisher_get_site_context();
 			<?php endif; ?>
 		</section>
 
+
+		<section class="wpai-card">
+			<h2><?php echo esc_html__( 'Flusso bozze 0.4.0', 'wp-ai-publisher' ); ?></h2>
+			<ul>
+				<li><?php echo esc_html__( 'Idee approvate:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( (string) ( $content_idea_counts['approved'] ?? 0 ) ); ?></strong></li>
+				<li><?php echo esc_html__( 'Bozze create:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( (string) ( $content_idea_counts['draft_created'] ?? 0 ) ); ?></strong></li>
+				<li><?php echo esc_html__( 'Bozze fallite:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( (string) ( $content_idea_counts['draft_failed'] ?? 0 ) ); ?></strong></li>
+			</ul>
+			<p><?php echo esc_html__( 'La creazione reale resta prudente: solo dry-run approvati, post draft/pending, nessuna pubblicazione automatica.', 'wp-ai-publisher' ); ?></p>
+		</section>
+
 		<section class="wpai-card">
 			<h2><?php echo esc_html__( 'Prossima fase', 'wp-ai-publisher' ); ?></h2>
 			<p><span class="wpai-badge wpai-badge--not-implemented"><?php echo esc_html__( 'Da implementare', 'wp-ai-publisher' ); ?></span></p>
-			<p><?php echo esc_html__( 'Prossimo passo consigliato: coda job, migrazioni database e primo dry-run di generazione bozza.', 'wp-ai-publisher' ); ?></p>
+			<p><?php echo esc_html__( 'Prossimo passo consigliato: coda job, migrazioni database e raffinamento UX bozze, scheduler e integrazione AIOSEO pianificata.', 'wp-ai-publisher' ); ?></p>
 		</section>
 	</div>
 </div>

@@ -14,6 +14,12 @@ $notices    = array(
 	'idea_saved'               => array( 'success', __( 'Idea contenuto salvata.', 'wp-ai-publisher' ) ),
 	'dry_run_completed'        => array( 'success', __( 'Dry-run completato.', 'wp-ai-publisher' ) ),
 	'dry_run_failed'           => array( 'error', __( 'Dry-run fallito. Controlla le note di validazione.', 'wp-ai-publisher' ) ),
+	'dry_run_approved'         => array( 'success', __( 'Dry-run approvato. Ora puoi creare la bozza.', 'wp-ai-publisher' ) ),
+	'dry_run_rejected'         => array( 'success', __( 'Dry-run rifiutato.', 'wp-ai-publisher' ) ),
+	'draft_created'            => array( 'success', __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) ),
+	'draft_already_exists'     => array( 'warning', __( 'La bozza esiste già.', 'wp-ai-publisher' ) ),
+	'draft_creation_failed'    => array( 'error', __( 'Creazione bozza fallita.', 'wp-ai-publisher' ) ),
+	'draft_not_approved'       => array( 'error', __( 'Non puoi creare una bozza da un dry-run non approvato.', 'wp-ai-publisher' ) ),
 	'insufficient_permissions' => array( 'error', __( 'Permessi insufficienti.', 'wp-ai-publisher' ) ),
 	'idea_not_found'           => array( 'error', __( 'Idea non trovata.', 'wp-ai-publisher' ) ),
 	'idea_save_failed'         => array( 'error', __( 'Impossibile salvare l’idea contenuto.', 'wp-ai-publisher' ) ),
@@ -151,12 +157,20 @@ $render_list = static function ( $items ) {
 					<th scope="col"><?php echo esc_html__( 'Lingua', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Livello', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Data creazione', 'wp-ai-publisher' ); ?></th>
+					<th scope="col"><?php echo esc_html__( 'Bozza', 'wp-ai-publisher' ); ?></th>
+					<th scope="col"><?php echo esc_html__( 'Stato bozza', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Azioni', 'wp-ai-publisher' ); ?></th>
 				</tr>
 			</thead>
 			<tbody>
 				<?php foreach ( $ideas as $idea ) : ?>
-					<?php $view_url = wp_nonce_url( admin_url( 'admin.php?page=wp-ai-publisher-content-ideas&view_idea=' . absint( $idea->id ) ), 'wpai_publisher_view_content_idea_' . absint( $idea->id ) ); ?>
+					<?php
+					$idea_id       = absint( $idea->id );
+					$view_url      = wp_nonce_url( admin_url( 'admin.php?page=wp-ai-publisher-content-ideas&view_idea=' . $idea_id ), 'wpai_publisher_view_content_idea_' . $idea_id );
+					$draft_post_id = absint( $idea->draft_post_id ?? 0 );
+					$draft_exists  = $draft_post_id > 0 && get_post( $draft_post_id );
+					$draft_edit_url = $draft_exists ? get_edit_post_link( $draft_post_id, '' ) : '';
+					?>
 					<tr>
 						<td><?php echo esc_html( (string) $idea->id ); ?></td>
 						<td><span class="<?php echo esc_attr( wpai_publisher_badge_class( $idea->status ) ); ?>"><?php echo esc_html( $content_ideas->get_status_label( $idea->status ) ); ?></span></td>
@@ -166,6 +180,22 @@ $render_list = static function ( $items ) {
 						<td><?php echo esc_html( $level_labels[ $idea->tutorial_level ] ?? __( '—', 'wp-ai-publisher' ) ); ?></td>
 						<td><?php echo esc_html( (string) $idea->created_at ); ?></td>
 						<td>
+							<?php if ( $draft_exists && $draft_edit_url ) : ?>
+								<?php echo esc_html( sprintf( __( 'Bozza #%d', 'wp-ai-publisher' ), $draft_post_id ) ); ?> <a href="<?php echo esc_url( $draft_edit_url ); ?>"><?php echo esc_html__( 'Modifica', 'wp-ai-publisher' ); ?></a>
+							<?php else : ?>
+								<?php echo esc_html__( 'Non creata', 'wp-ai-publisher' ); ?>
+							<?php endif; ?>
+						</td>
+						<td>
+							<?php if ( 'draft_failed' === (string) $idea->status ) : ?>
+								<?php echo esc_html__( 'errore', 'wp-ai-publisher' ); ?>
+							<?php elseif ( ! empty( $idea->draft_status ) ) : ?>
+								<code><?php echo esc_html( (string) $idea->draft_status ); ?></code>
+							<?php else : ?>
+								<?php echo esc_html__( '—', 'wp-ai-publisher' ); ?>
+							<?php endif; ?>
+						</td>
+						<td>
 							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 								<input type="hidden" name="action" value="wpai_publisher_run_content_idea_dry_run" />
 								<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) absint( $idea->id ) ); ?>" />
@@ -174,6 +204,31 @@ $render_list = static function ( $items ) {
 							</form>
 							<?php if ( ! empty( $idea->dry_run_output ) ) : ?>
 								<a class="button button-small" href="<?php echo esc_url( $view_url ); ?>"><?php echo esc_html__( 'Visualizza risultato', 'wp-ai-publisher' ); ?></a>
+							<?php endif; ?>
+							<?php if ( 'dry_run_ready' === (string) $idea->status && ! empty( $idea->dry_run_output ) ) : ?>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+									<input type="hidden" name="action" value="wpai_publisher_approve_content_idea" />
+									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+									<?php wp_nonce_field( 'wpai_publisher_approve_content_idea_' . $idea_id ); ?>
+									<?php submit_button( __( 'Approva', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
+								</form>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+									<input type="hidden" name="action" value="wpai_publisher_reject_content_idea" />
+									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+									<?php wp_nonce_field( 'wpai_publisher_reject_content_idea_' . $idea_id ); ?>
+									<?php submit_button( __( 'Rifiuta', 'wp-ai-publisher' ), 'secondary small', 'submit', false ); ?>
+								</form>
+							<?php endif; ?>
+							<?php if ( 'approved' === (string) $idea->status && ! empty( $idea->dry_run_output ) && ! $draft_exists ) : ?>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+									<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
+									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+									<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
+									<?php submit_button( __( 'Crea bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
+								</form>
+							<?php endif; ?>
+							<?php if ( $draft_exists && $draft_edit_url ) : ?>
+								<a class="button button-small" href="<?php echo esc_url( $draft_edit_url ); ?>"><?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
 							<?php endif; ?>
 						</td>
 					</tr>
@@ -219,6 +274,15 @@ $render_list = static function ( $items ) {
 		?>
 		<section class="wpai-card" style="margin-top:20px;">
 			<h2><?php echo esc_html__( 'Risultato dry-run', 'wp-ai-publisher' ); ?> #<?php echo esc_html( (string) $selected_idea->id ); ?></h2>
+			<?php $selected_draft_id = absint( $selected_idea->draft_post_id ?? 0 ); ?>
+			<?php if ( $selected_draft_id > 0 && get_post( $selected_draft_id ) ) : ?>
+				<p>
+					<a class="button button-primary" href="<?php echo esc_url( get_edit_post_link( $selected_draft_id, '' ) ); ?>"><?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
+					<?php if ( function_exists( 'get_preview_post_link' ) ) : ?>
+						<a class="button" href="<?php echo esc_url( get_preview_post_link( $selected_draft_id ) ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html__( 'Visualizza anteprima', 'wp-ai-publisher' ); ?></a>
+					<?php endif; ?>
+				</p>
+			<?php endif; ?>
 			<details open>
 				<summary><?php echo esc_html__( 'Visualizza struttura articolo proposta', 'wp-ai-publisher' ); ?></summary>
 

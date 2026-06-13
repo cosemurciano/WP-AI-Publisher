@@ -112,12 +112,19 @@ class DB {
 			notes LONGTEXT NULL,
 			dry_run_output LONGTEXT NULL,
 			validation_notes LONGTEXT NULL,
+			approved_at DATETIME NULL,
+			draft_created_at DATETIME NULL,
+			draft_post_id BIGINT unsigned NULL,
+			draft_status VARCHAR(30) NULL,
+			draft_error TEXT NULL,
 			related_post_id BIGINT unsigned NULL,
 			job_id BIGINT unsigned NULL,
 			PRIMARY KEY  (id),
 			KEY status (status),
 			KEY language (language),
 			KEY related_post_id (related_post_id),
+			KEY draft_post_id (draft_post_id),
+			KEY draft_status (draft_status),
 			KEY job_id (job_id),
 			KEY created_at (created_at)
 		) {$charset_collate};";
@@ -125,6 +132,43 @@ class DB {
 		dbDelta( $logs_sql );
 		dbDelta( $jobs_sql );
 		dbDelta( $content_ideas_sql );
+		$this->ensure_content_ideas_draft_columns();
+	}
+
+	/**
+	 * Ensure schema 4 draft columns/indexes exist for normal upgrades.
+	 *
+	 * @return void
+	 */
+	private function ensure_content_ideas_draft_columns() {
+		global $wpdb;
+
+		$table = $this->get_content_ideas_table_name();
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+			return;
+		}
+
+		$columns = (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+		$column_sql = array(
+			'approved_at'      => 'ADD COLUMN approved_at DATETIME NULL AFTER validation_notes',
+			'draft_created_at' => 'ADD COLUMN draft_created_at DATETIME NULL AFTER approved_at',
+			'draft_post_id'    => 'ADD COLUMN draft_post_id BIGINT unsigned NULL AFTER draft_created_at',
+			'draft_status'     => 'ADD COLUMN draft_status VARCHAR(30) NULL AFTER draft_post_id',
+			'draft_error'      => 'ADD COLUMN draft_error TEXT NULL AFTER draft_status',
+		);
+
+		foreach ( $column_sql as $column => $sql ) {
+			if ( ! in_array( $column, $columns, true ) ) {
+				$wpdb->query( "ALTER TABLE {$table} {$sql}" );
+			}
+		}
+
+		$indexes = (array) $wpdb->get_col( "SHOW INDEX FROM {$table}", 2 );
+		foreach ( array( 'draft_post_id', 'draft_status' ) as $index ) {
+			if ( ! in_array( $index, $indexes, true ) ) {
+				$wpdb->query( "ALTER TABLE {$table} ADD KEY {$index} ({$index})" );
+			}
+		}
 	}
 
 	/**

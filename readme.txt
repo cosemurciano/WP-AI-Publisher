@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.3.8
+Stable tag: 0.4.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -12,11 +12,11 @@ Base modulare per la pubblicazione assistita da AI in WordPress.
 
 == Descrizione ==
 
-WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.3.8 rafforza la sicurezza dell’invocazione WordPress Abilities API, aggiunge una allowlist per abilities AI sicure nel dry-run e mantiene il flusso senza creare post WordPress.
+WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.4.0 aggiunge il flusso prudente “Approva dry-run / Crea bozza”, crea post WordPress solo in stato draft o pending, collega la bozza all’idea e continua a bloccare la pubblicazione automatica.
 
 Il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie. Include diagnostica difensiva per plugin terzi richiesti o consigliati, senza creare dipendenze rigide.
 
-Questa versione non crea post, non pubblica contenuti, non genera immagini reali e non scrive metadati SEO. Il dry-run delle idee contenuto salva solo un output JSON validabile, leggibile nell’admin e corredato da anteprima HTML compatibile con Editor Classico. Tutte le funzioni AI passano dall’adapter centrale collegato al sistema AI di WordPress.
+Questa versione può creare una bozza WordPress solo da un dry-run approvato. Non pubblica automaticamente, non genera immagini reali e non scrive metadati SEO. Il dry-run delle idee contenuto salva un output JSON validabile, leggibile nell’admin e corredato da anteprima HTML compatibile con Editor Classico. Tutte le funzioni AI passano dall’adapter centrale collegato al sistema AI di WordPress.
 
 == Installazione ==
 
@@ -61,13 +61,26 @@ No. WP AI Publisher usa solo il sistema AI di WordPress configurato sul sito.
 
 = Questa versione genera articoli? =
 
-No. La generazione articoli sarà implementata in una fase successiva.
+Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esplicita del dry-run. Non pubblica automaticamente.
 
 = Come vengono mostrati i modelli AI disponibili? =
 
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.4.0 =
+* Aggiunta creazione bozza WordPress da dry-run approvato.
+* Aggiunto flusso Approva dry-run / Crea bozza.
+* Aggiunta classe Draft_Creator.
+* Aggiunta relazione tra idea contenuto e post bozza.
+* Aggiunta sanitizzazione HTML per Editor Classico.
+* Aggiunta assegnazione categorie e tag.
+* Aggiunta protezione contro creazione duplicata della bozza.
+* Pubblicazione automatica non attiva in questa fase.
+* Corretto default_tone con chiave valida chiaro_didattico_e_operativo.
+* Rafforzato safety matching delle WordPress Abilities per evitare falsi positivi su parole come editorial/editing.
+* Corretta la diagnostica AI per usare booleani reali invece di label localizzate come “Sì”.
 
 = 0.3.8 =
 * Rafforzata la sicurezza dell’invocazione WordPress Abilities API.

@@ -77,6 +77,9 @@ class Admin {
 
 		add_action( 'admin_post_wpai_publisher_create_content_idea', array( $this, 'handle_create_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_run_content_idea_dry_run', array( $this, 'handle_run_content_idea_dry_run' ) );
+		add_action( 'admin_post_wpai_publisher_approve_content_idea', array( $this, 'handle_approve_content_idea' ) );
+		add_action( 'admin_post_wpai_publisher_reject_content_idea', array( $this, 'handle_reject_content_idea' ) );
+		add_action( 'admin_post_wpai_publisher_create_draft_from_idea', array( $this, 'handle_create_draft_from_idea' ) );
 	}
 
 	/**
@@ -224,6 +227,104 @@ class Admin {
 		);
 	}
 
+
+	/**
+	 * Handle dry-run approval.
+	 *
+	 * @return void
+	 */
+	public function handle_approve_content_idea() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+
+		$idea_id = absint( $_POST['idea_id'] ?? 0 );
+		check_admin_referer( 'wpai_publisher_approve_content_idea_' . $idea_id );
+
+		$result = $this->content_ideas->approve_idea( $idea_id );
+		$this->redirect_content_ideas(
+			array(
+				'wpai_notice' => is_wp_error( $result ) || false === $result ? 'idea_not_found' : 'dry_run_approved',
+				'view_idea'   => $idea_id,
+				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
+			)
+		);
+	}
+
+	/**
+	 * Handle dry-run rejection.
+	 *
+	 * @return void
+	 */
+	public function handle_reject_content_idea() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+
+		$idea_id = absint( $_POST['idea_id'] ?? 0 );
+		check_admin_referer( 'wpai_publisher_reject_content_idea_' . $idea_id );
+
+		$result = $this->content_ideas->reject_idea( $idea_id );
+		$this->redirect_content_ideas(
+			array(
+				'wpai_notice' => is_wp_error( $result ) || false === $result ? 'idea_not_found' : 'dry_run_rejected',
+				'view_idea'   => $idea_id,
+				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
+			)
+		);
+	}
+
+	/**
+	 * Handle draft creation from an approved idea.
+	 *
+	 * @return void
+	 */
+	public function handle_create_draft_from_idea() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+
+		$idea_id = absint( $_POST['idea_id'] ?? 0 );
+		check_admin_referer( 'wpai_publisher_create_draft_from_idea_' . $idea_id );
+
+		$idea = $this->content_ideas->get_idea( $idea_id );
+		if ( ! $idea ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_not_found' ) );
+		}
+
+		if ( 'approved' !== sanitize_key( (string) $idea->status ) ) {
+			$this->redirect_content_ideas(
+				array(
+					'wpai_notice' => 'draft_not_approved',
+					'view_idea'   => $idea_id,
+					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
+				)
+			);
+		}
+
+		$existing_post_id = absint( $idea->draft_post_id ?? 0 );
+		if ( $existing_post_id > 0 && get_post( $existing_post_id ) ) {
+			$this->redirect_content_ideas(
+				array(
+					'wpai_notice' => 'draft_already_exists',
+					'view_idea'   => $idea_id,
+					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
+				)
+			);
+		}
+
+		$creator = new Draft_Creator( $this->db, $this->logger );
+		$result  = $creator->create_draft_from_idea( $idea );
+
+		$this->redirect_content_ideas(
+			array(
+				'wpai_notice' => is_wp_error( $result ) ? 'draft_creation_failed' : 'draft_created',
+				'view_idea'   => $idea_id,
+				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
+			)
+		);
+	}
+
 	/**
 	 * Render content ideas page.
 	 *
@@ -330,6 +431,7 @@ class Admin {
 
 		$ai_status           = $this->ai_provider->get_status();
 		$db_status           = $this->db->check_tables();
+		$content_idea_counts = $this->content_ideas->count_by_status();
 		$third_party_plugins = array();
 
 		if ( class_exists( __NAMESPACE__ . '\\Third_Party_Plugins' ) ) {
