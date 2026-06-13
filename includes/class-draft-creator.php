@@ -76,9 +76,7 @@ class Draft_Creator {
 		}
 
 		if ( empty( $dry_run['full_article']['html'] ) || ! is_string( $dry_run['full_article']['html'] ) ) {
-			$error = new WP_Error( 'wpai_draft_creator_missing_full_article', __( 'Non è stato possibile generare un articolo completo dalla struttura approvata.', 'wp-ai-publisher' ) );
-			$this->update_idea_after_draft_failed( (int) $idea->id, $error->get_error_message() );
-			return $error;
+			return new WP_Error( 'wpai_draft_creator_missing_full_article', __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ) );
 		}
 
 		$builder = new Classic_Content_Builder();

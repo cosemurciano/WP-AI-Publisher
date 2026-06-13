@@ -109,7 +109,7 @@ class Classic_Content_Builder {
 		}
 
 		$title   = sanitize_text_field( (string) ( $dry_run_output['title'] ?? $dry_run_output['subtopic'] ?? $dry_run_output['cluster_topic'] ?? '' ) );
-		$excerpt = $this->finalize_reader_sentence( (string) ( $dry_run_output['excerpt'] ?? '' ), $title );
+		$excerpt = $this->clean_reader_excerpt( (string) ( $dry_run_output['excerpt'] ?? '' ), $title, $dry_run_output );
 		$outline = isset( $dry_run_output['content_outline'] ) && is_array( $dry_run_output['content_outline'] ) ? $dry_run_output['content_outline'] : array();
 		if ( count( $outline ) < 3 ) {
 			$outline[] = array( 'heading' => __( 'Panoramica', 'wp-ai-publisher' ), 'level' => 2, 'summary' => $excerpt );
@@ -174,13 +174,49 @@ class Classic_Content_Builder {
 		if ( '' === $plain ) { $notes[] = __( 'Articolo completo vuoto.', 'wp-ai-publisher' ); }
 		foreach ( array( '<!-- wp:', 'wp-block', '<script', '<iframe', ' style=', '<style', '[caption', '[gallery' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Markup non consentito nel contenuto finale.', 'wp-ai-publisher' ); break; } }
 		foreach ( array( 'pubblico:', 'tono:', 'formato preferito:', 'target tecnico:', 'nota editoriale:', 'regole editoriali:', 'claim vietati:', 'termini brand:', 'contesto editoriale:', 'writing rules:', 'forbidden_claims', 'site_context', 'validation_notes', 'knowledge_summary' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene note interne visibili.', 'wp-ai-publisher' ); break; } }
-		foreach ( array( 'spiegare', 'indicare', 'descrivere', 'mostrare', 'illustrare', 'suggerire', 'riassumere', 'chiudere', 'elencare', 'presentare', 'approfondire', 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'procedi per passaggi ordinati e annota le verifiche necessarie', 'verifica il risultato finale prima di usare il contenuto in una bozza' ) as $needle ) { if ( 1 === preg_match( '/<(p|li)>\s*' . preg_quote( $needle, '/' ) . '\b/i', $lower ) || false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); break; } }
+		foreach ( array( 'spiegare', 'indicare', 'descrivere', 'mostrare', 'illustrare', 'suggerire', 'riassumere', 'chiudere', 'elencare', 'presentare', 'approfondire' ) as $needle ) { if ( 1 === preg_match( '/<(p|li)>\s*' . preg_quote( $needle, '/' ) . '\b/i', $lower ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); break; } }
+		foreach ( array( 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'procedi per passaggi ordinati e annota le verifiche necessarie', 'verifica il risultato finale prima di usare il contenuto in una bozza', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'articolo da completare' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); break; } }
 		if ( $h2_count < 3 ) { $notes[] = __( 'Il contenuto finale deve contenere almeno 3 sezioni H2.', 'wp-ai-publisher' ); }
 		if ( $word_count < $min_words ) { $notes[] = sprintf( __( 'Il contenuto finale contiene %1$d parole: minimo richiesto %2$d.', 'wp-ai-publisher' ), $word_count, $min_words ); }
 		if ( 1 === preg_match( '/^\s*[\{\[]|"(title|content_outline|validation_notes)"\s*:/i', $plain ) ) { $notes[] = __( 'Il contenuto finale sembra contenere JSON grezzo.', 'wp-ai-publisher' ); }
 		if ( false !== strpos( $lower, 'prompt immagine' ) || false !== strpos( $lower, 'featured_image_prompt' ) || false !== strpos( $lower, 'internal_image_prompts' ) ) { $notes[] = __( 'Il contenuto finale contiene prompt immagine visibili.', 'wp-ai-publisher' ); }
 
 		return array( 'valid' => empty( $notes ), 'notes' => array_values( array_unique( $notes ) ), 'word_count' => $word_count, 'h2_count' => (int) $h2_count );
+	}
+
+	/**
+	 * Clean or rewrite editorial excerpts before using them in reader-facing HTML.
+	 *
+	 * @param string              $excerpt Dry-run excerpt.
+	 * @param string              $title Article title.
+	 * @param array<string,mixed> $dry_run_output Dry-run data.
+	 * @return string
+	 */
+	public function clean_reader_excerpt( $excerpt, $title, $dry_run_output = array() ) {
+		$excerpt = $this->finalize_reader_sentence( $excerpt, $title );
+		$lower   = strtolower( remove_accents( $excerpt ) );
+		$editorial_patterns = array( 'traccia editoriale', 'dry-run editoriale', 'per spiegare', 'struttura preliminare', 'senza creare bozze', 'senza pubblicare contenuti', 'utile per validare flusso', 'articolo da completare' );
+		foreach ( $editorial_patterns as $pattern ) {
+			if ( false !== strpos( $lower, $pattern ) ) {
+				$topic = sanitize_text_field( (string) ( $dry_run_output['subtopic'] ?? $dry_run_output['cluster_topic'] ?? $title ) );
+				$intent = sanitize_text_field( (string) ( $dry_run_output['search_intent'] ?? '' ) );
+				$first_heading = '';
+				if ( ! empty( $dry_run_output['content_outline'][0]['heading'] ) ) {
+					$first_heading = sanitize_text_field( (string) $dry_run_output['content_outline'][0]['heading'] );
+				}
+				$focus = '' !== $first_heading ? $first_heading : ( '' !== $topic ? $topic : $title );
+				$excerpt = sprintf(
+					__( 'In questa guida vedremo %1$s con un percorso pratico, organizzato e facile da seguire. L’obiettivo è aiutarti a capire i passaggi essenziali, applicarli nel sito e controllare il risultato finale senza inserire contenuti non verificati.', 'wp-ai-publisher' ),
+					'' !== $focus ? $focus : __( 'l’argomento proposto', 'wp-ai-publisher' )
+				);
+				if ( '' !== $intent ) {
+					$excerpt .= ' ' . sprintf( __( 'Il percorso risponde a un intento di ricerca orientato a %s.', 'wp-ai-publisher' ), $intent );
+				}
+				break;
+			}
+		}
+
+		return $this->finalize_reader_sentence( $excerpt, $title );
 	}
 
 	private function finalize_reader_sentence( $text, $fallback_topic ) {

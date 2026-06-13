@@ -956,6 +956,10 @@ class AI_Provider_Adapter {
 
 		$fallback = $builder->build_full_article_from_dry_run( $dry_run_output, $site_context );
 		$fallback['source'] = 'local_fallback';
+		$validation = $builder->validate_publishable_article_html( (string) ( $fallback['html'] ?? '' ) );
+		if ( empty( $validation['valid'] ) ) {
+			return new WP_Error( 'wpai_full_article_fallback_invalid', __( 'Il fallback locale non ha prodotto un articolo completo pubblicabile.', 'wp-ai-publisher' ), $validation );
+		}
 		return $fallback;
 	}
 

@@ -358,7 +358,7 @@ class Admin {
 
 		$this->redirect_content_ideas(
 			array(
-				'wpai_notice' => is_wp_error( $result ) ? 'draft_creation_failed' : 'draft_created',
+				'wpai_notice' => is_wp_error( $result ) && 'wpai_draft_creator_missing_full_article' === $result->get_error_code() ? 'missing_full_article' : ( is_wp_error( $result ) ? 'draft_creation_failed' : 'draft_created' ),
 				'view_idea'   => $idea_id,
 				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
 			)
