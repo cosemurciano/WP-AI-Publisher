@@ -910,20 +910,25 @@ class AI_Provider_Adapter {
 	 * @return array<string,mixed>
 	 */
 	private function normalize_dry_run_payload( $payload ) {
-		$idea = isset( $payload['idea'] ) && is_array( $payload['idea'] ) ? $payload['idea'] : array();
+		$idea            = isset( $payload['idea'] ) && is_array( $payload['idea'] ) ? $payload['idea'] : array();
+		$site_context    = wpai_publisher_normalize_site_context( $payload['site_context'] ?? wpai_publisher_get_site_context() );
+		$target_audience = sanitize_text_field( (string) ( $site_context['default_audience'] ?? '' ) );
+		if ( '' === $target_audience ) {
+			$target_audience = sanitize_text_field( (string) ( $payload['target_audience'] ?? $idea['target_audience'] ?? '' ) );
+		}
 
 		return array(
 			'task'                 => 'structured_content_dry_run',
 			'topic'                => sanitize_textarea_field( (string) ( $payload['topic'] ?? $idea['topic'] ?? '' ) ),
 			'keyword'              => sanitize_text_field( (string) ( $payload['keyword'] ?? $idea['keyword'] ?? '' ) ),
 			'language'             => sanitize_key( (string) ( $payload['language'] ?? $idea['language'] ?? 'it' ) ),
-			'target_audience'      => sanitize_text_field( (string) ( $payload['target_audience'] ?? $idea['target_audience'] ?? '' ) ),
+			'target_audience'      => $target_audience,
 			'tutorial_level'       => sanitize_key( (string) ( $payload['tutorial_level'] ?? $idea['tutorial_level'] ?? 'base' ) ),
 			'notes'                => sanitize_textarea_field( (string) ( $payload['notes'] ?? $idea['notes'] ?? '' ) ),
 			'required_schema'      => isset( $payload['required_schema'] ) && is_array( $payload['required_schema'] ) ? $payload['required_schema'] : $this->get_content_dry_run_schema(),
 			'allow_local_fallback' => ! empty( $payload['allow_local_fallback'] ),
 			'safety'               => isset( $payload['safety'] ) && is_array( $payload['safety'] ) ? $payload['safety'] : array(),
-			'site_context'         => wpai_publisher_normalize_site_context( $payload['site_context'] ?? wpai_publisher_get_site_context() ),
+			'site_context'         => $site_context,
 		);
 	}
 
@@ -1006,7 +1011,7 @@ class AI_Provider_Adapter {
 	 * @return bool
 	 */
 	private function ability_has_dangerous_signals( $metadata ) {
-		$dangerous = array( 'create_post', 'insert_post', 'publish_post', 'publish', 'delete', 'delete_post', 'remove_post', 'update_post', 'edit_post', 'save_post', 'create_media', 'upload_media', 'media_upload', 'delete_media', 'attachment', 'update_option', 'delete_option', 'settings_update', 'create_user', 'delete_user', 'send_email', 'webhook', 'remote_request', 'install_plugin', 'activate_plugin', 'deactivate_plugin', 'filesystem', 'database_write', 'schedule_event', 'pubblica', 'pubblicare', 'elimina', 'eliminare', 'rimuovi', 'rimuovere', 'aggiorna articolo', 'modifica articolo', 'salva articolo', 'carica media', 'crea allegato', 'elimina allegato', 'aggiorna opzione', 'crea utente', 'elimina utente', 'invia email', 'installa plugin', 'attiva plugin', 'disattiva plugin' );
+		$dangerous = array( 'create_post', 'insert_post', 'publish_post', 'delete_post', 'remove_post', 'update_post', 'edit_post', 'save_post', 'create_media', 'upload_media', 'media_upload', 'delete_media', 'update_option', 'delete_option', 'update_setting', 'create_user', 'delete_user', 'send_email', 'webhook', 'remote_request', 'install_plugin', 'activate_plugin', 'deactivate_plugin', 'filesystem', 'database_write', 'schedule_event', 'pubblica', 'pubblicare', 'elimina', 'eliminare', 'rimuovi', 'rimuovere', 'aggiorna articolo', 'modifica articolo', 'salva articolo', 'carica media', 'crea allegato', 'elimina allegato', 'aggiorna opzione', 'crea utente', 'elimina utente', 'invia email', 'installa plugin', 'attiva plugin', 'disattiva plugin' );
 		$haystack  = $this->build_ability_safety_haystack( $metadata );
 		return $this->metadata_contains_safety_signal( $haystack, $dangerous );
 	}
@@ -1048,19 +1053,28 @@ class AI_Provider_Adapter {
 	 * @return bool
 	 */
 	private function metadata_contains_safety_signal( $haystack, $signals ) {
-		$haystack = strtolower( remove_accents( (string) $haystack ) );
+		$normalized_haystack = strtolower( remove_accents( (string) $haystack ) );
+		$normalized_haystack = preg_replace( '/[^a-z0-9]+/i', ' ', $normalized_haystack );
+		$normalized_haystack = trim( preg_replace( '/\s+/', ' ', (string) $normalized_haystack ) );
+
 		foreach ( $signals as $signal ) {
-			$signal = strtolower( remove_accents( trim( (string) $signal ) ) );
-			if ( '' === $signal || strlen( $signal ) < 4 ) {
+			$normalized_signal = strtolower( remove_accents( trim( (string) $signal ) ) );
+			$normalized_signal = preg_replace( '/[_\-\s]+/', ' ', $normalized_signal );
+			$normalized_signal = preg_replace( '/[^a-z0-9]+/i', ' ', (string) $normalized_signal );
+			$normalized_signal = trim( preg_replace( '/\s+/', ' ', (string) $normalized_signal ) );
+
+			if ( '' === $normalized_signal || strlen( $normalized_signal ) < 4 ) {
 				continue;
 			}
 
-			$pattern_signal = preg_quote( $signal, '/' );
-			$pattern_signal = str_replace( array( '\ ', '\-' ), '[^a-z0-9_]+', $pattern_signal );
-			if ( 1 === preg_match( '/(^|[^a-z0-9_])' . $pattern_signal . '([^a-z0-9_]|$)/i', $haystack ) ) {
+			$tokens  = preg_split( '/\s+/', $normalized_signal );
+			$parts   = array_map( static function ( $token ) { return preg_quote( $token, '/' ); }, $tokens );
+			$pattern = '/(^|\s)' . implode( '\s+', $parts ) . '(\s|$)/i';
+			if ( 1 === preg_match( $pattern, $normalized_haystack ) ) {
 				return true;
 			}
 		}
+
 		return false;
 	}
 
@@ -1700,7 +1714,7 @@ class AI_Provider_Adapter {
 			$topic,
 			sanitize_text_field( (string) ( $payload['keyword'] ?? '' ) ),
 			sanitize_key( (string) ( $payload['language'] ?? $site_context['default_language'] ) ),
-			sanitize_text_field( (string) ( $payload['target_audience'] ?? $site_context['default_audience'] ) ),
+			sanitize_text_field( (string) ( $payload['target_audience'] ?: $site_context['default_audience'] ) ),
 			sanitize_key( (string) ( $payload['tutorial_level'] ?? 'base' ) ),
 			sanitize_textarea_field( (string) ( $payload['notes'] ?? '' ) ),
 			false !== $context_json ? $context_json : '{}',
@@ -1719,7 +1733,7 @@ class AI_Provider_Adapter {
 		$keyword         = sanitize_text_field( (string) ( $payload['keyword'] ?? '' ) );
 		$site_context    = wpai_publisher_normalize_site_context( $payload['site_context'] ?? wpai_publisher_get_site_context() );
 		$language        = sanitize_key( (string) ( $payload['language'] ?? $site_context['default_language'] ) );
-		$target_audience = sanitize_text_field( (string) ( $payload['target_audience'] ?? '' ) );
+		$target_audience = sanitize_text_field( (string) ( $payload['target_audience'] ?: $site_context['default_audience'] ) );
 		$tutorial_level  = sanitize_key( (string) ( $payload['tutorial_level'] ?? 'base' ) );
 		$profile         = $this->get_contextual_local_profile( $topic, $keyword, $site_context );
 		$title           = $this->limit_local_title( $this->build_contextual_local_title( $topic, $keyword ) );

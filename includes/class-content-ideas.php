@@ -69,6 +69,15 @@ class Content_Ideas {
 	public function create_idea( $data ) {
 		global $wpdb;
 
+		$nonce = sanitize_text_field( (string) ( $data['_wpnonce'] ?? '' ) );
+		if ( '' === $nonce || ! wp_verify_nonce( $nonce, 'wpai_publisher_create_content_idea' ) ) {
+			return new WP_Error( 'wpai_content_idea_invalid_nonce', __( 'Nonce non valido.', 'wp-ai-publisher' ) );
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error( 'wpai_content_idea_forbidden', __( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+
 		$topic = sanitize_textarea_field( (string) ( $data['topic'] ?? '' ) );
 		if ( '' === trim( $topic ) ) {
 			return new WP_Error( 'wpai_content_idea_empty_topic', __( 'L’argomento principale è obbligatorio.', 'wp-ai-publisher' ) );
@@ -80,15 +89,27 @@ class Content_Ideas {
 		$allowed_levels = array( 'base', 'intermedio', 'avanzato' );
 
 		if ( ! in_array( $language, $allowed_langs, true ) ) {
-			$language = 'it';
+			return new WP_Error( 'wpai_content_idea_invalid_language', __( 'Lingua non valida.', 'wp-ai-publisher' ) );
 		}
 
-		if ( ! in_array( $tutorial_level, $allowed_levels, true ) ) {
+		if ( '' !== $tutorial_level && ! in_array( $tutorial_level, $allowed_levels, true ) ) {
+			return new WP_Error( 'wpai_content_idea_invalid_tutorial_level', __( 'Livello tutorial non valido.', 'wp-ai-publisher' ) );
+		}
+
+		if ( '' === $tutorial_level ) {
 			$tutorial_level = null;
 		}
 
+		$table_name = $this->get_table_name();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
+		if ( $table_exists !== $table_name ) {
+			$this->logger->error( __( 'Tabella idee contenuto non disponibile.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'table' => $table_name, 'db_error' => $wpdb->last_error ) );
+			return new WP_Error( 'wpai_content_ideas_table_missing', __( 'La tabella delle idee contenuto non è disponibile. Apri Stato sistema o riattiva il plugin per eseguire la migrazione.', 'wp-ai-publisher' ) );
+		}
+
 		$inserted = $wpdb->insert(
-			$this->get_table_name(),
+			$table_name,
 			array(
 				'created_at'      => current_time( 'mysql' ),
 				'updated_at'      => null,
@@ -96,7 +117,7 @@ class Content_Ideas {
 				'topic'           => $topic,
 				'keyword'         => sanitize_text_field( (string) ( $data['keyword'] ?? '' ) ),
 				'language'        => $language,
-				'target_audience' => sanitize_text_field( (string) ( $data['target_audience'] ?? '' ) ),
+				'target_audience' => '',
 				'tutorial_level'  => $tutorial_level,
 				'notes'           => sanitize_textarea_field( (string) ( $data['notes'] ?? '' ) ),
 			),
@@ -105,7 +126,7 @@ class Content_Ideas {
 
 		if ( false === $inserted ) {
 			$this->logger->error( __( 'Creazione idea contenuto non riuscita.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'db_error' => $wpdb->last_error ) );
-			return new WP_Error( 'wpai_content_idea_insert_failed', __( 'Impossibile salvare l’idea contenuto.', 'wp-ai-publisher' ) );
+			return new WP_Error( 'wpai_content_idea_insert_failed', __( 'Impossibile salvare l’idea contenuto. Controlla i log del plugin o lo stato del database.', 'wp-ai-publisher' ), array( 'db_error' => $wpdb->last_error ) );
 		}
 
 		return (int) $wpdb->insert_id;
@@ -237,14 +258,17 @@ class Content_Ideas {
 			return new WP_Error( 'wpai_content_idea_not_found', __( 'Idea non trovata.', 'wp-ai-publisher' ) );
 		}
 
-		$site_context = wpai_publisher_get_site_context();
+		$site_context     = wpai_publisher_get_site_context();
+		$target_audience  = sanitize_text_field( (string) ( $site_context['default_audience'] ?? '' ) );
+		$legacy_audience  = sanitize_text_field( (string) ( $idea->target_audience ?? '' ) );
+		$target_audience  = '' !== $target_audience ? $target_audience : $legacy_audience;
 
 		$payload = array(
 			'task'                 => 'structured_content_dry_run',
 			'topic'                => (string) $idea->topic,
 			'keyword'              => (string) $idea->keyword,
 			'language'             => (string) $idea->language,
-			'target_audience'      => (string) $idea->target_audience,
+			'target_audience'      => $target_audience,
 			'tutorial_level'       => (string) $idea->tutorial_level,
 			'notes'                => (string) $idea->notes,
 			'required_schema'      => $this->ai_provider->get_content_dry_run_schema(),

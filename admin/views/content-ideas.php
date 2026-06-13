@@ -22,7 +22,9 @@ $notices    = array(
 	'draft_not_approved'       => array( 'error', __( 'Non puoi creare una bozza da un dry-run non approvato.', 'wp-ai-publisher' ) ),
 	'insufficient_permissions' => array( 'error', __( 'Permessi insufficienti.', 'wp-ai-publisher' ) ),
 	'idea_not_found'           => array( 'error', __( 'Idea non trovata.', 'wp-ai-publisher' ) ),
-	'idea_save_failed'         => array( 'error', __( 'Impossibile salvare l’idea contenuto.', 'wp-ai-publisher' ) ),
+	'idea_save_failed'         => array( 'error', __( 'Impossibile salvare l’idea contenuto. Controlla i log del plugin o lo stato del database.', 'wp-ai-publisher' ) ),
+	'content_ideas_table_missing' => array( 'error', __( 'La tabella delle idee contenuto non è disponibile. Apri Stato sistema o riattiva il plugin per eseguire la migrazione.', 'wp-ai-publisher' ) ),
+	'linked_draft_not_found'    => array( 'warning', __( 'Bozza collegata non trovata.', 'wp-ai-publisher' ) ),
 );
 
 $language_labels = array(
@@ -42,6 +44,7 @@ $level_labels = array(
 $site_context              = wpai_publisher_get_site_context();
 $site_context_configured   = wpai_publisher_is_site_context_configured( $site_context );
 $settings_context_url      = admin_url( 'admin.php?page=wp-ai-publisher-settings#wpai-site-profile-name' );
+$default_audience          = sanitize_text_field( (string) ( $site_context['default_audience'] ?? '' ) );
 
 
 $source_labels = array(
@@ -77,6 +80,9 @@ $render_list = static function ( $items ) {
 		<div class="notice notice-<?php echo esc_attr( $notices[ $notice_key ][0] ); ?> is-dismissible">
 			<p><?php echo esc_html( $notices[ $notice_key ][1] ); ?></p>
 		</div>
+		<?php if ( defined( 'WP_DEBUG' ) && WP_DEBUG && ! empty( $_GET['wpai_debug'] ) ) : ?>
+			<div class="notice notice-warning is-dismissible"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['wpai_debug'] ) ) ); ?></p></div>
+		<?php endif; ?>
 	<?php endif; ?>
 
 	<section class="wpai-card">
@@ -84,7 +90,17 @@ $render_list = static function ( $items ) {
 
 		<div class="notice notice-info inline">
 			<p><?php echo esc_html__( 'Il dry-run userà il contesto editoriale configurato in Impostazioni.', 'wp-ai-publisher' ); ?> <a href="<?php echo esc_url( $settings_context_url ); ?>"><?php echo esc_html__( 'Vai alle impostazioni contesto editoriale', 'wp-ai-publisher' ); ?></a></p>
+			<p><?php echo esc_html__( 'Il pubblico target viene letto dal Contesto editoriale del sito configurato in Impostazioni.', 'wp-ai-publisher' ); ?></p>
 		</div>
+		<?php if ( '' !== $default_audience ) : ?>
+			<div class="notice notice-info inline">
+				<p><?php echo esc_html( sprintf( __( 'Pubblico target attuale: %s', 'wp-ai-publisher' ), $default_audience ) ); ?></p>
+			</div>
+		<?php else : ?>
+			<div class="notice notice-warning inline">
+				<p><?php echo esc_html__( 'Pubblico target non configurato. Il dry-run userà un pubblico generico.', 'wp-ai-publisher' ); ?></p>
+			</div>
+		<?php endif; ?>
 		<?php if ( ! $site_context_configured ) : ?>
 			<div class="notice notice-warning inline">
 				<p><?php echo esc_html__( 'Contesto editoriale non ancora configurato. Il dry-run userà impostazioni generiche.', 'wp-ai-publisher' ); ?></p>
@@ -115,10 +131,6 @@ $render_list = static function ( $items ) {
 								<?php endforeach; ?>
 							</select>
 						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="wpai-content-target"><?php echo esc_html__( 'Pubblico target', 'wp-ai-publisher' ); ?></label></th>
-						<td><input id="wpai-content-target" name="target_audience" type="text" class="regular-text" value="<?php echo esc_attr( $site_context['default_audience'] ); ?>" /></td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="wpai-content-level"><?php echo esc_html__( 'Livello tutorial', 'wp-ai-publisher' ); ?></label></th>

@@ -172,14 +172,20 @@ class Admin {
 				'topic'           => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
 				'keyword'         => sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) ),
 				'language'        => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
-				'target_audience' => sanitize_text_field( wp_unslash( $_POST['target_audience'] ?? '' ) ),
 				'tutorial_level'  => sanitize_text_field( wp_unslash( $_POST['tutorial_level'] ?? '' ) ),
 				'notes'           => sanitize_textarea_field( wp_unslash( $_POST['notes'] ?? '' ) ),
+				'_wpnonce'        => sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ?? '' ) ),
 			)
 		);
 
 		if ( is_wp_error( $idea_id ) ) {
-			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_save_failed' ) );
+			$args = array(
+				'wpai_notice' => 'wpai_content_ideas_table_missing' === $idea_id->get_error_code() ? 'content_ideas_table_missing' : 'idea_save_failed',
+			);
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				$args['wpai_debug'] = rawurlencode( sanitize_text_field( $idea_id->get_error_message() ) );
+			}
+			$this->redirect_content_ideas( $args );
 		}
 
 		$this->redirect_content_ideas(
@@ -303,6 +309,16 @@ class Admin {
 		}
 
 		$existing_post_id = absint( $idea->draft_post_id ?? 0 );
+		if ( $existing_post_id > 0 && ! get_post( $existing_post_id ) ) {
+			$this->redirect_content_ideas(
+				array(
+					'wpai_notice' => 'linked_draft_not_found',
+					'view_idea'   => $idea_id,
+					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
+				)
+			);
+		}
+
 		if ( $existing_post_id > 0 && get_post( $existing_post_id ) ) {
 			$this->redirect_content_ideas(
 				array(
