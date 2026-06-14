@@ -263,6 +263,7 @@ class Content_Ideas {
 			return new WP_Error( 'wpai_full_article_invalid_dry_run', __( 'Dry-run non decodificabile.', 'wp-ai-publisher' ) );
 		}
 		$builder = new Classic_Content_Builder();
+		$full_article['html'] = $builder->normalize_full_article_html( (string) ( $full_article['html'] ?? '' ), $output );
 		$validation = $builder->validate_publishable_article_html( (string) ( $full_article['html'] ?? '' ) );
 		if ( empty( $validation['valid'] ) ) {
 			return new WP_Error( 'wpai_full_article_not_publishable', __( 'Articolo completo non valido per la bozza.', 'wp-ai-publisher' ), $validation );
@@ -297,6 +298,7 @@ class Content_Ideas {
 		}
 		$full_article = $this->ai_provider->generate_full_classic_article( $dry_run, wpai_publisher_get_site_context() );
 		if ( is_wp_error( $full_article ) ) {
+			$this->logger->warning( __( 'Generazione articolo completo fallita.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => (int) $id, 'step' => 'full_article_failed', 'error_code' => $full_article->get_error_code(), 'message' => $full_article->get_error_message() ) );
 			return $full_article;
 		}
 		$saved = $this->save_full_article_output( $id, $full_article );
@@ -344,6 +346,7 @@ class Content_Ideas {
 
 		$output = $this->ai_provider->generate_structured_content_dry_run( $payload );
 		if ( is_wp_error( $output ) ) {
+			$this->logger->warning( __( 'Dry-run fallito.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => (int) $idea->id, 'step' => 'dry_run_failed', 'error_code' => $output->get_error_code(), 'message' => $output->get_error_message() ) );
 			$failed_output = array(
 				'title'            => '',
 				'slug'             => '',
