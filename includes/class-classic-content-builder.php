@@ -133,6 +133,7 @@ class Classic_Content_Builder {
 				continue;
 			}
 			$summary = is_array( $section ) ? (string) ( $section['summary'] ?? '' ) : '';
+			$summary = $this->rewrite_outline_summary_for_reader( $summary, $heading, $dry_run_output );
 			$paragraphs = $this->expand_summary_to_reader_paragraphs( $heading, $summary, $dry_run_output );
 			$html .= '<h2>' . esc_html( $heading ) . '</h2>' . "\n";
 			foreach ( $paragraphs as $paragraph ) {
@@ -196,6 +197,9 @@ class Classic_Content_Builder {
 		$excerpt = $this->finalize_reader_sentence( $excerpt, $title );
 		$lower   = strtolower( remove_accents( $excerpt ) );
 		$editorial_patterns = array( 'traccia editoriale', 'dry-run editoriale', 'per spiegare', 'struttura preliminare', 'senza creare bozze', 'senza pubblicare contenuti', 'utile per validare flusso', 'articolo da completare' );
+		if ( $this->is_editorial_instruction_sentence( $excerpt ) ) {
+			$editorial_patterns[] = strtolower( remove_accents( $excerpt ) );
+		}
 		foreach ( $editorial_patterns as $pattern ) {
 			if ( false !== strpos( $lower, $pattern ) ) {
 				$topic = sanitize_text_field( (string) ( $dry_run_output['subtopic'] ?? $dry_run_output['cluster_topic'] ?? $title ) );
@@ -217,6 +221,64 @@ class Classic_Content_Builder {
 		}
 
 		return $this->finalize_reader_sentence( $excerpt, $title );
+	}
+
+
+	/**
+	 * Detect editorial instruction sentences that must not reach reader-facing content.
+	 *
+	 * @param string $text Text to inspect.
+	 * @return bool
+	 */
+	public function is_editorial_instruction_sentence( $text ) {
+		$text = trim( wp_strip_all_tags( (string) $text ) );
+		return 1 === preg_match( '/^(spiegare|indicare|descrivere|mostrare|illustrare|suggerire|riassumere|chiudere|elencare|presentare|approfondire)\b/iu', $text );
+	}
+
+	/**
+	 * Rewrite outline summaries from editorial notes to reader-facing paragraphs.
+	 *
+	 * @param string              $summary Dry-run summary.
+	 * @param string              $heading Section heading.
+	 * @param array<string,mixed> $dry_run_output Dry-run data.
+	 * @return string
+	 */
+	public function rewrite_outline_summary_for_reader( $summary, $heading, $dry_run_output = array() ) {
+		$summary = trim( wp_strip_all_tags( (string) $summary ) );
+		$heading = sanitize_text_field( (string) $heading );
+		$topic   = sanitize_text_field( (string) ( $dry_run_output['title'] ?? $dry_run_output['subtopic'] ?? $dry_run_output['cluster_topic'] ?? $heading ) );
+		$lower   = strtolower( remove_accents( $summary ) );
+		$blocked = array( 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'articolo da completare', 'senza pubblicare contenuti', 'utile per validare flusso' );
+		$must_rewrite = '' === $summary || $this->is_editorial_instruction_sentence( $summary );
+		foreach ( $blocked as $needle ) {
+			if ( false !== strpos( $lower, $needle ) ) {
+				$must_rewrite = true;
+				break;
+			}
+		}
+
+		if ( ! $must_rewrite ) {
+			return $this->finalize_reader_sentence( $summary, $heading );
+		}
+
+		$clean = preg_replace( '/^(spiegare|indicare|descrivere|mostrare|illustrare|suggerire|riassumere|chiudere|elencare|presentare|approfondire)\s+(che|come|in modo semplice|in modo pratico|in modo chiaro|)/iu', '', $summary );
+		$clean = trim( is_string( $clean ) ? $clean : '' );
+		if ( '' !== $clean ) {
+			$clean = preg_replace( '/\b(per spiegare|da completare|senza creare bozze|senza pubblicare contenuti)\b/iu', '', $clean );
+			$clean = trim( is_string( $clean ) ? $clean : '' );
+		}
+
+		if ( '' === $clean || $this->is_editorial_instruction_sentence( $clean ) ) {
+			$clean = sprintf( __( 'La sezione “%1$s” aiuta il lettore a orientarsi su %2$s con indicazioni pratiche, esempi semplici e controlli utili da applicare nel sito WordPress.', 'wp-ai-publisher' ), $heading, '' !== $topic ? $topic : __( 'questo argomento', 'wp-ai-publisher' ) );
+		} else {
+			$clean = sprintf( __( '%1$s Questo passaggio va applicato con attenzione, verificando che il risultato sia chiaro per il visitatore e coerente con l’obiettivo del sito.', 'wp-ai-publisher' ), ucfirst( $clean ) );
+		}
+
+		foreach ( array( 'Spiegare', 'Indicare', 'Descrivere', 'Mostrare' ) as $verb ) {
+			$clean = preg_replace( '/\b' . preg_quote( $verb, '/' ) . '\b/u', '', $clean );
+		}
+
+		return $this->finalize_reader_sentence( $clean, $heading );
 	}
 
 	private function finalize_reader_sentence( $text, $fallback_topic ) {
@@ -424,10 +486,14 @@ class Classic_Content_Builder {
 	 */
 	private function looks_like_placeholder_summary( $summary ) {
 		$summary = strtolower( remove_accents( (string) $summary ) );
-		foreach ( array( 'descrivere in modo pratico', 'descrivere in modo verificabile', 'descrivere il passaggio', 'nel contesto di', 'evitando dettagli tecnici non confermati', 'passaggio “', 'passaggio "' ) as $needle ) {
+		foreach ( array( 'descrivere in modo pratico', 'descrivere in modo verificabile', 'descrivere il passaggio', 'nel contesto di', 'evitando dettagli tecnici non confermati', 'passaggio “', 'passaggio "', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'articolo da completare' ) as $needle ) {
 			if ( false !== strpos( $summary, $needle ) ) {
 				return true;
 			}
+		}
+
+		if ( $this->is_editorial_instruction_sentence( $summary ) ) {
+			return true;
 		}
 
 		return false;

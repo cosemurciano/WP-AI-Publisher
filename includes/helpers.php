@@ -55,6 +55,8 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'github_updater_enabled'        => false,
 			'safe_ai_ability_names'         => '',
 			'allow_unverified_ai_abilities' => false,
+			'auto_create_draft_from_idea'   => true,
+			'workflow_mode'                 => 'simple',
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -98,6 +100,8 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['site_context']                  = wpai_publisher_normalize_site_context( $settings['site_context'] ?? array() );
 		$settings['safe_ai_ability_names']         = sanitize_textarea_field( (string) ( $settings['safe_ai_ability_names'] ?? '' ) );
 		$settings['allow_unverified_ai_abilities'] = ! empty( $settings['allow_unverified_ai_abilities'] );
+		$settings['auto_create_draft_from_idea']   = ! empty( $settings['auto_create_draft_from_idea'] );
+		$settings['workflow_mode']                 = in_array( sanitize_key( (string) ( $settings['workflow_mode'] ?? 'simple' ) ), array( 'simple', 'advanced' ), true ) ? sanitize_key( (string) $settings['workflow_mode'] ) : 'simple';
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );

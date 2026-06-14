@@ -1042,7 +1042,7 @@ class AI_Provider_Adapter {
 			'site_context'     => $site_context,
 			'validation_notes' => $dry_run_output['validation_notes'] ?? array(),
 		);
-		return "Scrivi l’articolo finale per il lettore, non una scaletta editoriale. Restituisci solo HTML pulito compatibile con Editor Classico. Non usare frasi come ‘Spiegare’, ‘Descrivere’, ‘Indicare’, ‘Mostrare’. Non includere il pubblico target, tono, regole editoriali o note interne nel corpo dell’articolo. Usa solo tag consentiti: p, h2, h3, ul, ol, li, strong, em, blockquote, code, pre, br. Non usare Markdown. Non usare blocchi Gutenberg. Non usare script, iframe, style inline, shortcode. Non includere metadati o prompt immagini nel corpo articolo. Dati e vincoli interni:
+		return "Scrivi l’articolo finale per il lettore, non una scaletta editoriale. Restituisci solo HTML pulito compatibile con Editor Classico. Non usare frasi come ‘Spiegare’, ‘Descrivere’, ‘Indicare’, ‘Mostrare’. Non includere il pubblico target, tono, regole editoriali o note interne nel corpo dell’articolo. Usa solo tag consentiti: p, h2, h3, ul, ol, li, strong, em, blockquote, code, pre, br. Non usare Markdown. Non usare blocchi Gutenberg. Non usare script, iframe, style inline, shortcode. Non includere metadati o prompt immagini nel corpo articolo. Non pubblicare, non creare immagini e non scrivere AIOSEO: produci solo HTML per bozza. Dati e vincoli interni:
 " . wp_json_encode( $payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
 	}
 

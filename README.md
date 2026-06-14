@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.4.2**
+Versione corrente: **0.4.3**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
@@ -399,3 +399,13 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 
 - Fondazione iniziale plugin.
 - Bacheca admin, impostazioni e stato sistema.
+
+## Workflow semplificato
+
+Dalla versione **0.4.3** il workflow predefinito è **simple**: l’utente inserisce un’idea e usa il pulsante principale “Crea bozza”. Il plugin esegue internamente idea → dry-run → articolo completo → bozza WordPress, senza pubblicare automaticamente nulla. La bozza resta sempre revisionabile nel normale Editor Classico di WordPress.
+
+La modalità **advanced** resta disponibile dalle impostazioni per debug e controllo manuale: dry-run, generazione articolo completo, approvazione e creazione bozza possono essere gestiti come passaggi separati.
+
+## Fallback locale e contenuto pubblicabile
+
+Il fallback locale non copia istruzioni redazionali nel contenuto finale. Le summary dell’outline vengono riscritte in testo rivolto al lettore prima della validazione, evitando frasi operative come “Spiegare”, “Mostrare”, “Descrivere” o “Indicare”. Se dopo la riscrittura l’articolo contiene ancora placeholder, blocchi Gutenberg, script, iframe, style inline, JSON grezzo o note interne, la bozza non viene creata.

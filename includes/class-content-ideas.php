@@ -270,7 +270,11 @@ class Content_Ideas {
 		$full_article['validation_notes'] = array_values( array_unique( array_merge( (array) ( $full_article['validation_notes'] ?? array() ), $validation['notes'] ) ) );
 		$output['full_article'] = $full_article;
 		$notes = isset( $output['validation_notes'] ) && is_array( $output['validation_notes'] ) ? $output['validation_notes'] : array();
-		return $this->save_dry_run_output( $id, $output, $notes );
+		$saved = $this->save_dry_run_output( $id, $output, $notes );
+		if ( ! is_wp_error( $saved ) && false !== $saved ) {
+			$this->update_idea_status( $id, 'full_article_ready' );
+		}
+		return $saved;
 	}
 
 	/**
@@ -284,7 +288,7 @@ class Content_Ideas {
 		if ( ! $idea ) {
 			return new WP_Error( 'wpai_content_idea_not_found', __( 'Idea non trovata.', 'wp-ai-publisher' ) );
 		}
-		if ( ! in_array( sanitize_key( (string) $idea->status ), array( 'dry_run_ready', 'approved' ), true ) ) {
+		if ( ! in_array( sanitize_key( (string) $idea->status ), array( 'dry_run_ready', 'approved', 'full_article_ready' ), true ) ) {
 			return new WP_Error( 'wpai_full_article_invalid_status', __( 'Stato idea non valido per generare l’articolo completo.', 'wp-ai-publisher' ) );
 		}
 		$dry_run = json_decode( (string) $idea->dry_run_output, true );
@@ -412,6 +416,57 @@ class Content_Ideas {
 		);
 	}
 
+
+	/**
+	 * Create an idea and process it up to a WordPress draft.
+	 *
+	 * @param array<string,mixed> $data Input data.
+	 * @return array<string,mixed>
+	 */
+	public function create_idea_and_draft( $data ) {
+		$idea_id = $this->create_idea( $data );
+		if ( is_wp_error( $idea_id ) ) {
+			return array( 'success' => false, 'idea_id' => 0, 'post_id' => 0, 'status' => 'new', 'step_failed' => 'create_idea', 'message' => $idea_id->get_error_message() );
+		}
+		return $this->process_idea_to_draft( (int) $idea_id );
+	}
+
+	/**
+	 * Process an existing idea through dry-run, full article validation and draft creation.
+	 *
+	 * @param int $idea_id Idea ID.
+	 * @return array<string,mixed>
+	 */
+	public function process_idea_to_draft( $idea_id ) {
+		$idea_id = absint( $idea_id );
+		$this->update_idea_status( $idea_id, 'processing' );
+
+		$dry_run_result = $this->run_dry_run( $idea_id );
+		if ( is_wp_error( $dry_run_result ) || empty( $dry_run_result['valid'] ) ) {
+			return array( 'success' => false, 'idea_id' => $idea_id, 'post_id' => 0, 'status' => 'dry_run_failed', 'step_failed' => 'dry_run', 'message' => is_wp_error( $dry_run_result ) ? $dry_run_result->get_error_message() : __( 'Dry-run non valido.', 'wp-ai-publisher' ) );
+		}
+
+		$idea = $this->get_idea( $idea_id );
+		$dry_run = $idea && ! empty( $idea->dry_run_output ) ? json_decode( (string) $idea->dry_run_output, true ) : array();
+		if ( ! is_array( $dry_run ) || empty( $dry_run['full_article']['html'] ) ) {
+			$full_article = $this->generate_full_article( $idea_id );
+			if ( is_wp_error( $full_article ) ) {
+				$this->update_idea_status( $idea_id, 'dry_run_ready' );
+				return array( 'success' => false, 'idea_id' => $idea_id, 'post_id' => 0, 'status' => 'dry_run_ready', 'step_failed' => 'full_article', 'message' => __( 'Non è stato possibile generare un articolo completo.', 'wp-ai-publisher' ) );
+			}
+		}
+
+		$this->approve_idea( $idea_id );
+		$idea = $this->get_idea( $idea_id );
+		$creator = new Draft_Creator( $this->db, $this->logger );
+		$post_id = $creator->create_draft_from_idea( $idea, array( 'automatic' => true, 'content_ideas' => $this ) );
+		if ( is_wp_error( $post_id ) ) {
+			return array( 'success' => false, 'idea_id' => $idea_id, 'post_id' => 0, 'status' => sanitize_key( (string) ( $this->get_idea( $idea_id )->status ?? 'draft_failed' ) ), 'step_failed' => 'draft', 'message' => $post_id->get_error_message() );
+		}
+
+		return array( 'success' => true, 'idea_id' => $idea_id, 'post_id' => absint( $post_id ), 'status' => 'draft_created', 'message' => __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) );
+	}
+
 	/**
 	 * Return translated status label.
 	 *
@@ -427,6 +482,8 @@ class Content_Ideas {
 			'rejected'       => __( 'Rifiutata', 'wp-ai-publisher' ),
 			'draft_created'  => __( 'Bozza creata', 'wp-ai-publisher' ),
 			'draft_failed'   => __( 'Creazione bozza fallita', 'wp-ai-publisher' ),
+			'processing'      => __( 'In lavorazione', 'wp-ai-publisher' ),
+			'full_article_ready' => __( 'Articolo pronto', 'wp-ai-publisher' ),
 		);
 
 		$status = sanitize_key( (string) $status );
@@ -440,7 +497,7 @@ class Content_Ideas {
 	 * @return array<int,string>
 	 */
 	public function get_allowed_statuses() {
-		return array( 'new', 'dry_run_ready', 'dry_run_failed', 'approved', 'rejected', 'draft_created', 'draft_failed' );
+		return array( 'new', 'processing', 'dry_run_ready', 'dry_run_failed', 'full_article_ready', 'approved', 'rejected', 'draft_created', 'draft_failed' );
 	}
 
 

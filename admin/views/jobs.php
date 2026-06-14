@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 ?>
 <div class="wrap wpai-admin">
 	<h1><?php echo esc_html__( 'Coda job', 'wp-ai-publisher' ); ?></h1>
-	<p class="wpai-lead"><?php echo esc_html__( 'Fondazione della coda operativa di WP AI Publisher. In questa fase i job possono essere registrati e diagnosticati, ma non vengono ancora eseguiti automaticamente.', 'wp-ai-publisher' ); ?></p>
+	<p class="wpai-lead"><?php echo esc_html__( 'Fondazione della coda operativa di WP AI Publisher. In questa fase i job possono essere registrati e diagnosticati; il tipo generate_draft_from_idea prepara il workflow idea → dry-run → articolo completo → bozza.', 'wp-ai-publisher' ); ?></p>
 
 	<div class="wpai-card-grid">
 		<section class="wpai-card">
@@ -49,6 +49,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<th scope="col"><?php echo esc_html__( 'Post collegato', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Costo stimato', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Data creazione', 'wp-ai-publisher' ); ?></th>
+					<th scope="col"><?php echo esc_html__( 'Payload', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Errore', 'wp-ai-publisher' ); ?></th>
 				</tr>
 			</thead>
@@ -71,6 +72,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 							<?php echo null !== $job->estimated_cost ? esc_html( number_format_i18n( (float) $job->estimated_cost, 6 ) ) : esc_html__( '—', 'wp-ai-publisher' ); ?>
 						</td>
 						<td><?php echo esc_html( $job->created_at ); ?></td>
+						<td><code><?php echo esc_html( $job->payload ? wp_trim_words( (string) $job->payload, 12, '…' ) : __( '—', 'wp-ai-publisher' ) ); ?></code></td>
 						<td><?php echo esc_html( $job->error_message ? $job->error_message : __( '—', 'wp-ai-publisher' ) ); ?></td>
 					</tr>
 				<?php endforeach; ?>

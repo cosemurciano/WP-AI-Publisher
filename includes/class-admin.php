@@ -189,6 +189,20 @@ class Admin {
 			$this->redirect_content_ideas( $args );
 		}
 
+		$creation_mode = sanitize_key( wp_unslash( $_POST['wpai_creation_mode'] ?? '' ) );
+		$settings      = wpai_publisher_get_settings();
+		if ( 'create_draft' === $creation_mode || ( 'save_only' !== $creation_mode && ! empty( $settings['auto_create_draft_from_idea'] ) ) ) {
+			$this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => absint( $idea_id ), 'mode' => 'auto_draft' ), 5 );
+			$result = $this->content_ideas->process_idea_to_draft( absint( $idea_id ) );
+			$this->redirect_content_ideas(
+				array(
+					'wpai_notice' => ! empty( $result['success'] ) ? 'draft_created' : ( 'full_article' === ( $result['step_failed'] ?? '' ) ? 'full_article_failed' : 'draft_creation_failed' ),
+					'view_idea'   => absint( $idea_id ),
+					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . absint( $idea_id ) ),
+				)
+			);
+		}
+
 		$this->redirect_content_ideas(
 			array(
 				'wpai_notice' => 'idea_saved',
@@ -322,7 +336,19 @@ class Admin {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_not_found' ) );
 		}
 
-		if ( 'approved' !== sanitize_key( (string) $idea->status ) ) {
+		if ( in_array( sanitize_key( (string) $idea->status ), array( 'new', 'dry_run_failed', 'draft_failed' ), true ) ) {
+			$this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => $idea_id, 'mode' => 'auto_draft' ), 5 );
+			$result = $this->content_ideas->process_idea_to_draft( $idea_id );
+			$this->redirect_content_ideas(
+				array(
+					'wpai_notice' => ! empty( $result['success'] ) ? 'draft_created' : ( 'full_article' === ( $result['step_failed'] ?? '' ) ? 'full_article_failed' : 'draft_creation_failed' ),
+					'view_idea'   => $idea_id,
+					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
+				)
+			);
+		}
+
+		if ( ! in_array( sanitize_key( (string) $idea->status ), array( 'approved', 'full_article_ready' ), true ) ) {
 			$this->redirect_content_ideas(
 				array(
 					'wpai_notice' => 'draft_not_approved',
