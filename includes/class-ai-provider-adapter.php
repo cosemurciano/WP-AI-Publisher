@@ -1063,7 +1063,7 @@ class AI_Provider_Adapter {
 		} elseif ( is_string( $candidate ) ) {
 			$html = $candidate;
 		}
-		$html = $builder->sanitize_classic_html( $html );
+		$html = $builder->normalize_full_article_html( $html, is_array( $candidate ) ? $candidate : array() );
 		$validation = $builder->validate_publishable_article_html( $html );
 		if ( empty( $validation['valid'] ) ) {
 			return new WP_Error( 'wpai_full_article_invalid', __( 'Output articolo completo non pubblicabile.', 'wp-ai-publisher' ), $validation );

@@ -89,15 +89,17 @@ class Draft_Creator {
 				}
 			}
 			if ( empty( $dry_run['full_article']['html'] ) || ! is_string( $dry_run['full_article']['html'] ) ) {
-				return new WP_Error( 'wpai_draft_creator_missing_full_article', __( 'Genera prima l’articolo completo oppure usa Salva idea e crea bozza.', 'wp-ai-publisher' ) );
+				$this->logger->warning( __( 'Articolo completo mancante per la bozza.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_missing_full_article', 'error_code' => 'wpai_draft_creator_missing_full_article', 'message' => __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ), 'word_count' => 0, 'h2_count' => 0 ) );
+				return new WP_Error( 'wpai_draft_creator_missing_full_article', __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ) );
 			}
 		}
 
 		$builder = new Classic_Content_Builder();
+		$dry_run['full_article']['html'] = $builder->normalize_full_article_html( (string) $dry_run['full_article']['html'], $dry_run );
 		$validation = $builder->validate_publishable_article_html( (string) $dry_run['full_article']['html'] );
 		if ( empty( $validation['valid'] ) ) {
 			$error = new WP_Error( 'wpai_draft_creator_full_article_not_publishable', __( 'Non è stato possibile generare un articolo completo dalla struttura approvata.', 'wp-ai-publisher' ), $validation );
-			$this->logger->warning( $error->get_error_message(), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'notes' => $validation['notes'] ) );
+			$this->logger->warning( $error->get_error_message(), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_content_not_publishable', 'error_code' => $error->get_error_code(), 'message' => $error->get_error_message(), 'word_count' => (int) ( $validation['word_count'] ?? 0 ), 'h2_count' => (int) ( $validation['h2_count'] ?? 0 ) ) );
 			$this->update_idea_after_draft_failed( (int) $idea->id, $error->get_error_message() );
 			return $error;
 		}
@@ -117,6 +119,7 @@ class Draft_Creator {
 		$post_id = absint( $post_id );
 		$this->assign_categories_and_tags( $post_id, $dry_run );
 		$this->update_idea_after_draft_created( (int) $idea->id, $post_id, (string) $post_data['post_status'] );
+		$this->logger->info( __( 'Bozza creata da full_article.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_created', 'error_code' => '', 'message' => __( 'Bozza creata correttamente.', 'wp-ai-publisher' ), 'word_count' => (int) ( $validation['word_count'] ?? 0 ), 'h2_count' => (int) ( $validation['h2_count'] ?? 0 ) ) );
 
 		return $post_id;
 	}
@@ -204,7 +207,8 @@ class Draft_Creator {
 	 * @return array<string,mixed>|WP_Error
 	 */
 	public function prepare_post_data( $idea, $dry_run ) {
-		$html = (string) ( $dry_run['full_article']['html'] ?? '' );
+		$builder = new Classic_Content_Builder();
+		$html = $builder->normalize_full_article_html( (string) ( $dry_run['full_article']['html'] ?? '' ), $dry_run );
 		$content = $this->sanitize_post_content( $html );
 		if ( is_wp_error( $content ) ) {
 			return $content;
