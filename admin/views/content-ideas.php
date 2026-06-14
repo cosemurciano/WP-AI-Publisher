@@ -17,6 +17,7 @@ $notices    = array(
 	'dry_run_approved'         => array( 'success', __( 'Dry-run approvato. Ora puoi creare la bozza.', 'wp-ai-publisher' ) ),
 	'dry_run_rejected'         => array( 'success', __( 'Dry-run rifiutato.', 'wp-ai-publisher' ) ),
 	'draft_created'            => array( 'success', __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) ),
+	'auto_draft_started'       => array( 'success', __( 'La creazione della bozza è stata avviata.', 'wp-ai-publisher' ) ),
 	'full_article_generated'   => array( 'success', __( 'Articolo completo generato. Ora puoi approvare il contenuto e creare la bozza.', 'wp-ai-publisher' ) ),
 	'full_article_failed'      => array( 'error', __( 'Non è stato possibile generare un articolo completo.', 'wp-ai-publisher' ) ),
 	'missing_full_article'     => array( 'warning', __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ) ),
@@ -152,7 +153,10 @@ $render_list = static function ( $items ) {
 				</tbody>
 			</table>
 
-			<?php submit_button( __( 'Salva idea', 'wp-ai-publisher' ) ); ?>
+			<p class="submit">
+				<button type="submit" name="wpai_creation_mode" value="create_draft" class="button button-primary"><?php echo esc_html__( 'Crea bozza', 'wp-ai-publisher' ); ?></button>
+				<button type="submit" name="wpai_creation_mode" value="save_only" class="button"><?php echo esc_html__( 'Salva solo idea', 'wp-ai-publisher' ); ?></button>
+			</p>
 		</form>
 	</section>
 
@@ -211,48 +215,46 @@ $render_list = static function ( $items ) {
 							<?php endif; ?>
 						</td>
 						<td>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-								<input type="hidden" name="action" value="wpai_publisher_run_content_idea_dry_run" />
-								<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) absint( $idea->id ) ); ?>" />
-								<?php wp_nonce_field( 'wpai_publisher_run_content_idea_dry_run' ); ?>
-								<?php submit_button( __( 'Esegui dry-run', 'wp-ai-publisher' ), 'secondary small', 'submit', false ); ?>
-							</form>
-							<?php if ( ! empty( $idea->dry_run_output ) ) : ?>
-								<a class="button button-small" href="<?php echo esc_url( $view_url ); ?>"><?php echo esc_html__( 'Visualizza risultato', 'wp-ai-publisher' ); ?></a>
-							<?php endif; ?>
-							<?php if ( in_array( (string) $idea->status, array( 'dry_run_ready', 'approved' ), true ) && ! empty( $idea->dry_run_output ) ) : ?>
+							<?php
+							$idea_output = ! empty( $idea->dry_run_output ) ? json_decode( (string) $idea->dry_run_output, true ) : array();
+							$has_full_article = is_array( $idea_output ) && ! empty( $idea_output['full_article']['html'] );
+							$status = sanitize_key( (string) $idea->status );
+							?>
+							<?php if ( $draft_exists && $draft_edit_url ) : ?>
+								<a class="button button-primary button-small" href="<?php echo esc_url( $draft_edit_url ); ?>"><?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
+							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed' ), true ) ) : ?>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+									<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
+									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+									<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
+									<?php submit_button( 'draft_failed' === $status ? __( 'Riprova', 'wp-ai-publisher' ) : __( 'Genera bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
+								</form>
+							<?php elseif ( 'dry_run_ready' === $status && ! $has_full_article ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_generate_full_article" />
 									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
 									<?php wp_nonce_field( 'wpai_publisher_generate_full_article_' . $idea_id ); ?>
-									<?php submit_button( __( 'Genera articolo completo', 'wp-ai-publisher' ), 'secondary small', 'submit', false ); ?>
+									<?php submit_button( __( 'Genera articolo', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
 								</form>
-							<?php endif; ?>
-							<?php if ( 'dry_run_ready' === (string) $idea->status && ! empty( $idea->dry_run_output ) ) : ?>
-								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-									<input type="hidden" name="action" value="wpai_publisher_approve_content_idea" />
-									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
-									<?php wp_nonce_field( 'wpai_publisher_approve_content_idea_' . $idea_id ); ?>
-									<?php submit_button( __( 'Approva', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
-								</form>
-								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-									<input type="hidden" name="action" value="wpai_publisher_reject_content_idea" />
-									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
-									<?php wp_nonce_field( 'wpai_publisher_reject_content_idea_' . $idea_id ); ?>
-									<?php submit_button( __( 'Rifiuta', 'wp-ai-publisher' ), 'secondary small', 'submit', false ); ?>
-								</form>
-							<?php endif; ?>
-							<?php if ( 'approved' === (string) $idea->status && ! empty( $idea->dry_run_output ) && ! $draft_exists ) : ?>
+							<?php elseif ( in_array( $status, array( 'full_article_ready', 'approved' ), true ) || $has_full_article ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
 									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
 									<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
 									<?php submit_button( __( 'Crea bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
 								</form>
+							<?php elseif ( 'processing' === $status ) : ?>
+								<span class="description"><?php echo esc_html__( 'In lavorazione', 'wp-ai-publisher' ); ?></span>
 							<?php endif; ?>
-							<?php if ( $draft_exists && $draft_edit_url ) : ?>
-								<a class="button button-small" href="<?php echo esc_url( $draft_edit_url ); ?>"><?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
-							<?php endif; ?>
+							<div class="row-actions wpai-secondary-actions">
+								<?php if ( ! empty( $idea->dry_run_output ) ) : ?><a href="<?php echo esc_url( $view_url ); ?>"><?php echo esc_html__( 'Visualizza risultato', 'wp-ai-publisher' ); ?></a><?php endif; ?>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+									<input type="hidden" name="action" value="wpai_publisher_run_content_idea_dry_run" />
+									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+									<?php wp_nonce_field( 'wpai_publisher_run_content_idea_dry_run' ); ?>
+									<button class="button-link" type="submit"><?php echo esc_html__( 'Esegui dry-run', 'wp-ai-publisher' ); ?></button>
+								</form>
+							</div>
 						</td>
 					</tr>
 				<?php endforeach; ?>

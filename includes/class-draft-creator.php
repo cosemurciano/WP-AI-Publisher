@@ -48,12 +48,14 @@ class Draft_Creator {
 	 * @param mixed $idea Idea row object.
 	 * @return int|WP_Error Created post ID or error.
 	 */
-	public function create_draft_from_idea( $idea ) {
+	public function create_draft_from_idea( $idea, $args = array() ) {
+		$args = is_array( $args ) ? $args : array();
+		$automatic = ! empty( $args['automatic'] );
 		if ( ! is_object( $idea ) || empty( $idea->id ) ) {
 			return new WP_Error( 'wpai_draft_creator_invalid_idea', __( 'Idea non valida.', 'wp-ai-publisher' ) );
 		}
 
-		if ( 'approved' !== sanitize_key( (string) ( $idea->status ?? '' ) ) ) {
+		if ( ! in_array( sanitize_key( (string) ( $idea->status ?? '' ) ), array( 'approved', 'full_article_ready' ), true ) ) {
 			return new WP_Error( 'wpai_draft_creator_not_approved', __( 'Non puoi creare una bozza da un dry-run non approvato.', 'wp-ai-publisher' ) );
 		}
 
@@ -76,7 +78,19 @@ class Draft_Creator {
 		}
 
 		if ( empty( $dry_run['full_article']['html'] ) || ! is_string( $dry_run['full_article']['html'] ) ) {
-			return new WP_Error( 'wpai_draft_creator_missing_full_article', __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ) );
+			if ( $automatic && ! empty( $args['content_ideas'] ) && is_object( $args['content_ideas'] ) && method_exists( $args['content_ideas'], 'generate_full_article' ) ) {
+				$generated = $args['content_ideas']->generate_full_article( (int) $idea->id );
+				if ( ! is_wp_error( $generated ) ) {
+					$refreshed = method_exists( $args['content_ideas'], 'get_idea' ) ? $args['content_ideas']->get_idea( (int) $idea->id ) : null;
+					if ( $refreshed && ! empty( $refreshed->dry_run_output ) ) {
+						$idea = $refreshed;
+						$dry_run = json_decode( (string) $idea->dry_run_output, true );
+					}
+				}
+			}
+			if ( empty( $dry_run['full_article']['html'] ) || ! is_string( $dry_run['full_article']['html'] ) ) {
+				return new WP_Error( 'wpai_draft_creator_missing_full_article', __( 'Genera prima l’articolo completo oppure usa Salva idea e crea bozza.', 'wp-ai-publisher' ) );
+			}
 		}
 
 		$builder = new Classic_Content_Builder();

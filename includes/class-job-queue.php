@@ -46,6 +46,7 @@ class Job_Queue {
 			'index_post',
 			'process_ai_file',
 			'create_content_idea',
+			'generate_draft_from_idea',
 		);
 	}
 
@@ -182,6 +183,7 @@ class Job_Queue {
 			'index_post'                => __( 'Indicizzazione articolo', 'wp-ai-publisher' ),
 			'process_ai_file'           => __( 'Elaborazione file AI', 'wp-ai-publisher' ),
 			'create_content_idea'       => __( 'Creazione idea contenuto', 'wp-ai-publisher' ),
+			'generate_draft_from_idea'=> __( 'Generazione bozza da idea', 'wp-ai-publisher' ),
 		);
 
 		$job_type = sanitize_key( (string) $job_type );

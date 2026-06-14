@@ -59,6 +59,9 @@ class Settings {
 		$output['github_updater_enabled']        = false;
 		$output['safe_ai_ability_names']         = isset( $input['safe_ai_ability_names'] ) ? sanitize_textarea_field( $input['safe_ai_ability_names'] ) : $defaults['safe_ai_ability_names'];
 		$output['allow_unverified_ai_abilities'] = ! empty( $input['allow_unverified_ai_abilities'] );
+		$output['auto_create_draft_from_idea']   = ! empty( $input['auto_create_draft_from_idea'] );
+		$workflow_mode                           = sanitize_key( (string) ( $input['workflow_mode'] ?? $defaults['workflow_mode'] ) );
+		$output['workflow_mode']                 = in_array( $workflow_mode, array( 'simple', 'advanced' ), true ) ? $workflow_mode : 'simple';
 		$output['site_context']                  = $this->sanitize_site_context( $input['site_context'] ?? array() );
 
 		return $output;

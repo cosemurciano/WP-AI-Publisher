@@ -95,6 +95,8 @@ class System_Status {
 			? sprintf( __( '%d percorso/i available rilevati', 'wp-ai-publisher' ), count( $available_generation_paths ) )
 			: ( ! empty( $maybe_generation_paths ) ? sprintf( __( '%d percorso/i maybe rilevati; serve bridge o verifica manuale', 'wp-ai-publisher' ), count( $maybe_generation_paths ) ) : __( 'Solo fallback locale disponibile', 'wp-ai-publisher' ) );
 		$context_configured     = wpai_publisher_is_site_context_configured( $site_context );
+		$settings               = wpai_publisher_get_settings();
+		$workflow_mode          = sanitize_key( (string) ( $settings['workflow_mode'] ?? 'simple' ) );
 		$checks                    = array(
 			$this->row( __( 'Versione plugin', 'wp-ai-publisher' ), WPAIP_VERSION, 'ok' ),
 			$this->row( __( 'Versione WordPress', 'wp-ai-publisher' ), (string) $wp_version, version_compare( $wp_version, '7.0', '>=' ) ? 'ok' : 'error' ),
@@ -111,6 +113,9 @@ class System_Status {
 			$this->row( __( 'Validatore output strutturato', 'wp-ai-publisher' ), $validator_available ? __( 'Classe Structured_Output_Validator disponibile', 'wp-ai-publisher' ) : __( 'Validazione interna basilare', 'wp-ai-publisher' ), $validator_available ? 'ok' : 'warning' ),
 			$this->row( __( 'Classic Content Builder', 'wp-ai-publisher' ), $classic_builder_available ? __( 'Classe Classic_Content_Builder disponibile', 'wp-ai-publisher' ) : __( 'Classe Classic_Content_Builder non disponibile', 'wp-ai-publisher' ), $classic_builder_available ? 'ok' : 'error' ),
 			$this->row( __( 'Draft Creator', 'wp-ai-publisher' ), $draft_creator_available ? __( 'Classe Draft_Creator disponibile', 'wp-ai-publisher' ) : __( 'Classe Draft_Creator non disponibile', 'wp-ai-publisher' ), $draft_creator_available ? 'ok' : 'error' ),
+			$this->row( __( 'Modalità workflow', 'wp-ai-publisher' ), 'advanced' === $workflow_mode ? __( 'Avanzato', 'wp-ai-publisher' ) : __( 'Semplificato', 'wp-ai-publisher' ), 'ok' ),
+			$this->row( __( 'Creazione automatica bozza', 'wp-ai-publisher' ), ! empty( $settings['auto_create_draft_from_idea'] ) ? __( 'Attiva', 'wp-ai-publisher' ) : __( 'Disattiva', 'wp-ai-publisher' ), ! empty( $settings['auto_create_draft_from_idea'] ) ? 'ok' : 'warning' ),
+			$this->row( __( 'Full Article Generator', 'wp-ai-publisher' ), method_exists( $this->ai_provider, 'generate_full_classic_article' ) ? __( 'OK', 'wp-ai-publisher' ) : __( 'Non disponibile', 'wp-ai-publisher' ), method_exists( $this->ai_provider, 'generate_full_classic_article' ) ? 'ok' : 'error' ),
 			$this->row( __( 'Creazione bozze', 'wp-ai-publisher' ), function_exists( 'wp_insert_post' ) && 'classic' === $site_context['default_editor'] ? __( 'wp_insert_post disponibile; target Editor Classico', 'wp-ai-publisher' ) : __( 'Requisiti creazione bozza non completi', 'wp-ai-publisher' ), function_exists( 'wp_insert_post' ) && 'classic' === $site_context['default_editor'] ? 'ok' : 'error' ),
 			$this->row( __( 'Pubblicazione automatica', 'wp-ai-publisher' ), 'publish' === $site_context['default_post_status_after_generation'] ? __( 'Disabilitata in 0.4.0; setting publish verrà convertito in draft', 'wp-ai-publisher' ) : __( 'Disabilitata in 0.4.0', 'wp-ai-publisher' ), 'publish' === $site_context['default_post_status_after_generation'] ? 'warning' : 'ok' ),
 			$this->row( __( 'OpenAI diretto', 'wp-ai-publisher' ), __( 'Disabilitato: il plugin non usa un client custom', 'wp-ai-publisher' ), 'not-configured' ),
