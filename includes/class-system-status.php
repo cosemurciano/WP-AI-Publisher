@@ -93,11 +93,26 @@ class System_Status {
 
 
 	private function global_categories_item() {
-		$context = wpai_publisher_get_site_context();
-		$stored  = array_values( array_filter( array_map( 'absint', (array) ( $context['allowed_category_ids'] ?? array() ) ) ) );
-		$valid   = wpai_publisher_sanitize_category_ids( $stored );
-		$invalid = array_diff( $stored, $valid );
-		return $this->row( 'global_allowed_categories', __( 'Categorie globali', 'wp-ai-publisher' ), empty( $invalid ) ? 'ok' : 'warning', empty( $stored ) ? __( 'Nessun limite globale', 'wp-ai-publisher' ) : sprintf( _n( '%d categoria', '%d categorie', count( $valid ), 'wp-ai-publisher' ), count( $valid ) ), empty( $invalid ) ? '' : __( 'Alcune categorie globali salvate non esistono più. Riselezionale nelle impostazioni.', 'wp-ai-publisher' ) );
+		$context = function_exists( 'wpai_publisher_get_raw_site_context' ) ? wpai_publisher_get_raw_site_context() : array();
+		$stored  = array_values( array_unique( array_filter( array_map( 'absint', (array) ( $context['allowed_category_ids'] ?? array() ) ) ) ) );
+
+		if ( empty( $stored ) ) {
+			return $this->row( 'global_allowed_categories', __( 'Categorie globali', 'wp-ai-publisher' ), 'info', __( 'Nessun limite globale configurato', 'wp-ai-publisher' ), '' );
+		}
+
+		$existing = get_terms( array( 'taxonomy' => 'category', 'hide_empty' => false, 'fields' => 'ids', 'include' => $stored ) );
+		if ( is_wp_error( $existing ) ) {
+			return $this->row( 'global_allowed_categories', __( 'Categorie globali', 'wp-ai-publisher' ), 'warning', __( 'Categorie non verificabili', 'wp-ai-publisher' ), __( 'Impossibile verificare le categorie globali salvate. Riprova o riselezionale nelle impostazioni.', 'wp-ai-publisher' ) );
+		}
+
+		$valid   = array_values( array_intersect( $stored, array_map( 'absint', (array) $existing ) ) );
+		$invalid = array_values( array_diff( $stored, $valid ) );
+
+		if ( ! empty( $invalid ) ) {
+			return $this->row( 'global_allowed_categories', __( 'Categorie globali', 'wp-ai-publisher' ), 'warning', sprintf( __( 'ID categoria non validi: %s', 'wp-ai-publisher' ), implode( ', ', array_map( 'absint', $invalid ) ) ), __( 'Alcune categorie globali salvate non esistono più. Riseleziona le categorie globali nelle impostazioni.', 'wp-ai-publisher' ) );
+		}
+
+		return $this->row( 'global_allowed_categories', __( 'Categorie globali', 'wp-ai-publisher' ), 'ok', sprintf( _n( '%d categoria valida', '%d categorie valide', count( $valid ), 'wp-ai-publisher' ), count( $valid ) ), '' );
 	}
 
 	private function article_type_global_categories_item() {
