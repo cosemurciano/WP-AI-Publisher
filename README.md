@@ -1,6 +1,36 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.17**
+Versione corrente: **0.5.18**
+
+## Integrazione AI (generazione articolo)
+
+WP AI Publisher genera l’articolo tramite il sistema AI di WordPress, provando in ordine questi canali:
+
+1. il filtro `wpai_publisher_generate_article_from_idea` (integrazione personalizzata, ha priorità);
+2. la **WordPress Abilities API** (`wp_get_abilities`/`wp_get_ability`), se espone un’ability di generazione testo;
+3. il plugin **AI Services** (`ai_services()`), se presente;
+4. la funzione `wp_ai_generate_text()`, se presente.
+
+Alcuni stack AI espongono **solo ability specifiche** (generazione immagini, classificazione, ridimensionamento contenuti, dati SEO) e **nessuna generazione di articoli/testo**, oppure richiedono permessi non disponibili durante l’esecuzione pianificata (WP-Cron senza utente). In questi casi la creazione bozza non può produrre testo: collega un generatore reale con il filtro qui sotto. Il dettaglio per-ability (nome, schema input, esito) è visibile in **Stato sistema → Dettaglio log critici interni**.
+
+```php
+add_filter(
+    'wpai_publisher_generate_article_from_idea',
+    function ( $result, $generation_context, $site_context, $prompt, $article_type ) {
+        // $prompt contiene idea + istruzioni della Tipologia articolo
+        // (incluse le sezioni richieste). Chiama il tuo generatore di testo
+        // e restituisci l'articolo come HTML pulito per Editor Classico.
+        $html = mia_funzione_di_generazione_testo( $prompt ); // tua integrazione
+
+        // Tag consentiti: p, h2, h3, h4, ul, ol, li, strong, em, blockquote, code, pre, br, a.
+        return array( 'html' => $html );
+    },
+    10,
+    5
+);
+```
+
+Restituendo `null` lasci il controllo all’adapter (che proverà gli altri canali). Restituendo `array( 'html' => ... )` (o una stringa HTML) la bozza viene creata da quel contenuto.
 
 ## Generazione via Abilities API più robusta 0.5.17
 

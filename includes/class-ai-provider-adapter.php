@@ -1115,7 +1115,7 @@ class AI_Provider_Adapter {
 
 		return new WP_Error(
 			'wpai_article_no_ai_output',
-			__( 'Un sistema AI risulta rilevato ma nessun canale di generazione ha prodotto contenuto. Apri Stato sistema → Dettaglio log critici interni per vedere quale integrazione è presente e quale canale ha fallito.', 'wp-ai-publisher' ),
+			__( 'Un sistema AI è rilevato ma nessun canale ha generato l’articolo. Le ability disponibili potrebbero non includere la generazione di testo/articoli (spesso sono specifiche: immagini, classificazione, SEO) o richiedere permessi non disponibili durante l’esecuzione pianificata (WP-Cron senza utente). Soluzione consigliata: collega un generatore di testo con il filtro wpai_publisher_generate_article_from_idea (vedi README → Integrazione AI). Dettagli per-ability in Stato sistema → Dettaglio log critici interni.', 'wp-ai-publisher' ),
 			$diagnostics
 		);
 	}

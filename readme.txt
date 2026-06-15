@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.17
+Stable tag: 0.5.18
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,10 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.18 =
+* Messaggio d’errore chiaro quando l’integrazione AI presente non offre una generazione di testo/articoli: molti stack espongono solo ability specifiche (immagini, classificazione, SEO) o richiedono permessi non disponibili in WP-Cron.
+* Documentata la via di integrazione affidabile: il filtro wpai_publisher_generate_article_from_idea per collegare un generatore di testo reale (vedi README → Integrazione AI). È il primo canale tentato.
 
 = 0.5.17 =
 * Generazione via WordPress Abilities API molto più robusta: l’input viene ora derivato dallo schema dell’ability (prima si usava un input fisso che falliva la validazione), si tentano più forme di input e metodi (execute/run/invoke/call/perform), e gli eventuali WP_Error restituiti dall’ability vengono catturati e riportati.
