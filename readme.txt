@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.24
+Stable tag: 0.5.25
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,10 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.25 =
+* Generazione immagine in evidenza con l'AI (opt-in): nuova opzione in Impostazioni → Parametri AI. Quando attiva, alla creazione della bozza viene generata un'immagine tramite il PHP AI Client (WordPress\AiClient\AiClient::prompt()->generateImage()) usando il "Prompt immagini" della Tipologia articolo (o un prompt costruito dal titolo) e impostata come immagine in evidenza.
+* L'immagine viene importata nella Libreria media; la funzione è strettamente non bloccante: se la generazione o l'import falliscono, la bozza viene comunque creata senza immagine e l'errore è registrato nei log.
 
 = 0.5.24 =
 * Tipologie articolo: form semplificato con un unico "Prompt principale" (tono, struttura, lunghezza, regole, sezioni tutto in un campo) e una textarea dedicata "Prompt immagini" per la futura generazione delle immagini. Aggiunta colonna database image_prompt (schema 8).

@@ -651,7 +651,122 @@ class Content_Ideas {
 		}
 
 		$this->logger->info( __( 'Bozza creata da idea + tipologia.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'draft_created', 'step' => 'draft_created', 'post_id' => absint( $post_id ) ) );
+		$this->maybe_generate_featured_image( absint( $post_id ), $idea_id, $article_type );
 		return array( 'success' => true, 'idea_id' => $idea_id, 'post_id' => absint( $post_id ), 'status' => 'draft_created', 'message' => __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Optionally generate and attach an AI featured image to the created draft.
+	 *
+	 * Opt-in (setting generate_featured_image) and strictly non-blocking: any
+	 * failure is logged and never affects the already-created draft.
+	 *
+	 * @param int                 $post_id Draft post ID.
+	 * @param int                 $idea_id Idea ID.
+	 * @param array<string,mixed> $article_type Article type config.
+	 * @return void
+	 */
+	private function maybe_generate_featured_image( $post_id, $idea_id, $article_type ) {
+		$post_id = absint( $post_id );
+		if ( $post_id <= 0 || ! function_exists( 'set_post_thumbnail' ) ) {
+			return;
+		}
+		$settings = wpai_publisher_get_settings();
+		if ( empty( $settings['generate_featured_image'] ) ) {
+			return;
+		}
+		if ( function_exists( 'has_post_thumbnail' ) && has_post_thumbnail( $post_id ) ) {
+			return;
+		}
+		if ( ! method_exists( $this->ai_provider, 'generate_image' ) ) {
+			return;
+		}
+
+		$image_prompt = trim( (string) ( $article_type['image_prompt'] ?? '' ) );
+		$title        = get_the_title( $post_id );
+		if ( '' === $image_prompt ) {
+			$image_prompt = sprintf( __( 'Immagine di copertina editoriale, professionale e pertinente, per un articolo intitolato: %s. Senza testo nell’immagine.', 'wp-ai-publisher' ), $title );
+		} else {
+			$image_prompt .= "\n" . sprintf( __( 'Argomento dell’articolo: %s.', 'wp-ai-publisher' ), $title );
+		}
+
+		$this->logger->info( __( 'Generazione immagine in evidenza avviata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'featured_image_started' ) );
+		$image = $this->ai_provider->generate_image( $image_prompt );
+		if ( is_wp_error( $image ) ) {
+			$this->logger->warning( __( 'Immagine in evidenza non generata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'featured_image_failed', 'error_code' => $image->get_error_code(), 'message' => $image->get_error_message() ) );
+			return;
+		}
+
+		$attachment_id = $this->import_featured_image( $post_id, $image, absint( $idea_id ), $title );
+		if ( $attachment_id > 0 ) {
+			$this->logger->info( __( 'Immagine in evidenza impostata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'featured_image_set', 'attachment_id' => $attachment_id ) );
+		}
+	}
+
+	/**
+	 * Import image bytes into the media library and set them as featured image.
+	 *
+	 * @param int                          $post_id Post ID.
+	 * @param array{bytes:string,mime:string} $image Image data.
+	 * @param int                          $idea_id Idea ID.
+	 * @param string                       $title Post title for attachment.
+	 * @return int Attachment ID or 0 on failure.
+	 */
+	private function import_featured_image( $post_id, $image, $idea_id, $title ) {
+		if ( empty( $image['bytes'] ) ) {
+			return 0;
+		}
+		if ( ! function_exists( 'wp_upload_bits' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+
+		$mime     = (string) ( $image['mime'] ?? 'image/png' );
+		$ext      = $this->mime_to_extension( $mime );
+		$filename = 'wpai-' . absint( $idea_id ) . '-' . time() . '.' . $ext;
+		$upload   = wp_upload_bits( $filename, null, (string) $image['bytes'] );
+		if ( ! is_array( $upload ) || ! empty( $upload['error'] ) || empty( $upload['file'] ) ) {
+			$this->logger->warning( __( 'Upload immagine in evidenza non riuscito.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'post_id' => absint( $post_id ), 'error' => is_array( $upload ) ? (string) ( $upload['error'] ?? '' ) : 'unknown' ) );
+			return 0;
+		}
+
+		$filetype   = wp_check_filetype( $upload['file'], null );
+		$attachment = array(
+			'post_mime_type' => ! empty( $filetype['type'] ) ? $filetype['type'] : $mime,
+			'post_title'     => '' !== $title ? $title : __( 'Immagine articolo', 'wp-ai-publisher' ),
+			'post_content'   => '',
+			'post_status'    => 'inherit',
+		);
+		$attach_id = wp_insert_attachment( $attachment, $upload['file'], $post_id, true );
+		if ( is_wp_error( $attach_id ) || ! $attach_id ) {
+			return 0;
+		}
+		if ( ! function_exists( 'wp_generate_attachment_metadata' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/image.php';
+		}
+		$metadata = wp_generate_attachment_metadata( $attach_id, $upload['file'] );
+		if ( is_array( $metadata ) ) {
+			wp_update_attachment_metadata( $attach_id, $metadata );
+		}
+		set_post_thumbnail( $post_id, $attach_id );
+		return (int) $attach_id;
+	}
+
+	/**
+	 * Map an image mime type to a safe file extension.
+	 *
+	 * @param string $mime Mime type.
+	 * @return string
+	 */
+	private function mime_to_extension( $mime ) {
+		$map = array(
+			'image/png'  => 'png',
+			'image/jpeg' => 'jpg',
+			'image/jpg'  => 'jpg',
+			'image/webp' => 'webp',
+			'image/gif'  => 'gif',
+		);
+		$mime = strtolower( trim( (string) $mime ) );
+		return $map[ $mime ] ?? 'png';
 	}
 
 	/**
