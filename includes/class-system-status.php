@@ -84,10 +84,44 @@ class System_Status {
 			$this->ideas_without_article_type_item(),
 			$this->article_types_cpt_item(),
 			$this->article_types_map_meta_cap_item(),
+			$this->global_categories_item(),
+			$this->article_type_global_categories_item(),
+			$this->deprecated_editorial_settings_item(),
 			$this->recent_critical_errors_item(),
 		);
 	}
 
+
+	private function global_categories_item() {
+		$context = wpai_publisher_get_site_context();
+		$stored  = array_values( array_filter( array_map( 'absint', (array) ( $context['allowed_category_ids'] ?? array() ) ) ) );
+		$valid   = wpai_publisher_sanitize_category_ids( $stored );
+		$invalid = array_diff( $stored, $valid );
+		return $this->row( 'global_allowed_categories', __( 'Categorie globali', 'wp-ai-publisher' ), empty( $invalid ) ? 'ok' : 'warning', empty( $stored ) ? __( 'Nessun limite globale', 'wp-ai-publisher' ) : sprintf( _n( '%d categoria', '%d categorie', count( $valid ), 'wp-ai-publisher' ), count( $valid ) ), empty( $invalid ) ? '' : __( 'Alcune categorie globali salvate non esistono più. Riselezionale nelle impostazioni.', 'wp-ai-publisher' ) );
+	}
+
+	private function article_type_global_categories_item() {
+		$context = wpai_publisher_get_site_context();
+		if ( empty( $context['allowed_category_ids'] ) ) {
+			return $this->row( 'article_type_global_categories', __( 'Tipologie vs categorie globali', 'wp-ai-publisher' ), 'ok', __( 'Nessun limite globale', 'wp-ai-publisher' ), '' );
+		}
+
+		$conflicts = 0;
+		foreach ( wpai_publisher_get_active_article_types_safe() as $article_type ) {
+			$boundary = wpai_publisher_resolve_allowed_category_ids( $article_type, $context );
+			if ( ! empty( $boundary['conflict'] ) ) {
+				++$conflicts;
+			}
+		}
+
+		return $this->row( 'article_type_global_categories', __( 'Tipologie vs categorie globali', 'wp-ai-publisher' ), $conflicts > 0 ? 'warning' : 'ok', $conflicts > 0 ? sprintf( _n( '%d conflitto', '%d conflitti', $conflicts, 'wp-ai-publisher' ), $conflicts ) : __( 'OK', 'wp-ai-publisher' ), $conflicts > 0 ? __( 'Una o più Tipologie Articolo non hanno categorie in comune con il limite globale.', 'wp-ai-publisher' ) : '' );
+	}
+
+	private function deprecated_editorial_settings_item() {
+		$context = wpai_publisher_get_site_context();
+		$has_old = '' !== trim( (string) ( $context['allowed_categories'] ?? '' ) ) || '' !== trim( (string) ( $context['preferred_tags'] ?? '' ) ) || 'chiaro_didattico_e_operativo' !== (string) ( $context['default_tone'] ?? 'chiaro_didattico_e_operativo' );
+		return $this->row( 'deprecated_editorial_settings', __( 'Impostazioni editoriali legacy', 'wp-ai-publisher' ), $has_old ? 'info' : 'ok', $has_old ? __( 'Presenti', 'wp-ai-publisher' ) : __( 'Assenti', 'wp-ai-publisher' ), $has_old ? __( 'Sono presenti vecchie impostazioni editoriali globali. Le Tipologie Articolo hanno priorità.', 'wp-ai-publisher' ) : '' );
+	}
 
 	private function article_types_table_item() {
 		$tables = $this->db->check_tables();

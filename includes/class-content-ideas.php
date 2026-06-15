@@ -369,6 +369,10 @@ class Content_Ideas {
 			return new WP_Error( 'wpai_content_idea_missing_article_type', __( 'Assegna una Tipologia articolo attiva prima di generare la bozza.', 'wp-ai-publisher' ) );
 		}
 		$article_type = $article_types_enabled ? wpai_publisher_get_article_type_config_safe( $article_type_id ) : array();
+		$category_boundary = wpai_publisher_resolve_allowed_category_ids( $article_type, $site_context );
+		if ( ! empty( $category_boundary['conflict'] ) ) {
+			return new WP_Error( 'wpai_content_idea_category_conflict', (string) $category_boundary['message'] );
+		}
 
 		$payload = array(
 			'task'                 => 'structured_content_dry_run',
@@ -387,7 +391,7 @@ class Content_Ideas {
 			'required_schema'      => $this->ai_provider->get_content_dry_run_schema(),
 			'allow_local_fallback' => true,
 			'site_context'         => $site_context,
-			'instruction_priority' => array( 'sicurezza sistema', 'tipologia articolo', 'contesto editoriale sito', 'idea utente' ),
+			'instruction_priority' => array( 'sicurezza sistema/developer', 'contesto globale sito', 'regole editoriali globali', 'tipologia articolo', 'idea utente', 'dati conoscenza', 'schema output' ),
 			'safety'               => array(
 				'create_posts'       => false,
 				'publish_content'    => false,

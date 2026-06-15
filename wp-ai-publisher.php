@@ -5,7 +5,7 @@
  * GitHub Plugin URI: https://github.com/cosemurciano/WP-AI-Publisher
  * Primary Branch: main
  * Description: Base modulare per la pubblicazione assistita da AI in WordPress, con stato sistema, impostazioni, log e adapter per il sistema AI nativo di WordPress.
- * Version: 0.5.6
+ * Version: 0.5.7
  * Requires at least: 7.0
  * Requires PHP: 8.1
  * Author: WP AI Publisher Team
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WPAIP_VERSION', '0.5.6' );
+define( 'WPAIP_VERSION', '0.5.7' );
 if ( ! defined( 'WPAIP_MIN_WP_VERSION' ) ) {
 	define( 'WPAIP_MIN_WP_VERSION', '7.0' );
 }

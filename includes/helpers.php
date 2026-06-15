@@ -26,6 +26,7 @@ if ( ! function_exists( 'wpai_publisher_default_site_context' ) ) {
 			'default_editor'                       => 'classic',
 			'default_post_status_after_generation' => 'draft',
 			'allowed_categories'                   => '',
+			'allowed_category_ids'                 => array(),
 			'preferred_tags'                       => '',
 			'excluded_topics'                      => '',
 			'internal_link_strategy'               => 'semantic_targets',
@@ -119,15 +120,17 @@ if ( ! function_exists( 'wpai_publisher_normalize_site_context' ) ) {
 		$defaults = wpai_publisher_default_site_context();
 		$context  = wp_parse_args( $context, $defaults );
 
-		$text_fields = array( 'site_profile_name', 'content_niche', 'default_audience' );
+		$text_fields = array( 'site_profile_name' );
 		foreach ( $text_fields as $field ) {
 			$context[ $field ] = sanitize_text_field( (string) ( $context[ $field ] ?? $defaults[ $field ] ) );
 		}
 
-		$textarea_fields = array( 'site_description', 'allowed_categories', 'preferred_tags', 'excluded_topics', 'writing_rules', 'forbidden_claims', 'brand_terms' );
+		$textarea_fields = array( 'site_description', 'content_niche', 'default_audience', 'allowed_categories', 'preferred_tags', 'excluded_topics', 'writing_rules', 'forbidden_claims', 'brand_terms' );
 		foreach ( $textarea_fields as $field ) {
 			$context[ $field ] = sanitize_textarea_field( (string) ( $context[ $field ] ?? $defaults[ $field ] ) );
 		}
+
+		$context['allowed_category_ids'] = wpai_publisher_sanitize_category_ids( $context['allowed_category_ids'] ?? array() );
 
 		$allowed_values = wpai_publisher_site_context_allowed_values();
 		foreach ( $allowed_values as $field => $values ) {
@@ -145,6 +148,56 @@ if ( ! function_exists( 'wpai_publisher_normalize_site_context' ) ) {
 		$context['default_post_status_after_generation'] = in_array( $context['default_post_status_after_generation'], array( 'draft', 'pending', 'publish' ), true ) ? $context['default_post_status_after_generation'] : 'draft';
 
 		return array_intersect_key( $context, $defaults );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_sanitize_category_ids' ) ) {
+	/**
+	 * Sanitize category IDs and keep only existing WordPress categories.
+	 *
+	 * @param mixed $ids Raw IDs.
+	 * @return array<int,int>
+	 */
+	function wpai_publisher_sanitize_category_ids( $ids ) {
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', (array) $ids ) ) ) );
+		if ( empty( $ids ) || ! function_exists( 'get_terms' ) ) {
+			return $ids;
+		}
+
+		$existing = get_terms( array( 'taxonomy' => 'category', 'hide_empty' => false, 'fields' => 'ids' ) );
+		if ( is_wp_error( $existing ) ) {
+			return array();
+		}
+
+		return array_values( array_intersect( $ids, array_map( 'absint', (array) $existing ) ) );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_resolve_allowed_category_ids' ) ) {
+	/**
+	 * Resolve final allowed categories by intersecting global and article-type boundaries.
+	 *
+	 * @param array<string,mixed> $article_type Article type data.
+	 * @param array<string,mixed>|null $site_context Site context.
+	 * @return array{ids:array<int,int>,has_restriction:bool,conflict:bool,message:string}
+	 */
+	function wpai_publisher_resolve_allowed_category_ids( $article_type = array(), $site_context = null ) {
+		$site_context = null === $site_context ? wpai_publisher_get_site_context() : wpai_publisher_normalize_site_context( $site_context );
+		$global_ids   = wpai_publisher_sanitize_category_ids( $site_context['allowed_category_ids'] ?? array() );
+		$type_ids     = wpai_publisher_sanitize_category_ids( $article_type['allowed_category_ids'] ?? array() );
+
+		if ( ! empty( $global_ids ) && ! empty( $type_ids ) ) {
+			$ids = array_values( array_intersect( $global_ids, $type_ids ) );
+			return array(
+				'ids'             => $ids,
+				'has_restriction' => true,
+				'conflict'        => empty( $ids ),
+				'message'         => empty( $ids ) ? __( 'Le categorie consentite nelle impostazioni globali e nella tipologia articolo non coincidono. Modifica le impostazioni o la tipologia articolo.', 'wp-ai-publisher' ) : '',
+			);
+		}
+
+		$ids = ! empty( $type_ids ) ? $type_ids : $global_ids;
+		return array( 'ids' => $ids, 'has_restriction' => ! empty( $ids ), 'conflict' => false, 'message' => '' );
 	}
 }
 

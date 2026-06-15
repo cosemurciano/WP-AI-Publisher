@@ -74,20 +74,25 @@ class Settings {
 	 */
 	private function sanitize_site_context( $input ) {
 		$defaults = wpai_publisher_default_site_context();
+		$current  = wpai_publisher_get_site_context();
 		$input    = is_array( $input ) ? $input : array();
 		$output   = array();
 
-		foreach ( array( 'site_profile_name', 'content_niche', 'default_audience' ) as $field ) {
+		foreach ( array( 'site_profile_name' ) as $field ) {
 			$output[ $field ] = isset( $input[ $field ] ) ? sanitize_text_field( $input[ $field ] ) : $defaults[ $field ];
 		}
 
-		foreach ( array( 'site_description', 'allowed_categories', 'preferred_tags', 'excluded_topics', 'writing_rules', 'forbidden_claims', 'brand_terms' ) as $field ) {
-			$output[ $field ] = isset( $input[ $field ] ) ? sanitize_textarea_field( $input[ $field ] ) : $defaults[ $field ];
+		foreach ( array( 'site_description', 'content_niche', 'default_audience', 'allowed_categories', 'preferred_tags', 'excluded_topics', 'writing_rules', 'forbidden_claims', 'brand_terms' ) as $field ) {
+			$fallback = in_array( $field, array( 'allowed_categories', 'preferred_tags' ), true ) ? ( $current[ $field ] ?? $defaults[ $field ] ) : $defaults[ $field ];
+			$output[ $field ] = isset( $input[ $field ] ) ? sanitize_textarea_field( $input[ $field ] ) : $fallback;
 		}
+
+		$output['allowed_category_ids'] = wpai_publisher_sanitize_category_ids( $input['allowed_category_ids'] ?? array() );
 
 		$allowed_values = wpai_publisher_site_context_allowed_values();
 		foreach ( $allowed_values as $field => $allowed ) {
-			$value = isset( $input[ $field ] ) ? sanitize_key( $input[ $field ] ) : sanitize_key( $defaults[ $field ] );
+			$fallback = 'default_tone' === $field ? ( $current[ $field ] ?? $defaults[ $field ] ) : $defaults[ $field ];
+			$value = isset( $input[ $field ] ) ? sanitize_key( $input[ $field ] ) : sanitize_key( $fallback );
 			if ( 'default_tone' === $field && function_exists( 'wpai_publisher_normalize_default_tone' ) ) {
 				$value = wpai_publisher_normalize_default_tone( $value );
 			}

@@ -1934,13 +1934,10 @@ class AI_Provider_Adapter {
 			'site_description'                     => $site_context['site_description'],
 			'content_niche'                        => $site_context['content_niche'],
 			'default_audience'                     => $site_context['default_audience'],
-			'default_tone'                         => wpai_publisher_site_context_label( 'default_tone', $site_context['default_tone'] ),
 			'default_language'                     => $site_context['default_language'],
 			'default_editor'                       => $site_context['default_editor'],
 			'default_post_status_after_generation' => $site_context['default_post_status_after_generation'],
-			'allowed_categories'                   => wpai_publisher_split_context_list( $site_context['allowed_categories'] ),
-			'preferred_tags'                       => wpai_publisher_split_context_list( $site_context['preferred_tags'] ),
-			'excluded_topics'                      => wpai_publisher_split_context_list( $site_context['excluded_topics'] ),
+			'global_allowed_category_ids'          => array_values( array_map( 'absint', (array) ( $site_context['allowed_category_ids'] ?? array() ) ) ),
 			'internal_link_strategy'               => $site_context['internal_link_strategy'],
 			'seo_plugin_preference'                => $site_context['seo_plugin_preference'],
 			'writing_rules'                        => $site_context['writing_rules'],
@@ -1951,6 +1948,9 @@ class AI_Provider_Adapter {
 
 		$schema_json  = wp_json_encode( ! empty( $schema ) ? $schema : $this->get_content_dry_run_schema(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
 		$article_type = isset( $payload['article_type'] ) && is_array( $payload['article_type'] ) ? $payload['article_type'] : array();
+		$category_boundary = wpai_publisher_resolve_allowed_category_ids( $article_type, $site_context );
+		$article_type['final_allowed_category_ids'] = $category_boundary['ids'];
+		$article_type['category_boundary_conflict'] = $category_boundary['conflict'];
 		$article_type_json = wp_json_encode( $article_type, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
 		$context_json = wp_json_encode( $context_for_prompt, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
 		$sanitize_free_text = static function ( $value ) {
@@ -1971,7 +1971,7 @@ class AI_Provider_Adapter {
 		$editorial_guidance_section = ! empty( $editorial_guidance ) ? "\nIstruzioni editoriali dalla Tipologia articolo:\n" . implode( "\n", $editorial_guidance ) : '';
 
 		return sprintf(
-			"Agisci come assistente editoriale WordPress per un dry-run strutturato. Genera SOLO JSON valido, senza markdown, senza blocchi di codice e senza spiegazioni fuori dal JSON. Non creare post, non pubblicare, non generare immagini reali, non scrivere metadati AIOSEO e non inventare dati tecnici non verificabili. Usa HTML pulito compatibile con Editor Classico per eventuali anteprime e non generare blocchi Gutenberg. Priorità istruzioni: 1 Sicurezza sistema, 2 Tipologia articolo, 3 Contesto editoriale sito, 4 Idea utente. Usa il Contesto editoriale del sito come quadro generale. Usa la Tipologia articolo come istruzione specifica principale per outline, full_article, meta, tag, link interni, stile, lunghezza, intento di ricerca e livello lettore. Non creare categorie nuove. Scegli solo tra le categorie consentite nella Tipologia articolo. Se nessuna categoria consentita è pertinente, lascia categories vuoto o usa una categoria fallback già esistente indicata dal sistema. Non inserire il prompt o le regole editoriali nel contenuto finale. Usa il contesto sito per lingua, target generale, limiti editoriali e claim vietati. Non assumere che il sito sia wptutorial.ai o un sito WordPress tutorial se il contesto editoriale indica altro. Usa le categorie consentite se presenti. Usa i tag preferiti solo se pertinenti. Rispetta gli argomenti esclusi. Non inventare dati tecnici, prezzi, normative, date o promesse se non presenti nel contesto. content_outline deve essere un array di oggetti con heading stringa, level numerico intero e summary stringa. I link interni devono essere target semantici realistici, non URL inventati. Imposta source a wordpress_ai. Schema obbligatorio: %8\$s\nsite_context: %7\$s\narticle_type: %9\$s\nArgomento: %1\$s\nKeyword: %2\$s\nLingua richiesta: %3\$s\nPubblico target: %4\$s%10\$s\nLivello tutorial compatibilità schema: %5\$s",
+			"Agisci come assistente editoriale WordPress per un dry-run strutturato. Genera SOLO JSON valido, senza markdown, senza blocchi di codice e senza spiegazioni fuori dal JSON. Non creare post, non pubblicare, non generare immagini reali, non scrivere metadati AIOSEO e non inventare dati tecnici non verificabili. Usa HTML pulito compatibile con Editor Classico per eventuali anteprime e non generare blocchi Gutenberg. Gerarchia prompt: 1 Sicurezza sistema/developer, 2 Contesto globale sito, 3 Regole editoriali globali, 4 Tipologia articolo, 5 Idea utente, 6 Dati di conoscenza, 7 Schema output. In caso di sovrapposizione la Tipologia articolo vince su contesto e vecchie impostazioni globali. Usa il Contesto editoriale del sito come quadro generale. Usa la Tipologia articolo come istruzione specifica principale per outline, full_article, meta, tag, link interni, stile, lunghezza, intento di ricerca e livello lettore. Non creare categorie nuove. Scegli solo tra final_allowed_category_ids quando presenti; sono già l’intersezione tra vincolo globale e Tipologia articolo. Se nessuna categoria consentita è pertinente, lascia categories vuoto o usa una categoria fallback già esistente indicata dal sistema. Non inserire il prompt o le regole editoriali nel contenuto finale. Usa il contesto sito per lingua, target generale, limiti editoriali e claim vietati. Non assumere che il sito sia wptutorial.ai o un sito WordPress tutorial se il contesto editoriale indica altro. Usa le categorie consentite se presenti. Usa i tag preferiti della Tipologia articolo solo se pertinenti; ignora vecchi tag globali quando la Tipologia li definisce. Rispetta gli argomenti esclusi. Non inventare dati tecnici, prezzi, normative, date o promesse se non presenti nel contesto. content_outline deve essere un array di oggetti con heading stringa, level numerico intero e summary stringa. I link interni devono essere target semantici realistici, non URL inventati. Imposta source a wordpress_ai. Schema obbligatorio: %8\$s\nsite_context: %7\$s\narticle_type: %9\$s\nArgomento: %1\$s\nKeyword: %2\$s\nLingua richiesta: %3\$s\nPubblico target: %4\$s%10\$s\nLivello tutorial compatibilità schema: %5\$s",
 			$topic,
 			sanitize_text_field( (string) ( $payload['keyword'] ?? '' ) ),
 			sanitize_key( (string) ( $payload['language'] ?? $site_context['default_language'] ) ),
@@ -2006,13 +2006,15 @@ class AI_Provider_Adapter {
 		$outline         = $this->build_contextual_local_outline( $topic, $keyword, $site_context );
 		if ( ! empty( $article_type['structure'] ) ) { $outline = array_map( static function( $heading ) { return array( 'heading' => sanitize_text_field( $heading ), 'level' => 2, 'summary' => sprintf( __( 'Sezione richiesta dalla Tipologia articolo: %s.', 'wp-ai-publisher' ), sanitize_text_field( $heading ) ) ); }, array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) $article_type['structure'] ) ) ) ); }
 		$meta_title      = $this->limit_local_title( $profile['meta_title'] ?? $title );
+		$category_boundary = wpai_publisher_resolve_allowed_category_ids( $article_type, $site_context );
+		$validation_notes = ! empty( $category_boundary['conflict'] ) ? array( (string) $category_boundary['message'] ) : array();
 
 		return array(
 			'title'                  => $title,
 			'slug'                   => $slug,
 			'excerpt'                => sprintf( __( 'Traccia editoriale per spiegare %1$s a %2$s con HTML pulito per Editor Classico, senza creare bozze o pubblicare contenuti.', 'wp-ai-publisher' ), $topic, $audience_text ),
 			'content_outline'        => $outline,
-			'category_ids'            => array_values( array_map( 'absint', (array) ( $article_type['allowed_category_ids'] ?? array() ) ) ),
+			'category_ids'            => $category_boundary['ids'],
 			'categories'             => array(),
 			'tags'                   => $this->get_contextual_local_tags( $keyword, $topic, $site_context, $profile ),
 			'meta_title'             => $meta_title,
@@ -2384,7 +2386,7 @@ class AI_Provider_Adapter {
 	 * @return array<int,string>
 	 */
 	private function get_contextual_local_categories( $site_context, $profile ) {
-		$allowed = wpai_publisher_split_context_list( (string) ( $site_context['allowed_categories'] ?? '' ) );
+		$allowed = array();
 		if ( ! empty( $allowed ) ) {
 			return array_slice( $allowed, 0, 3 );
 		}
@@ -2419,7 +2421,7 @@ class AI_Provider_Adapter {
 	 */
 	private function get_contextual_local_tags( $keyword, $topic, $site_context, $profile ) {
 		$tags = array_filter( array( $keyword, $this->extract_primary_entity( $topic, $keyword ) ) );
-		$tags = array_merge( $tags, wpai_publisher_split_context_list( (string) ( $site_context['preferred_tags'] ?? '' ) ) );
+		if ( empty( $profile['article_type_has_tags'] ) ) { $tags = array_merge( $tags, wpai_publisher_split_context_list( (string) ( $site_context['preferred_tags'] ?? '' ) ) ); }
 		$profile_title = strtolower( remove_accents( (string) ( $profile['title'] ?? '' ) ) );
 		if ( false !== strpos( $profile_title, 'wordpress' ) ) {
 			$tags[] = __( 'wordpress', 'wp-ai-publisher' );
