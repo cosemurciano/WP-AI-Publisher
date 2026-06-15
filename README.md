@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.10**
+Versione corrente: **0.5.13**
+
+## Fix 0.5.13
+
+La versione **0.5.13** corregge il requisito minimo di WordPress, erroneamente impostato a 7.0 (versione inesistente) che impediva l’attivazione del plugin: ora è **6.5**, allineato in header plugin, `readme.txt`, Stato sistema e Bacheca. Sono inoltre state allineate le versioni di `wp-ai-publisher.php`, `readme.txt` e `README.md` e reso **atomico il claim dei job** in coda, così WP-Cron e l’esecuzione manuale non possono più elaborare lo stesso job due volte creando bozze duplicate.
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 

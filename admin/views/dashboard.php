@@ -26,8 +26,8 @@ $site_context = wpai_publisher_get_site_context();
 			<p><?php echo esc_html__( 'I servizi principali del plugin sono caricati e pronti per la prossima fase di sviluppo.', 'wp-ai-publisher' ); ?></p>
 			<ul>
 				<li><?php echo esc_html__( 'Versione plugin:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( WPAIP_VERSION ); ?></strong></li>
-				<li><?php echo esc_html__( 'PHP minimo:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( '8.1' ); ?></strong></li>
-				<li><?php echo esc_html__( 'WordPress minimo:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( '7.0' ); ?></strong></li>
+				<li><?php echo esc_html__( 'PHP minimo:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( defined( 'WPAIP_MIN_PHP_VERSION' ) ? WPAIP_MIN_PHP_VERSION : '8.1' ); ?></strong></li>
+				<li><?php echo esc_html__( 'WordPress minimo:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( defined( 'WPAIP_MIN_WP_VERSION' ) ? WPAIP_MIN_WP_VERSION : '6.5' ); ?></strong></li>
 			</ul>
 		</section>
 
