@@ -80,6 +80,7 @@ class Admin {
 		add_action( 'admin_post_wpai_publisher_approve_content_idea', array( $this, 'handle_approve_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_reject_content_idea', array( $this, 'handle_reject_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_create_draft_from_idea', array( $this, 'handle_create_draft_from_idea' ) );
+		add_action( 'admin_post_wpai_publisher_process_idea_job_now', array( $this, 'handle_process_idea_job_now' ) );
 		add_action( 'admin_post_wpai_publisher_generate_full_article', array( $this, 'handle_generate_full_article' ) );
 		add_action( 'admin_post_wpai_publisher_assign_article_type_to_idea', array( $this, 'handle_assign_article_type_to_idea' ) );
 		add_action( 'admin_post_wpai_publisher_save_article_type', array( $this, 'handle_save_article_type' ) );
@@ -196,7 +197,7 @@ class Admin {
 				'wpai_notice' => 'wpai_content_ideas_table_missing' === $idea_id->get_error_code() ? 'content_ideas_table_missing' : 'idea_save_failed',
 			);
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				$args['wpai_debug'] = rawurlencode( sanitize_text_field( $idea_id->get_error_message() ) );
+				$args['wpai_debug'] = sanitize_text_field( $idea_id->get_error_message() );
 			}
 			$this->redirect_content_ideas( $args );
 		}
@@ -207,17 +208,16 @@ class Admin {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'missing_article_type', 'idea_id' => absint( $idea_id ) ) );
 		}
 		if ( 'create_draft' === $creation_mode || ( 'save_only' !== $creation_mode && ! empty( $settings['auto_create_draft_from_idea'] ) ) ) {
-			$this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => absint( $idea_id ), 'mode' => 'auto_draft' ), 5 );
-			$result = $this->content_ideas->process_idea_to_draft( absint( $idea_id ) );
-			$this->redirect_content_ideas(
-				array(
-					'wpai_notice' => ! empty( $result['success'] ) ? 'draft_created' : ( 'article_type' === ( $result['step_failed'] ?? '' ) ? 'missing_article_type' : ( 'full_article' === ( $result['step_failed'] ?? '' ) ? 'full_article_failed' : ( 'draft' === ( $result['step_failed'] ?? '' ) && false !== strpos( (string) ( $result['message'] ?? '' ), 'Genera prima' ) ? 'missing_full_article' : 'draft_creation_failed' ) ) ),
-					'wpai_step'   => sanitize_key( (string) ( $result['step_failed'] ?? '' ) ),
-					'wpai_error'  => rawurlencode( sanitize_text_field( (string) ( $result['message'] ?? $result['error_code'] ?? '' ) ) ),
-					'view_idea'   => absint( $idea_id ),
-					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . absint( $idea_id ) ),
-				)
-			);
+			$job_id = $this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => absint( $idea_id ), 'mode' => 'auto_draft' ), 5 );
+			if ( ! $job_id ) {
+				$this->content_ideas->mark_draft_failed( absint( $idea_id ), __( 'Impossibile creare il job di generazione bozza.', 'wp-ai-publisher' ) );
+				$this->redirect_content_ideas( array( 'wpai_notice' => 'draft_creation_failed', 'wpai_step' => 'queue', 'wpai_error' => __( 'Impossibile creare il job di generazione bozza.', 'wp-ai-publisher' ), 'view_idea' => absint( $idea_id ), '_wpnonce' => wp_create_nonce( 'wpai_publisher_view_content_idea_' . absint( $idea_id ) ) ) );
+			}
+			$this->content_ideas->attach_job_to_idea( absint( $idea_id ), absint( $job_id ) );
+			$this->content_ideas->update_idea_status( absint( $idea_id ), 'processing' );
+			$this->logger->info( __( 'Job creazione bozza creato.', 'wp-ai-publisher' ), array( 'source' => 'job_queue', 'event' => 'job_created', 'idea_id' => absint( $idea_id ), 'job_id' => absint( $job_id ) ) );
+			$this->schedule_job_processor();
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'auto_draft_started', 'view_idea' => absint( $idea_id ), '_wpnonce' => wp_create_nonce( 'wpai_publisher_view_content_idea_' . absint( $idea_id ) ) ) );
 		}
 
 		$this->redirect_content_ideas(
@@ -373,63 +373,94 @@ class Admin {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_not_found' ) );
 		}
 
-		if ( in_array( sanitize_key( (string) $idea->status ), array( 'new', 'dry_run_failed', 'draft_failed' ), true ) ) {
-			$this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => $idea_id, 'mode' => 'auto_draft' ), 5 );
-			$result = $this->content_ideas->process_idea_to_draft( $idea_id );
-			$this->redirect_content_ideas(
-				array(
-					'wpai_notice' => ! empty( $result['success'] ) ? 'draft_created' : ( 'full_article' === ( $result['step_failed'] ?? '' ) ? 'full_article_failed' : ( 'draft' === ( $result['step_failed'] ?? '' ) && false !== strpos( (string) ( $result['message'] ?? '' ), 'Genera prima' ) ? 'missing_full_article' : 'draft_creation_failed' ) ),
-					'wpai_step'   => sanitize_key( (string) ( $result['step_failed'] ?? '' ) ),
-					'wpai_error'  => rawurlencode( sanitize_text_field( (string) ( $result['message'] ?? $result['error_code'] ?? '' ) ) ),
-					'view_idea'   => $idea_id,
-					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
-				)
-			);
-		}
-
-		if ( ! in_array( sanitize_key( (string) $idea->status ), array( 'approved', 'full_article_ready' ), true ) ) {
-			$this->redirect_content_ideas(
-				array(
-					'wpai_notice' => 'draft_not_approved',
-					'view_idea'   => $idea_id,
-					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
-				)
-			);
-		}
-
 		$existing_post_id = absint( $idea->draft_post_id ?? 0 );
-		if ( $existing_post_id > 0 && ! get_post( $existing_post_id ) ) {
-			$this->redirect_content_ideas(
-				array(
-					'wpai_notice' => 'linked_draft_not_found',
-					'view_idea'   => $idea_id,
-					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
-				)
-			);
-		}
-
 		if ( $existing_post_id > 0 && get_post( $existing_post_id ) ) {
-			$this->redirect_content_ideas(
-				array(
-					'wpai_notice' => 'draft_already_exists',
-					'view_idea'   => $idea_id,
-					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
-				)
-			);
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'draft_already_exists', 'view_idea' => $idea_id, '_wpnonce' => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ) ) );
 		}
 
-		$creator = new Draft_Creator( $this->db, $this->logger );
-		$result  = $creator->create_draft_from_idea( $idea );
+		$status = sanitize_key( (string) $idea->status );
+		if ( ! in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed', 'dry_run_ready', 'approved', 'full_article_ready', 'processing' ), true ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'draft_not_approved', 'view_idea' => $idea_id, '_wpnonce' => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ) ) );
+		}
 
-		$this->redirect_content_ideas(
-			array(
-				'wpai_notice' => is_wp_error( $result ) && 'wpai_draft_creator_missing_full_article' === $result->get_error_code() ? 'missing_full_article' : ( is_wp_error( $result ) ? 'draft_creation_failed' : 'draft_created' ),
-				'wpai_step'   => is_wp_error( $result ) ? 'draft_insert' : '',
-				'wpai_error'  => is_wp_error( $result ) ? rawurlencode( sanitize_text_field( $result->get_error_code() . ': ' . $result->get_error_message() ) ) : '',
-				'view_idea'   => $idea_id,
-				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
-			)
-		);
+		$job = $this->job_queue->get_active_draft_job_for_idea( $idea_id );
+		if ( ! $job ) {
+			$job_id = $this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => $idea_id, 'mode' => 'auto_draft' ), 5 );
+			if ( ! $job_id ) {
+				$this->content_ideas->mark_draft_failed( $idea_id, __( 'Impossibile creare il job di generazione bozza.', 'wp-ai-publisher' ) );
+				$this->redirect_content_ideas( array( 'wpai_notice' => 'draft_creation_failed', 'wpai_step' => 'queue', 'wpai_error' => __( 'Impossibile creare il job di generazione bozza.', 'wp-ai-publisher' ), 'view_idea' => $idea_id, '_wpnonce' => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ) ) );
+			}
+			$this->content_ideas->attach_job_to_idea( $idea_id, absint( $job_id ) );
+			$this->content_ideas->update_idea_status( $idea_id, 'processing' );
+			$this->logger->info( __( 'Job creazione bozza creato.', 'wp-ai-publisher' ), array( 'source' => 'job_queue', 'event' => 'job_created', 'idea_id' => $idea_id, 'job_id' => absint( $job_id ) ) );
+			$this->schedule_job_processor();
+		}
+
+		$this->redirect_content_ideas( array( 'wpai_notice' => 'auto_draft_started', 'view_idea' => $idea_id, '_wpnonce' => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ) ) );
+	}
+
+	public function handle_process_idea_job_now() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+		$idea_id = absint( $_POST['idea_id'] ?? 0 );
+		check_admin_referer( 'wpai_publisher_process_idea_job_now_' . $idea_id );
+		$result = $this->process_idea_job_now( $idea_id );
+		$this->redirect_content_ideas( array( 'wpai_notice' => ! empty( $result['success'] ) ? 'draft_created' : 'draft_creation_failed', 'wpai_step' => sanitize_key( (string) ( $result['step_failed'] ?? '' ) ), 'wpai_error' => sanitize_text_field( (string) ( $result['message'] ?? '' ) ), 'view_idea' => $idea_id, '_wpnonce' => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ) ) );
+	}
+
+	public function process_next_job() {
+		$job = $this->job_queue->get_next_pending_job();
+		if ( $job ) {
+			$this->process_job( (int) $job->id );
+		}
+	}
+
+	private function process_idea_job_now( $idea_id ) {
+		$idea = $this->content_ideas->get_idea( $idea_id );
+		if ( ! $idea ) {
+			return array( 'success' => false, 'step_failed' => 'idea', 'message' => __( 'Idea non trovata.', 'wp-ai-publisher' ) );
+		}
+		$post_id = absint( $idea->draft_post_id ?? 0 );
+		if ( $post_id > 0 && get_post( $post_id ) ) {
+			return array( 'success' => true, 'post_id' => $post_id, 'message' => __( 'La bozza esiste già.', 'wp-ai-publisher' ) );
+		}
+		$job = $this->job_queue->get_active_draft_job_for_idea( $idea_id );
+		if ( ! $job ) {
+			$job_id = $this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => $idea_id, 'mode' => 'manual' ), 5 );
+			$this->content_ideas->attach_job_to_idea( $idea_id, absint( $job_id ) );
+			$job = $this->job_queue->get_job( $job_id );
+		}
+		$this->logger->info( __( 'Retry manuale job creazione bozza.', 'wp-ai-publisher' ), array( 'source' => 'job_queue', 'event' => 'job_retry', 'idea_id' => $idea_id, 'job_id' => absint( $job->id ?? 0 ) ) );
+		return $job ? $this->process_job( (int) $job->id ) : array( 'success' => false, 'step_failed' => 'queue', 'message' => __( 'Job non disponibile.', 'wp-ai-publisher' ) );
+	}
+
+	private function process_job( $job_id ) {
+		$job = $this->job_queue->get_job( $job_id );
+		if ( ! $job || 'generate_draft_from_idea' !== sanitize_key( (string) $job->job_type ) ) {
+			return array( 'success' => false, 'step_failed' => 'queue', 'message' => __( 'Job non valido.', 'wp-ai-publisher' ) );
+		}
+		$payload = json_decode( (string) $job->payload, true );
+		$idea_id = absint( $payload['idea_id'] ?? 0 );
+		if ( ! $this->job_queue->claim_job( $job_id, 15 ) ) {
+			return array( 'success' => false, 'step_failed' => 'lock', 'message' => __( 'Job già in lavorazione.', 'wp-ai-publisher' ) );
+		}
+		$this->logger->info( __( 'Job creazione bozza avviato.', 'wp-ai-publisher' ), array( 'source' => 'job_queue', 'event' => 'job_started', 'idea_id' => $idea_id, 'job_id' => absint( $job_id ) ) );
+		$result = $this->content_ideas->process_idea_to_draft( $idea_id );
+		if ( ! empty( $result['success'] ) ) {
+			$this->job_queue->complete_job( $job_id, $result, absint( $result['post_id'] ?? 0 ) );
+			return $result;
+		}
+		$message = sanitize_text_field( (string) ( $result['message'] ?? __( 'Creazione bozza fallita.', 'wp-ai-publisher' ) ) );
+		$this->job_queue->fail_job( $job_id, $message, $result );
+		$this->logger->warning( __( 'Job creazione bozza fallito.', 'wp-ai-publisher' ), array( 'source' => 'job_queue', 'event' => 'job_failed', 'idea_id' => $idea_id, 'job_id' => absint( $job_id ), 'step_failed' => sanitize_key( (string) ( $result['step_failed'] ?? '' ) ), 'message' => $message ) );
+		return $result;
+	}
+
+	private function schedule_job_processor() {
+		if ( function_exists( 'wp_schedule_single_event' ) && ! wp_next_scheduled( 'wpai_publisher_process_jobs' ) ) {
+			wp_schedule_single_event( time() + 10, 'wpai_publisher_process_jobs' );
+		}
 	}
 
 	/**
@@ -443,9 +474,11 @@ class Admin {
 		}
 
 		$content_ideas = $this->content_ideas;
+		$job_queue = $this->job_queue;
 		$article_types_enabled = wpai_publisher_article_types_enabled();
 		$active_article_types = $article_types_enabled ? wpai_publisher_get_active_article_types_safe() : array();
 		$article_types_url = admin_url( 'admin.php?page=wp-ai-publisher-article-types' );
+		$this->content_ideas->mark_stale_processing_ideas( 15 );
 		$ideas         = $content_ideas->get_recent_ideas( 20 );
 		$selected_idea = null;
 		$dry_run_data  = array();

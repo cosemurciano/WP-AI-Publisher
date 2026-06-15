@@ -19,7 +19,7 @@ $notices    = array(
 	'dry_run_approved'         => array( 'success', __( 'Dry-run approvato. Ora puoi creare la bozza.', 'wp-ai-publisher' ) ),
 	'dry_run_rejected'         => array( 'success', __( 'Dry-run rifiutato.', 'wp-ai-publisher' ) ),
 	'draft_created'            => array( 'success', __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) ),
-	'auto_draft_started'       => array( 'success', __( 'La creazione della bozza è stata avviata.', 'wp-ai-publisher' ) ),
+	'auto_draft_started'       => array( 'success', __( 'La creazione della bozza è stata messa in coda.', 'wp-ai-publisher' ) ),
 	'full_article_generated'   => array( 'success', __( 'Articolo completo generato. Ora puoi approvare il contenuto e creare la bozza.', 'wp-ai-publisher' ) ),
 	'full_article_failed'      => array( 'error', __( 'Non è stato possibile generare un articolo completo.', 'wp-ai-publisher' ) ),
 	'missing_full_article'     => array( 'warning', __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ) ),
@@ -193,10 +193,22 @@ $render_list = static function ( $items ) {
 					$draft_post_id = absint( $idea->draft_post_id ?? 0 );
 					$draft_exists  = $draft_post_id > 0 && get_post( $draft_post_id );
 					$draft_edit_url = $draft_exists ? get_edit_post_link( $draft_post_id, '' ) : '';
+					$job = ! empty( $idea->job_id ) ? $job_queue->get_job( absint( $idea->job_id ) ) : null;
+					$job_status = $job ? sanitize_key( (string) $job->status ) : '';
+					$idea_status_display = sanitize_key( (string) $idea->status );
+					$idea_status_label = $content_ideas->get_status_label( $idea->status );
+					if ( 'processing' === $idea_status_display && 'pending' === $job_status ) {
+						$idea_status_label = __( 'In coda', 'wp-ai-publisher' );
+					} elseif ( 'processing' === $idea_status_display && 'timeout' === $job_status ) {
+						$idea_status_display = 'timeout';
+						$idea_status_label = __( 'Scaduto', 'wp-ai-publisher' );
+					} elseif ( 'draft_failed' === $idea_status_display ) {
+						$idea_status_label = __( 'Errore', 'wp-ai-publisher' );
+					}
 					?>
 					<tr>
 						<td><?php echo esc_html( (string) $idea->id ); ?></td>
-						<td><span class="<?php echo esc_attr( wpai_publisher_badge_class( $idea->status ) ); ?>"><?php echo esc_html( $content_ideas->get_status_label( $idea->status ) ); ?></span></td>
+						<td><span class="<?php echo esc_attr( wpai_publisher_badge_class( $idea_status_display ) ); ?>"><?php echo esc_html( $idea_status_label ); ?></span></td>
 						<td><?php echo esc_html( wp_trim_words( (string) $idea->topic, 18, '…' ) ); ?></td>
 						<td><?php echo '' !== (string) $idea->keyword ? esc_html( (string) $idea->keyword ) : esc_html__( '—', 'wp-ai-publisher' ); ?></td>
 						<td><?php echo esc_html( $language_labels[ $idea->language ] ?? (string) $idea->language ); ?></td>
@@ -239,6 +251,13 @@ $render_list = static function ( $items ) {
 							<?php else : ?>
 								<?php echo esc_html__( '—', 'wp-ai-publisher' ); ?>
 							<?php endif; ?>
+							<?php if ( $job ) : ?>
+								<p class="description"><?php echo esc_html( sprintf( __( 'Ultimo aggiornamento: %s', 'wp-ai-publisher' ), (string) ( $job->finished_at ?: $job->started_at ?: $idea->updated_at ?: $idea->created_at ) ) ); ?></p>
+								<p class="description"><?php echo esc_html( sprintf( __( 'Step/job: %1$s (%2$s)', 'wp-ai-publisher' ), $job_queue->get_job_type_label( $job->job_type ), $job_queue->get_status_label( $job->status ) ) ); ?></p>
+								<?php if ( ! empty( $job->error_message ) ) : ?><p class="description"><?php echo esc_html( sprintf( __( 'Ultimo errore: %s', 'wp-ai-publisher' ), (string) $job->error_message ) ); ?></p><?php endif; ?>
+							<?php elseif ( ! empty( $idea->draft_error ) ) : ?>
+								<p class="description"><?php echo esc_html( sprintf( __( 'Ultimo errore: %s', 'wp-ai-publisher' ), (string) $idea->draft_error ) ); ?></p>
+							<?php endif; ?>
 						</td>
 						<td>
 							<?php
@@ -248,14 +267,14 @@ $render_list = static function ( $items ) {
 							?>
 							<?php if ( $draft_exists && $draft_edit_url ) : ?>
 								<a class="button button-primary button-small" href="<?php echo esc_url( $draft_edit_url ); ?>"><?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
-							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed' ), true ) && ( ! $article_types_enabled || wpai_publisher_is_active_article_type_safe( absint( $idea->article_type_id ?? 0 ) ) ) ) : ?>
+							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) && ( ! $article_types_enabled || wpai_publisher_is_active_article_type_safe( absint( $idea->article_type_id ?? 0 ) ) ) ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
 									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
 									<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
-									<?php submit_button( 'draft_failed' === $status ? __( 'Riprova', 'wp-ai-publisher' ) : __( 'Genera bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
+									<?php submit_button( in_array( $status, array( 'draft_failed', 'timeout' ), true ) ? __( 'Riprova', 'wp-ai-publisher' ) : __( 'Genera bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
 								</form>
-							<?php elseif ( $article_types_enabled && in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed' ), true ) ) : ?><span class="description"><?php echo esc_html__( 'Assegna prima una Tipologia articolo.', 'wp-ai-publisher' ); ?></span>
+							<?php elseif ( $article_types_enabled && in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) ) : ?><span class="description"><?php echo esc_html__( 'Assegna prima una Tipologia articolo.', 'wp-ai-publisher' ); ?></span>
 							<?php elseif ( in_array( $status, array( 'dry_run_ready', 'approved', 'full_article_ready' ), true ) && ! $has_full_article ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_generate_full_article" />
@@ -271,7 +290,13 @@ $render_list = static function ( $items ) {
 									<?php submit_button( __( 'Crea bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
 								</form>
 							<?php elseif ( 'processing' === $status ) : ?>
-								<span class="description"><?php echo esc_html__( 'In lavorazione', 'wp-ai-publisher' ); ?></span>
+								<span class="description"><?php echo esc_html( $idea_status_label ); ?></span>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+									<input type="hidden" name="action" value="wpai_publisher_process_idea_job_now" />
+									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+									<?php wp_nonce_field( 'wpai_publisher_process_idea_job_now_' . $idea_id ); ?>
+									<?php submit_button( __( 'Processa job ora', 'wp-ai-publisher' ), 'secondary small', 'submit', false ); ?>
+								</form>
 							<?php endif; ?>
 							<div class="row-actions wpai-secondary-actions">
 								<?php if ( ! empty( $idea->dry_run_output ) ) : ?><a href="<?php echo esc_url( $view_url ); ?>"><?php echo esc_html__( 'Visualizza risultato', 'wp-ai-publisher' ); ?></a><?php endif; ?>
