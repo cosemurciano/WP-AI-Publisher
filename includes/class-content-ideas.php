@@ -39,6 +39,13 @@ class Content_Ideas {
 	private $logger;
 
 	/**
+	 * Cached draft creator.
+	 *
+	 * @var Draft_Creator|null
+	 */
+	private $draft_creator;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param DB                  $db Database service.
@@ -61,6 +68,19 @@ class Content_Ideas {
 	}
 
 	/**
+	 * Return a shared Draft_Creator instance.
+	 *
+	 * @return Draft_Creator
+	 */
+	private function draft_creator() {
+		if ( ! $this->draft_creator instanceof Draft_Creator ) {
+			$this->draft_creator = new Draft_Creator( $this->db, $this->logger );
+		}
+
+		return $this->draft_creator;
+	}
+
+	/**
 	 * Create a new content idea.
 	 *
 	 * @param array<string,mixed> $data Input data.
@@ -74,7 +94,7 @@ class Content_Ideas {
 			return new WP_Error( 'wpai_content_idea_invalid_nonce', __( 'Nonce non valido.', 'wp-ai-publisher' ) );
 		}
 
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			return new WP_Error( 'wpai_content_idea_forbidden', __( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
 
@@ -580,7 +600,7 @@ class Content_Ideas {
 
 		$this->approve_idea( $idea_id );
 		$idea = $this->get_idea( $idea_id );
-		$creator = new Draft_Creator( $this->db, $this->logger );
+		$creator = $this->draft_creator();
 		$post_id = $creator->create_draft_from_idea( $idea, array( 'automatic' => true, 'content_ideas' => $this ) );
 		if ( is_wp_error( $post_id ) ) {
 			$this->logger->warning( __( 'Creazione bozza fallita nel workflow semplice.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'job_failed', 'step' => 'draft_failed', 'error_code' => $post_id->get_error_code(), 'message' => $post_id->get_error_message() ) );
@@ -681,7 +701,7 @@ class Content_Ideas {
 	 * @return bool
 	 */
 	public function mark_draft_created( $id, $post_id, $status ) {
-		$creator = new Draft_Creator( $this->db, $this->logger );
+		$creator = $this->draft_creator();
 		return $creator->update_idea_after_draft_created( $id, $post_id, $status );
 	}
 
@@ -693,7 +713,7 @@ class Content_Ideas {
 	 * @return bool
 	 */
 	public function mark_draft_failed( $id, $error_message ) {
-		$creator = new Draft_Creator( $this->db, $this->logger );
+		$creator = $this->draft_creator();
 		return $creator->update_idea_after_draft_failed( $id, $error_message );
 	}
 

@@ -16,6 +16,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class DB {
 	/**
+	 * In-request memo so the schema-7 article type column check runs its
+	 * SHOW TABLES/COLUMNS/INDEX queries at most once per request instead of on
+	 * every content idea read.
+	 *
+	 * @var bool
+	 */
+	private static $article_type_column_ensured = false;
+
+	/**
 	 * Return log table name.
 	 *
 	 * @return string
@@ -212,6 +221,7 @@ class DB {
 	 */
 	public function ensure_content_ideas_article_type_column() {
 		global $wpdb;
+		if ( self::$article_type_column_ensured ) { return; }
 		$table = $this->get_content_ideas_table_name();
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) { return; }
 		$columns = (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
@@ -222,6 +232,7 @@ class DB {
 		if ( ! in_array( 'article_type_id', $indexes, true ) ) {
 			$wpdb->query( "ALTER TABLE {$table} ADD KEY article_type_id (article_type_id)" );
 		}
+		self::$article_type_column_ensured = true;
 	}
 
 	public function has_content_ideas_article_type_column() {

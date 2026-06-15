@@ -58,22 +58,31 @@ class Admin {
 	private $ai_provider;
 
 	/**
+	 * Article type repository.
+	 *
+	 * @var Article_Type_Repository|null
+	 */
+	private $article_type_repository;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param DB                  $db Database service.
-	 * @param Logger              $logger Logger service.
-	 * @param Settings            $settings Settings service.
-	 * @param AI_Provider_Adapter $ai_provider AI adapter.
-	 * @param Job_Queue           $job_queue Job queue service.
-	 * @param Content_Ideas       $content_ideas Content ideas service.
+	 * @param DB                           $db Database service.
+	 * @param Logger                       $logger Logger service.
+	 * @param Settings                     $settings Settings service.
+	 * @param AI_Provider_Adapter          $ai_provider AI adapter.
+	 * @param Job_Queue                    $job_queue Job queue service.
+	 * @param Content_Ideas                $content_ideas Content ideas service.
+	 * @param Article_Type_Repository|null $article_type_repository Article type repository.
 	 */
-	public function __construct( DB $db, Logger $logger, Settings $settings, AI_Provider_Adapter $ai_provider, Job_Queue $job_queue, Content_Ideas $content_ideas ) {
+	public function __construct( DB $db, Logger $logger, Settings $settings, AI_Provider_Adapter $ai_provider, Job_Queue $job_queue, Content_Ideas $content_ideas, ?Article_Type_Repository $article_type_repository = null ) {
 		$this->db            = $db;
 		$this->logger        = $logger;
 		$this->settings      = $settings;
 		$this->ai_provider   = $ai_provider;
 		$this->job_queue     = $job_queue;
 		$this->content_ideas = $content_ideas;
+		$this->article_type_repository = $article_type_repository;
 
 		add_action( 'admin_post_wpai_publisher_create_content_idea', array( $this, 'handle_create_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_run_content_idea_dry_run', array( $this, 'handle_run_content_idea_dry_run' ) );
@@ -97,7 +106,7 @@ class Admin {
 		add_menu_page(
 			esc_html__( 'WP AI Publisher', 'wp-ai-publisher' ),
 			esc_html__( 'WP AI Publisher', 'wp-ai-publisher' ),
-			'manage_options',
+			wpai_publisher_capability(),
 			'wp-ai-publisher',
 			array( $this, 'render_dashboard' ),
 			'dashicons-welcome-write-blog',
@@ -108,7 +117,7 @@ class Admin {
 			'wp-ai-publisher',
 			esc_html__( 'Bacheca', 'wp-ai-publisher' ),
 			esc_html__( 'Bacheca', 'wp-ai-publisher' ),
-			'manage_options',
+			wpai_publisher_capability(),
 			'wp-ai-publisher',
 			array( $this, 'render_dashboard' )
 		);
@@ -117,7 +126,7 @@ class Admin {
 			'wp-ai-publisher',
 			esc_html__( 'Idee contenuto', 'wp-ai-publisher' ),
 			esc_html__( 'Idee contenuto', 'wp-ai-publisher' ),
-			'manage_options',
+			wpai_publisher_capability(),
 			'wp-ai-publisher-content-ideas',
 			array( $this, 'render_content_ideas' )
 		);
@@ -126,7 +135,7 @@ class Admin {
 			'wp-ai-publisher',
 			esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
 			esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
-			'manage_options',
+			wpai_publisher_capability(),
 			'wp-ai-publisher-article-types',
 			array( $this, 'render_article_types' )
 		);
@@ -135,7 +144,7 @@ class Admin {
 			'wp-ai-publisher',
 			esc_html__( 'Diagnostica AI', 'wp-ai-publisher' ),
 			esc_html__( 'Diagnostica AI', 'wp-ai-publisher' ),
-			'manage_options',
+			wpai_publisher_capability(),
 			'wp-ai-publisher-ai-diagnostics',
 			array( $this, 'render_ai_diagnostics' )
 		);
@@ -144,7 +153,7 @@ class Admin {
 			'wp-ai-publisher',
 			esc_html__( 'Coda job', 'wp-ai-publisher' ),
 			esc_html__( 'Coda job', 'wp-ai-publisher' ),
-			'manage_options',
+			wpai_publisher_capability(),
 			'wp-ai-publisher-jobs',
 			array( $this, 'render_jobs' )
 		);
@@ -154,7 +163,7 @@ class Admin {
 			'wp-ai-publisher',
 			esc_html__( 'Impostazioni', 'wp-ai-publisher' ),
 			esc_html__( 'Impostazioni', 'wp-ai-publisher' ),
-			'manage_options',
+			wpai_publisher_capability(),
 			'wp-ai-publisher-settings',
 			array( $this->settings, 'render_page' )
 		);
@@ -163,7 +172,7 @@ class Admin {
 			'wp-ai-publisher',
 			esc_html__( 'Stato sistema', 'wp-ai-publisher' ),
 			esc_html__( 'Stato sistema', 'wp-ai-publisher' ),
-			'manage_options',
+			wpai_publisher_capability(),
 			'wp-ai-publisher-system-status',
 			array( $this, 'render_system_status' )
 		);
@@ -176,7 +185,7 @@ class Admin {
 	 * @return void
 	 */
 	public function handle_create_content_idea() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
 		}
 
@@ -234,7 +243,7 @@ class Admin {
 	 * @return void
 	 */
 	public function handle_run_content_idea_dry_run() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
 		}
 
@@ -266,7 +275,7 @@ class Admin {
 	}
 
 	public function handle_assign_article_type_to_idea() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
 		}
 		if ( ! wpai_publisher_article_types_enabled() ) {
@@ -292,7 +301,7 @@ class Admin {
 	 * @return void
 	 */
 	public function handle_generate_full_article() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
 		}
 
@@ -315,7 +324,7 @@ class Admin {
 	 * @return void
 	 */
 	public function handle_approve_content_idea() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
 		}
 
@@ -338,7 +347,7 @@ class Admin {
 	 * @return void
 	 */
 	public function handle_reject_content_idea() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
 		}
 
@@ -361,7 +370,7 @@ class Admin {
 	 * @return void
 	 */
 	public function handle_create_draft_from_idea() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
 		}
 
@@ -400,7 +409,7 @@ class Admin {
 	}
 
 	public function handle_process_idea_job_now() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
 		}
 		$idea_id = absint( $_POST['idea_id'] ?? 0 );
@@ -410,9 +419,23 @@ class Admin {
 	}
 
 	public function process_next_job() {
-		$job = $this->job_queue->get_next_pending_job();
-		if ( $job ) {
+		// Process a small batch per cron run so low-traffic sites, where WP-Cron
+		// fires infrequently, do not drain the queue one job at a time. The batch
+		// size stays modest to keep each run within typical PHP time limits.
+		$max_per_run = max( 1, (int) apply_filters( 'wpai_publisher_jobs_per_run', 5 ) );
+
+		for ( $processed = 0; $processed < $max_per_run; $processed++ ) {
+			$job = $this->job_queue->get_next_pending_job();
+			if ( ! $job ) {
+				break;
+			}
 			$this->process_job( (int) $job->id );
+		}
+
+		// If work remains, re-arm the processor instead of waiting for the next
+		// organic cron tick.
+		if ( $this->job_queue->get_next_pending_job() ) {
+			$this->schedule_job_processor();
 		}
 	}
 
@@ -469,7 +492,7 @@ class Admin {
 	 * @return void
 	 */
 	public function render_content_ideas() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
 
@@ -522,15 +545,28 @@ class Admin {
 
 
 	/**
-	 * Render a safe fallback when article types CPT is not available.
+	 * Return the injected article type repository, instantiating a fallback if needed.
+	 *
+	 * @return Article_Type_Repository
+	 */
+	private function get_article_type_repository() {
+		if ( ! $this->article_type_repository instanceof Article_Type_Repository ) {
+			$this->article_type_repository = new Article_Type_Repository();
+		}
+
+		return $this->article_type_repository;
+	}
+
+	/**
+	 * Handle article type creation/update.
 	 *
 	 * @return void
 	 */
 	public function handle_save_article_type() {
-		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
+		if ( ! current_user_can( wpai_publisher_capability() ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
 		$id = absint( $_POST['id'] ?? 0 );
 		check_admin_referer( 'wpai_publisher_save_article_type_' . $id );
-		$repo = new Article_Type_Repository();
+		$repo = $this->get_article_type_repository();
 		$data = wp_unslash( $_POST );
 		$result = $id > 0 ? $repo->update_article_type( $id, $data ) : $repo->create_article_type( $data );
 		wp_safe_redirect( add_query_arg( 'wpai_notice', $result ? 'article_type_saved' : 'article_type_save_failed', admin_url( 'admin.php?page=wp-ai-publisher-article-types' ) ) );
@@ -538,20 +574,20 @@ class Admin {
 	}
 
 	public function handle_delete_article_type() {
-		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
+		if ( ! current_user_can( wpai_publisher_capability() ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
 		$id = absint( $_POST['id'] ?? 0 );
 		check_admin_referer( 'wpai_publisher_delete_article_type_' . $id );
-		$repo = new Article_Type_Repository();
+		$repo = $this->get_article_type_repository();
 		$deleted = $repo->delete_article_type( $id );
 		wp_safe_redirect( add_query_arg( 'wpai_notice', $deleted ? 'article_type_deleted' : 'article_type_delete_failed', admin_url( 'admin.php?page=wp-ai-publisher-article-types' ) ) );
 		exit;
 	}
 
 	public function handle_toggle_article_type() {
-		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
+		if ( ! current_user_can( wpai_publisher_capability() ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
 		$id = absint( $_POST['id'] ?? 0 );
 		check_admin_referer( 'wpai_publisher_toggle_article_type_' . $id );
-		$repo = new Article_Type_Repository();
+		$repo = $this->get_article_type_repository();
 		$type = $repo->get_article_type( $id );
 		$updated = $type ? $repo->update_article_type( $id, array_merge( $type, array( 'is_active' => empty( $type['is_active'] ) ? 1 : 0 ) ) ) : false;
 		wp_safe_redirect( add_query_arg( 'wpai_notice', $updated ? 'article_type_toggled' : 'article_type_toggle_failed', admin_url( 'admin.php?page=wp-ai-publisher-article-types' ) ) );
@@ -559,20 +595,13 @@ class Admin {
 	}
 
 	public function render_article_types() {
-		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
-		$repo = new Article_Type_Repository();
+		if ( ! current_user_can( wpai_publisher_capability() ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
+		$repo = $this->get_article_type_repository();
 		$article_type_id = absint( $_GET['article_type_id'] ?? 0 );
 		$article_type = $article_type_id > 0 ? $repo->get_article_type( $article_type_id ) : null;
 		if ( 'new' === sanitize_key( $_GET['action'] ?? '' ) || $article_type ) { include WPAIP_PLUGIN_DIR . 'admin/views/article-type-edit.php'; return; }
 		$article_types = $repo->get_all_article_types();
 		include WPAIP_PLUGIN_DIR . 'admin/views/article-types.php';
-	}
-
-	public function render_article_types_unavailable() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
-		}
-		echo '<div class="wrap wpai-admin"><h1>' . esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ) . '</h1><div class="notice notice-warning inline"><p>' . esc_html__( 'Il modulo Tipologie articolo è temporaneamente disabilitato in questa versione di recovery.', 'wp-ai-publisher' ) . '</p></div></div>';
 	}
 
 	/**
@@ -581,7 +610,7 @@ class Admin {
 	 * @return void
 	 */
 	public function render_ai_diagnostics() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
 
@@ -607,7 +636,7 @@ class Admin {
 	 * @return void
 	 */
 	public function render_jobs() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
 
@@ -623,7 +652,7 @@ class Admin {
 	 * @return void
 	 */
 	public function render_dashboard() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
 
@@ -647,7 +676,7 @@ class Admin {
 	 * @return void
 	 */
 	public function render_system_status() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
 

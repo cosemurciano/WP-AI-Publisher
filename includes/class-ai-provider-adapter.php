@@ -50,7 +50,37 @@ class AI_Provider_Adapter {
 	 * @return bool
 	 */
 	public function is_wordpress_ai_client_available() {
-		$classes = array(
+		foreach ( $this->get_ai_indicator_classes() as $class_name ) {
+			if ( class_exists( $class_name ) ) {
+				return true;
+			}
+		}
+
+		foreach ( $this->get_ai_indicator_functions() as $function_name ) {
+			if ( function_exists( $function_name ) ) {
+				return true;
+			}
+		}
+
+		/**
+		 * Allows the active WordPress AI integration to explicitly declare availability.
+		 *
+		 * @param bool $available Detected availability.
+		 */
+		return (bool) apply_filters( 'wpai_publisher_wordpress_ai_available', false );
+	}
+
+	/**
+	 * Candidate class names that signal an active WordPress AI integration.
+	 *
+	 * Centralizing the speculative detection surface keeps it explicit, easy to
+	 * audit, and unit-testable. Detection is intentionally broad because the
+	 * native WordPress AI APIs and popular integrations are still evolving.
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_ai_indicator_classes() {
+		return array(
 			'WP_AI_Client',
 			'WP_AI_Abilities_Registry',
 			'WP_AI_Ability_Registry',
@@ -70,14 +100,15 @@ class AI_Provider_Adapter {
 			'AI_Features',
 			'AI_Connectors',
 		);
+	}
 
-		foreach ( $classes as $class_name ) {
-			if ( class_exists( $class_name ) ) {
-				return true;
-			}
-		}
-
-		$functions = array(
+	/**
+	 * Candidate function names that signal an active WordPress AI integration.
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_ai_indicator_functions() {
+		return array(
 			'wp_ai_client',
 			'wp_get_ai_client',
 			'wp_ai_generate_text',
@@ -99,19 +130,42 @@ class AI_Provider_Adapter {
 			'ai_services_get_connector',
 			'ai_services_get_connectors',
 		);
+	}
 
-		foreach ( $functions as $function_name ) {
-			if ( function_exists( $function_name ) ) {
-				return true;
-			}
-		}
+	/**
+	 * Known function names used to discover available text/image models.
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_model_discovery_functions() {
+		return array(
+			'wp_ai_get_models',
+			'wp_get_ai_models',
+			'wp_ai_get_available_models',
+		);
+	}
 
-		/**
-		 * Allows the active WordPress AI integration to explicitly declare availability.
-		 *
-		 * @param bool $available Detected availability.
-		 */
-		return (bool) apply_filters( 'wpai_publisher_wordpress_ai_available', false );
+	/**
+	 * Known factory functions that may return a WordPress AI client object.
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_model_client_factories() {
+		return array( 'wp_ai_client', 'wp_get_ai_client', 'wp_ai_services' );
+	}
+
+	/**
+	 * Known function names used to discover available AI abilities.
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_ability_discovery_functions() {
+		return array(
+			'wp_ai_get_abilities',
+			'wp_get_ai_abilities',
+			'wp_ai_get_available_abilities',
+			'wp_get_ai_available_abilities',
+		);
 	}
 
 	/**
@@ -236,11 +290,7 @@ class AI_Provider_Adapter {
 	 */
 	private function models_from_known_functions( $type ) {
 		$models    = array();
-		$functions = array(
-			'wp_ai_get_models',
-			'wp_get_ai_models',
-			'wp_ai_get_available_models',
-		);
+		$functions = $this->get_model_discovery_functions();
 
 		foreach ( $functions as $function_name ) {
 			if ( ! function_exists( $function_name ) ) {
@@ -276,7 +326,7 @@ class AI_Provider_Adapter {
 	 */
 	private function models_from_known_clients( $type ) {
 		$models          = array();
-		$client_factories = array( 'wp_ai_client', 'wp_get_ai_client', 'wp_ai_services' );
+		$client_factories = $this->get_model_client_factories();
 
 		foreach ( $client_factories as $factory ) {
 			if ( ! function_exists( $factory ) ) {
@@ -328,12 +378,7 @@ class AI_Provider_Adapter {
 	 */
 	private function abilities_from_known_functions() {
 		$abilities = array();
-		$functions = array(
-			'wp_ai_get_abilities',
-			'wp_get_ai_abilities',
-			'wp_ai_get_available_abilities',
-			'wp_get_ai_available_abilities',
-		);
+		$functions = $this->get_ability_discovery_functions();
 
 		foreach ( $functions as $function_name ) {
 			if ( ! function_exists( $function_name ) ) {

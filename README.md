@@ -6,6 +6,18 @@ Versione corrente: **0.5.13**
 
 La versione **0.5.13** corregge il requisito minimo di WordPress, erroneamente impostato a 7.0 (versione inesistente) che impediva l’attivazione del plugin: ora è **6.5**, allineato in header plugin, `readme.txt`, Stato sistema e Bacheca. Sono inoltre state allineate le versioni di `wp-ai-publisher.php`, `readme.txt` e `README.md` e reso **atomico il claim dei job** in coda, così WP-Cron e l’esecuzione manuale non possono più elaborare lo stesso job due volte creando bozze duplicate.
 
+Migliorie aggiuntive di manutenzione 0.5.13:
+
+- **Performance letture idee**: il controllo della colonna `article_type_id` esegue le query `SHOW` al massimo una volta per richiesta (memo statico), eliminando l’overhead su ogni lettura.
+- **Migrazione DB più economica**: `dbDelta` viene eseguito solo quando cambia lo schema, non a ogni bump di versione; la versione plugin resta comunque sincronizzata per la diagnostica.
+- **Coda job più affidabile**: ogni esecuzione cron elabora un piccolo batch (filtro `wpai_publisher_jobs_per_run`, default 5) e si ripianifica finché restano job pendenti.
+- **Pulizia codice legacy**: rimossi la classe CPT `Article_Types`, la vista `article-type-meta-boxes.php`, la costante `WPAIP_ENABLE_ARTICLE_TYPES` e il metodo `render_article_types_unavailable()` non più utilizzati.
+- **Capability dedicata**: introdotta `manage_wp_ai_publisher`, filtrabile via `wpai_publisher_capability`, concessa agli amministratori in attivazione e upgrade. Consente di delegare il workflow editoriale ad altri ruoli senza concedere `manage_options`.
+- **Iniezione dipendenze**: `Article_Type_Repository` è creato una sola volta e iniettato in `Admin`; `Draft_Creator` usa un accessor condiviso in `Content_Ideas`.
+- **Disinstallazione opt-in**: nuova opzione “Elimina i dati alla disinstallazione” (default disattiva) e filtro `wpai_publisher_delete_data_on_uninstall`; il plugin conserva i dati salvo scelta esplicita.
+- **Tooling di qualità**: aggiunti `composer.json`, `phpcs.xml.dist`, test PHPUnit di base in `tests/` e workflow CI in `.github/workflows/ci.yml` (lint PHP su 8.1–8.3, unit test, phpcs informativo).
+- **Adapter AI più manutenibile**: le liste di rilevamento dell’integrazione AI (classi/funzioni indicatore, discovery modelli e abilities) sono state estratte in metodi pubblici dedicati e coperti da test, senza alcuna modifica di comportamento o degli hook esistenti.
+
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
 ## Settings cleanup 0.5.7

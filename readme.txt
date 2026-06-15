@@ -73,6 +73,15 @@ Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione atti
 * Corretto il requisito minimo di WordPress: da 7.0 (versione inesistente che bloccava l’attivazione su qualsiasi sito) a 6.5, allineato in header plugin, readme, Stato sistema e Bacheca.
 * Allineate le versioni di plugin, readme.txt e README.md.
 * Reso atomico il claim dei job in coda per evitare doppia elaborazione e bozze duplicate quando WP-Cron e l’esecuzione manuale si sovrappongono.
+* Ridotto l’overhead delle letture idee: il controllo della colonna article_type_id ora esegue le query SHOW al massimo una volta per richiesta.
+* La migrazione database non riesegue più dbDelta a ogni nuova versione, ma solo quando cambia effettivamente lo schema.
+* La coda elabora un piccolo batch di job per esecuzione cron (filtrabile via wpai_publisher_jobs_per_run) e si ripianifica se restano job pendenti.
+* Rimosso codice legacy non utilizzato: classe CPT Tipologie articolo, relativa vista metabox, costante WPAIP_ENABLE_ARTICLE_TYPES e fallback admin inutilizzato.
+* Introdotta una capability dedicata e filtrabile (manage_wp_ai_publisher), concessa agli amministratori in attivazione e upgrade, così l’accesso al plugin può essere delegato senza concedere manage_options.
+* Centralizzata l’istanziazione di Article_Type_Repository (iniettato in Admin) e Draft_Creator (accessor condiviso in Content_Ideas).
+* Aggiunta l’opzione opt-in “Elimina i dati alla disinstallazione”: di default il plugin conserva tabelle, impostazioni e capability.
+* Aggiunto tooling di qualità: composer.json, ruleset phpcs, test PHPUnit di base e workflow GitHub Actions (lint PHP, unit test, phpcs informativo).
+* Adapter AI: centralizzate in metodi dedicati e testabili le liste di rilevamento (classi/funzioni AI, discovery modelli e abilities), senza modificarne il comportamento o gli hook.
 
 = 0.5.7 =
 * Semplificata la pagina Impostazioni: il contesto globale non duplica più tono, tag e categorie delle Tipologie Articolo.

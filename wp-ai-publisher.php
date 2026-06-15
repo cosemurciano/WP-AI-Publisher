@@ -30,9 +30,6 @@ if ( ! defined( 'WPAIP_MIN_WP_VERSION' ) ) {
 if ( ! defined( 'WPAIP_MIN_PHP_VERSION' ) ) {
 	define( 'WPAIP_MIN_PHP_VERSION', '8.1' );
 }
-if ( ! defined( 'WPAIP_ENABLE_ARTICLE_TYPES' ) ) {
-	define( 'WPAIP_ENABLE_ARTICLE_TYPES', false );
-}
 if ( ! defined( 'WPAIP_ENABLE_ARTICLE_TYPE_REPOSITORY' ) ) {
 	define( 'WPAIP_ENABLE_ARTICLE_TYPE_REPOSITORY', true );
 }

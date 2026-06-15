@@ -16,7 +16,7 @@ class Article_Type_Repository {
 
 	public function create_article_type( $data ) {
 		global $wpdb;
-		if ( ! current_user_can( 'manage_options' ) ) { return false; }
+		if ( ! current_user_can( wpai_publisher_capability() ) ) { return false; }
 		$data = $this->sanitize_article_type_data( $data );
 		if ( '' === $data['name'] ) { return false; }
 		$data['created_at'] = current_time( 'mysql' );
@@ -27,7 +27,7 @@ class Article_Type_Repository {
 
 	public function update_article_type( $id, $data ) {
 		global $wpdb;
-		if ( ! current_user_can( 'manage_options' ) ) { return false; }
+		if ( ! current_user_can( wpai_publisher_capability() ) ) { return false; }
 		$id = absint( $id );
 		if ( 0 === $id ) { return false; }
 		$data = $this->sanitize_article_type_data( $data );
@@ -39,7 +39,7 @@ class Article_Type_Repository {
 
 	public function delete_article_type( $id ) {
 		global $wpdb;
-		if ( ! current_user_can( 'manage_options' ) ) { return false; }
+		if ( ! current_user_can( wpai_publisher_capability() ) ) { return false; }
 		$id = absint( $id );
 		return $id > 0 && false !== $wpdb->delete( $this->get_table_name(), array( 'id' => $id ), array( '%d' ) );
 	}
@@ -104,7 +104,7 @@ class Article_Type_Repository {
 	}
 
 	public function maybe_create_default_article_types() {
-		if ( get_option( self::DEFAULTS_OPTION ) || ! current_user_can( 'manage_options' ) ) { return; }
+		if ( get_option( self::DEFAULTS_OPTION ) || ! current_user_can( wpai_publisher_capability() ) ) { return; }
 		global $wpdb;
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $this->get_table_name() ) ) !== $this->get_table_name() ) { return; }
 		$defaults = array(
