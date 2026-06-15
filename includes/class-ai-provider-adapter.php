@@ -1042,6 +1042,7 @@ class AI_Provider_Adapter {
 			'entities'         => $dry_run_output['entities'] ?? array(),
 			'search_intent'    => $dry_run_output['search_intent'] ?? '',
 			'tutorial_level'   => $dry_run_output['tutorial_level'] ?? '',
+			'reader_level'     => $dry_run_output['reader_level'] ?? ( $article_type['reader_level'] ?? '' ),
 			'site_context'     => $site_context,
 			'article_type'     => $article_type,
 			'validation_notes' => $dry_run_output['validation_notes'] ?? array(),
@@ -1101,13 +1102,34 @@ class AI_Provider_Adapter {
 			$target_audience = sanitize_text_field( (string) ( $payload['target_audience'] ?? $idea['target_audience'] ?? '' ) );
 		}
 
+		$sanitize_free_text = static function ( $value ) {
+			return is_scalar( $value ) ? sanitize_textarea_field( (string) $value ) : '';
+		};
+		$article_type = isset( $payload['article_type'] ) && is_array( $payload['article_type'] ) ? $payload['article_type'] : array();
+		foreach ( array( 'description', 'tone', 'length', 'search_intent', 'reader_level', 'reader_level_guidance', 'prompt', 'structure', 'required_sections', 'forbidden_patterns', 'preferred_tags', 'quality_checklist' ) as $field ) {
+			if ( isset( $article_type[ $field ] ) ) {
+				$article_type[ $field ] = $sanitize_free_text( $article_type[ $field ] );
+			}
+		}
+
+		$reader_level = $sanitize_free_text( $payload['reader_level'] ?? $payload['reader_level_guidance'] ?? $idea['reader_level'] ?? $idea['reader_level_guidance'] ?? $article_type['reader_level'] ?? '' );
+		$tutorial_level = sanitize_key( (string) ( $payload['tutorial_level'] ?? $idea['tutorial_level'] ?? '' ) );
+		if ( '' === $tutorial_level ) {
+			$tutorial_level = '' !== $reader_level && $reader_level === sanitize_key( $reader_level ) ? $reader_level : 'custom';
+		}
+
 		return array(
 			'task'                 => 'structured_content_dry_run',
 			'topic'                => sanitize_textarea_field( (string) ( $payload['topic'] ?? $idea['topic'] ?? '' ) ),
 			'keyword'              => sanitize_text_field( (string) ( $payload['keyword'] ?? $idea['keyword'] ?? '' ) ),
 			'language'             => sanitize_key( (string) ( $payload['language'] ?? $idea['language'] ?? 'it' ) ),
 			'target_audience'      => $target_audience,
-			'tutorial_level'       => sanitize_key( (string) ( $payload['tutorial_level'] ?? $idea['tutorial_level'] ?? 'base' ) ),
+			'tone'                 => $sanitize_free_text( $payload['tone'] ?? $idea['tone'] ?? $article_type['tone'] ?? '' ),
+			'length'               => $sanitize_free_text( $payload['length'] ?? $idea['length'] ?? $article_type['length'] ?? '' ),
+			'search_intent'        => $sanitize_free_text( $payload['search_intent'] ?? $idea['search_intent'] ?? $article_type['search_intent'] ?? '' ),
+			'reader_level'         => $reader_level,
+			'tutorial_level'       => $tutorial_level,
+			'article_type'         => $article_type,
 			'notes'                => sanitize_textarea_field( (string) ( $payload['notes'] ?? $idea['notes'] ?? '' ) ),
 			'required_schema'      => isset( $payload['required_schema'] ) && is_array( $payload['required_schema'] ) ? $payload['required_schema'] : $this->get_content_dry_run_schema(),
 			'allow_local_fallback' => ! empty( $payload['allow_local_fallback'] ),
@@ -1931,9 +1953,25 @@ class AI_Provider_Adapter {
 		$article_type = isset( $payload['article_type'] ) && is_array( $payload['article_type'] ) ? $payload['article_type'] : array();
 		$article_type_json = wp_json_encode( $article_type, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
 		$context_json = wp_json_encode( $context_for_prompt, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
+		$sanitize_free_text = static function ( $value ) {
+			return is_scalar( $value ) ? sanitize_textarea_field( (string) $value ) : '';
+		};
+		$editorial_guidance = array();
+		foreach ( array(
+			'tone'          => 'Tono editoriale',
+			'length'        => 'Lunghezza desiderata',
+			'search_intent' => 'Intento di ricerca',
+			'reader_level'  => 'Livello lettore / guida editoriale per il pubblico',
+		) as $field => $label ) {
+			$value = $sanitize_free_text( $payload[ $field ] ?? $article_type[ $field ] ?? '' );
+			if ( '' !== $value ) {
+				$editorial_guidance[] = $label . ': ' . $value;
+			}
+		}
+		$editorial_guidance_section = ! empty( $editorial_guidance ) ? "\nIstruzioni editoriali dalla Tipologia articolo:\n" . implode( "\n", $editorial_guidance ) : '';
 
 		return sprintf(
-			"Agisci come assistente editoriale WordPress per un dry-run strutturato. Genera SOLO JSON valido, senza markdown, senza blocchi di codice e senza spiegazioni fuori dal JSON. Non creare post, non pubblicare, non generare immagini reali, non scrivere metadati AIOSEO e non inventare dati tecnici non verificabili. Usa HTML pulito compatibile con Editor Classico per eventuali anteprime e non generare blocchi Gutenberg. Priorità istruzioni: 1 Sicurezza sistema, 2 Tipologia articolo, 3 Contesto editoriale sito, 4 Idea utente. Usa il Contesto editoriale del sito come quadro generale. Usa la Tipologia articolo come istruzione specifica principale per outline, full_article, meta, tag, link interni, stile, lunghezza e intento di ricerca. Non creare categorie nuove. Scegli solo tra le categorie consentite nella Tipologia articolo. Se nessuna categoria consentita è pertinente, lascia categories vuoto o usa una categoria fallback già esistente indicata dal sistema. Non inserire il prompt o le regole editoriali nel contenuto finale. Usa il contesto sito per lingua, target generale, limiti editoriali e claim vietati. Non assumere che il sito sia wptutorial.ai o un sito WordPress tutorial se il contesto editoriale indica altro. Usa le categorie consentite se presenti. Usa i tag preferiti solo se pertinenti. Rispetta gli argomenti esclusi. Non inventare dati tecnici, prezzi, normative, date o promesse se non presenti nel contesto. content_outline deve essere un array di oggetti con heading stringa, level numerico intero e summary stringa. I link interni devono essere target semantici realistici, non URL inventati. Imposta source a wordpress_ai. Schema obbligatorio: %8\$s\nsite_context: %7\$s\narticle_type: %9\$s\nArgomento: %1\$s\nKeyword: %2\$s\nLingua richiesta: %3\$s\nPubblico target: %4\$s\nLivello lettore dalla Tipologia: %5\$s",
+			"Agisci come assistente editoriale WordPress per un dry-run strutturato. Genera SOLO JSON valido, senza markdown, senza blocchi di codice e senza spiegazioni fuori dal JSON. Non creare post, non pubblicare, non generare immagini reali, non scrivere metadati AIOSEO e non inventare dati tecnici non verificabili. Usa HTML pulito compatibile con Editor Classico per eventuali anteprime e non generare blocchi Gutenberg. Priorità istruzioni: 1 Sicurezza sistema, 2 Tipologia articolo, 3 Contesto editoriale sito, 4 Idea utente. Usa il Contesto editoriale del sito come quadro generale. Usa la Tipologia articolo come istruzione specifica principale per outline, full_article, meta, tag, link interni, stile, lunghezza, intento di ricerca e livello lettore. Non creare categorie nuove. Scegli solo tra le categorie consentite nella Tipologia articolo. Se nessuna categoria consentita è pertinente, lascia categories vuoto o usa una categoria fallback già esistente indicata dal sistema. Non inserire il prompt o le regole editoriali nel contenuto finale. Usa il contesto sito per lingua, target generale, limiti editoriali e claim vietati. Non assumere che il sito sia wptutorial.ai o un sito WordPress tutorial se il contesto editoriale indica altro. Usa le categorie consentite se presenti. Usa i tag preferiti solo se pertinenti. Rispetta gli argomenti esclusi. Non inventare dati tecnici, prezzi, normative, date o promesse se non presenti nel contesto. content_outline deve essere un array di oggetti con heading stringa, level numerico intero e summary stringa. I link interni devono essere target semantici realistici, non URL inventati. Imposta source a wordpress_ai. Schema obbligatorio: %8\$s\nsite_context: %7\$s\narticle_type: %9\$s\nArgomento: %1\$s\nKeyword: %2\$s\nLingua richiesta: %3\$s\nPubblico target: %4\$s%10\$s\nLivello tutorial compatibilità schema: %5\$s",
 			$topic,
 			sanitize_text_field( (string) ( $payload['keyword'] ?? '' ) ),
 			sanitize_key( (string) ( $payload['language'] ?? $site_context['default_language'] ) ),
@@ -1942,7 +1980,8 @@ class AI_Provider_Adapter {
 			sanitize_textarea_field( (string) ( $payload['notes'] ?? '' ) ),
 			false !== $context_json ? $context_json : '{}',
 			false !== $schema_json ? $schema_json : '{}',
-			false !== $article_type_json ? $article_type_json : '{}'
+			false !== $article_type_json ? $article_type_json : '{}',
+			$editorial_guidance_section
 		);
 	}
 
