@@ -1012,9 +1012,160 @@ class AI_Provider_Adapter {
 	}
 
 	/**
+	 * Generate a complete, publishable Classic Editor article directly from a
+	 * content idea and its article type, in a single AI call.
+	 *
+	 * This is the simplified "idea + article type -> draft" path. It only uses
+	 * WordPress-provided AI integration hooks/functions and intentionally has NO
+	 * local filler fallback: if no real AI output is usable it returns a WP_Error
+	 * so the caller can ask the user to configure a WordPress AI system.
+	 *
+	 * @param array<string,mixed> $payload      Idea data (topic, keyword, language).
+	 * @param array<string,mixed> $site_context Editorial site context.
+	 * @param array<string,mixed> $article_type Article type configuration.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	public function generate_article_from_idea( $payload, $site_context = array(), $article_type = array() ) {
+		$payload      = is_array( $payload ) ? $payload : array();
+		$site_context = wpai_publisher_normalize_site_context( ! empty( $site_context ) ? $site_context : wpai_publisher_get_site_context() );
+		$article_type = is_array( $article_type ) ? $article_type : array();
+
+		// A guiding outline built from the article type required sections lets the
+		// normalizer shape plain-text AI output into the requested H2 sections.
+		$generation_context = array(
+			'topic'           => sanitize_textarea_field( (string) ( $payload['topic'] ?? '' ) ),
+			'keyword'         => sanitize_text_field( (string) ( $payload['keyword'] ?? '' ) ),
+			'language'        => sanitize_key( (string) ( $payload['language'] ?? $site_context['default_language'] ) ),
+			'article_type'    => $article_type,
+			'content_outline' => $this->build_outline_from_article_type( $article_type ),
+		);
+
+		$prompt  = $this->build_article_from_idea_prompt( $generation_context, $site_context, $article_type );
+		$builder = new Classic_Content_Builder( $site_context, $article_type );
+		$errors  = array();
+
+		/**
+		 * Allows a WordPress AI integration to provide the full article HTML.
+		 *
+		 * Returning null leaves control to the adapter.
+		 *
+		 * @param mixed               $result             Article result.
+		 * @param array<string,mixed> $generation_context Idea + article type context.
+		 * @param array<string,mixed> $site_context       Editorial site context.
+		 * @param string              $prompt             Generated prompt.
+		 * @param array<string,mixed> $article_type       Article type configuration.
+		 */
+		$filtered = apply_filters( 'wpai_publisher_generate_article_from_idea', null, $generation_context, $site_context, $prompt, $article_type );
+		if ( null !== $filtered ) {
+			$candidate = $this->normalize_full_article_candidate( $filtered, 'wordpress_ai', $builder, $generation_context );
+			if ( ! is_wp_error( $candidate ) ) {
+				return $candidate;
+			}
+			$errors[] = $candidate->get_error_message();
+		}
+
+		$ability_candidate = $this->try_generate_full_article_with_wp_abilities( $generation_context, $site_context, $prompt, $builder );
+		if ( ! is_wp_error( $ability_candidate ) ) {
+			return $ability_candidate;
+		}
+		$errors[] = $ability_candidate->get_error_message();
+
+		if ( function_exists( 'wp_ai_generate_text' ) ) {
+			foreach ( array( array( 'prompt' => $prompt, 'temperature' => 0.4, 'format' => 'html' ), $prompt ) as $args ) {
+				try {
+					$result    = call_user_func( 'wp_ai_generate_text', $args );
+					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $generation_context );
+					if ( ! is_wp_error( $candidate ) ) {
+						return $candidate;
+					}
+					$errors[] = $candidate->get_error_message();
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+		}
+
+		// No usable AI output: never fabricate a local filler draft.
+		if ( ! $this->is_wordpress_ai_client_available() ) {
+			return new WP_Error(
+				'wpai_article_no_ai',
+				__( 'Nessun sistema AI di WordPress attivo. Configura un sistema AI di WordPress (o un filtro di integrazione) e riprova: la creazione bozza richiede una generazione AI reale.', 'wp-ai-publisher' )
+			);
+		}
+
+		return new WP_Error(
+			'wpai_article_no_ai_output',
+			__( 'Il sistema AI di WordPress non ha restituito un articolo pubblicabile. Riprova o rivedi le istruzioni della Tipologia articolo.', 'wp-ai-publisher' ),
+			array( 'attempts' => array_slice( array_values( array_filter( $errors ) ), 0, 3 ) )
+		);
+	}
+
+	/**
+	 * Build a guiding outline (H2 headings) from the article type required
+	 * sections, falling back to its free-form structure field.
+	 *
+	 * @param array<string,mixed> $article_type Article type configuration.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function build_outline_from_article_type( $article_type ) {
+		$source   = '' !== trim( (string) ( $article_type['required_sections'] ?? '' ) ) ? (string) $article_type['required_sections'] : (string) ( $article_type['structure'] ?? '' );
+		$headings = array_values( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', $source ) ) ) );
+		$outline  = array();
+		foreach ( $headings as $heading ) {
+			$outline[] = array( 'heading' => sanitize_text_field( $heading ), 'level' => 2, 'summary' => '' );
+		}
+		return $outline;
+	}
+
+	/**
+	 * Build the single-call prompt that turns an idea plus its article type into
+	 * a complete, reader-facing Classic Editor article.
+	 *
+	 * @param array<string,mixed> $generation_context Idea + outline context.
+	 * @param array<string,mixed> $site_context       Editorial site context.
+	 * @param array<string,mixed> $article_type       Article type configuration.
+	 * @return string
+	 */
+	private function build_article_from_idea_prompt( $generation_context, $site_context, $article_type ) {
+		$required_sections = array_values( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $article_type['required_sections'] ?? '' ) ) ) ) );
+		$sections_line     = ! empty( $required_sections )
+			? "\nUsa esattamente queste sezioni come titoli H2, nello stesso ordine: " . implode( ' | ', $required_sections ) . '.'
+			: '';
+
+		$constraints = array(
+			'article_type_prompt' => sanitize_textarea_field( (string) ( $article_type['prompt'] ?? '' ) ),
+			'tone'                => sanitize_textarea_field( (string) ( $article_type['tone'] ?? '' ) ),
+			'length'              => sanitize_textarea_field( (string) ( $article_type['length'] ?? '' ) ),
+			'search_intent'       => sanitize_textarea_field( (string) ( $article_type['search_intent'] ?? '' ) ),
+			'reader_level'        => sanitize_textarea_field( (string) ( $article_type['reader_level'] ?? '' ) ),
+			'required_sections'   => $required_sections,
+			'forbidden_patterns'  => sanitize_textarea_field( (string) ( $article_type['forbidden_patterns'] ?? '' ) ),
+			'quality_checklist'   => sanitize_textarea_field( (string) ( $article_type['quality_checklist'] ?? '' ) ),
+			'site'                => array(
+				'description'      => $site_context['site_description'],
+				'niche'            => $site_context['content_niche'],
+				'default_audience' => $site_context['default_audience'],
+				'writing_rules'    => $site_context['writing_rules'],
+				'forbidden_claims' => $site_context['forbidden_claims'],
+				'brand_terms'      => $site_context['brand_terms'],
+			),
+		);
+		$constraints_json = wp_json_encode( $constraints, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
+
+		return sprintf(
+			"Scrivi un articolo completo, originale e pubblicabile per il lettore (non una scaletta), pronto per una bozza WordPress in Editor Classico. Restituisci SOLO HTML pulito, senza markdown, senza blocchi di codice e senza spiegazioni fuori dall’HTML. Usa solo i tag consentiti: p, h2, h3, ul, ol, li, strong, em, blockquote, code, pre, br. Non usare blocchi Gutenberg, script, iframe, style inline, shortcode o JSON. Non includere nel corpo dell’articolo il prompt, il pubblico target, il tono, le regole editoriali, note interne o prompt immagini. Non inventare dati tecnici, prezzi, normative o date non verificabili. Produci almeno tre sezioni H2 e contenuto sostanziale per ciascuna. Usa il Contesto editoriale del sito come quadro generale e la Tipologia articolo come istruzione specifica principale per struttura, tono, lunghezza, intento di ricerca e livello lettore.%1\$s\nLingua dell’articolo: %2\$s.\nArgomento principale: %3\$s.\nKeyword principale: %4\$s.\nVincoli e istruzioni della Tipologia articolo e del sito:\n%5\$s",
+			$sections_line,
+			$generation_context['language'],
+			$generation_context['topic'],
+			$generation_context['keyword'],
+			false !== $constraints_json ? $constraints_json : '{}'
+		);
+	}
+
+	/**
 	 * Try safe WordPress Abilities API candidates for full article generation.
 	 *
-	 * @param array<string,mixed>     $dry_run_output Dry-run output.
+	 * @param array<string,mixed>     $dry_run_output Dry-run output or generation context.
 	 * @param array<string,mixed>     $site_context Site context.
 	 * @param string                  $prompt Prompt.
 	 * @param Classic_Content_Builder $builder Builder/validator.

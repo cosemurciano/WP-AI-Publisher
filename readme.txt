@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.13
+Stable tag: 0.5.14
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,12 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.14 =
+* Semplificato il flusso di creazione bozza: una sola chiamata AI (idea + prompt Tipologia articolo) produce l’articolo completo, poi il plugin crea la bozza. Rimosso il passaggio intermedio di dry-run JSON dal percorso "Crea bozza".
+* Corretto l’errore di creazione bozza: le sezioni obbligatorie della Tipologia vengono ora iniettate nel prompt come scaletta richiesta e non bloccano più la pubblicabilità (restano un segnale di qualità nei log).
+* Quando non è attivo alcun sistema AI di WordPress, "Crea bozza" non genera più contenuti segnaposto: mostra un messaggio chiaro e lascia l’idea pronta a riprovare.
+* I passaggi manuali avanzati (dry-run, genera articolo completo) restano disponibili per chi usa la modalità avanzata.
 
 = 0.5.13 =
 * Corretto il requisito minimo di WordPress: da 7.0 (versione inesistente che bloccava l’attivazione su qualsiasi sito) a 6.5, allineato in header plugin, readme, Stato sistema e Bacheca.
