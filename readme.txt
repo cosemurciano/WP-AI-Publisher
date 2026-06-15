@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.26
+Stable tag: 0.5.27
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,10 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.27 =
+* Tipologie articolo: la generazione è ora guidata dal solo "Prompt principale". I campi legacy (tono, lunghezza, intento, livello, sezioni, pattern, checklist) restano usati solo come fallback per le tipologie create prima del prompt unico (retrocompatibilità, nessuna migrazione distruttiva).
+* Aggiornate le 5 tipologie default per nuove installazioni con un prompt unico già pronto.
 
 = 0.5.26 =
 * Pulizia configurazione: rimosse impostazioni legacy inutilizzate (limite costo giornaliero/mensile, modello testo legacy default_text_model, provider_preference fisso). La scelta del modello resta in Parametri AI → "Modello AI".

@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.26**
+Versione corrente: **0.5.27**
+
+## Tipologie a prompt unico 0.5.27
+
+La generazione dell'articolo è ora guidata dal solo **“Prompt principale”** della Tipologia. I campi legacy (tono, lunghezza, intento, livello lettore, sezioni obbligatorie, pattern vietati, checklist) sono usati **solo come fallback** per le tipologie create prima del prompt unico — nessuna migrazione distruttiva. Le 5 tipologie default per le nuove installazioni includono già un prompt unico pronto all'uso.
 
 ## Pulizia configurazione 0.5.26
 
