@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.4.4
+Stable tag: 0.4.5
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -69,14 +69,12 @@ Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione atti
 
 == Changelog ==
 
-= 0.4.4 =
-* Corretto routing delle idee approvate senza articolo completo.
-* Le idee approvate senza full_article mostrano “Genera articolo” e non “Crea bozza”.
-* Migliorata la normalizzazione di full_article in HTML per Editor Classico.
-* Aggiunta conversione da testo semplice AI a HTML con H2 e paragrafi.
-* Rafforzata la distinzione tra workflow semplice e avanzato.
-* Migliorata la gestione degli errori recuperabili.
-* Ridotti i pulsanti visibili nella modalità workflow semplice.
+= 0.4.5 =
+* Corretto il passaggio del dry-run originale nella normalizzazione di full_article.
+* Migliorata conversione di articoli plain text in HTML per Editor Classico.
+* Gli heading lunghi del content_outline vengono ora riconosciuti correttamente.
+* Migliorata la creazione bozza quando l’AI restituisce testo semplice.
+* Aggiunti controlli e messaggi più chiari sugli errori di normalizzazione full_article.
 * Confermata assenza di pubblicazione automatica.
 
 = 0.4.3 =

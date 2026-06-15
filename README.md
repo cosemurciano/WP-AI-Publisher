@@ -1,12 +1,12 @@
 # WP AI Publisher
 
-Versione corrente: **0.4.4**
+Versione corrente: **0.4.5**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
 ## Workflow idea → bozza
 
-Dalla versione **0.4.4** il workflow principale è pensato per il sito con Editor Classico: l’utente scrive o programma un’idea e il plugin la porta fino alla bozza WordPress senza pubblicarla automaticamente.
+Dalla versione **0.4.5** il workflow principale è pensato per il sito con Editor Classico: l’utente scrive o programma un’idea e il plugin la porta fino alla bozza WordPress senza pubblicarla automaticamente.
 
 ### Modalità semplice
 
@@ -15,6 +15,15 @@ In modalità `simple`, il form “Nuova idea contenuto” mostra il pulsante pri
 ### Modalità avanzata
 
 In modalità `advanced`, restano visibili i passaggi manuali: **Esegui dry-run**, **Genera articolo completo**, **Approva**, **Rifiuta**, **Crea bozza** e **Visualizza risultato**. Anche nel workflow avanzato, un’idea `approved` senza `full_article.html` non mostra **Crea bozza**: l’azione corretta è **Genera articolo**.
+
+
+### Normalizzazione full_article
+
+L’AI può restituire l’articolo completo sia come HTML già strutturato sia come testo semplice. WP AI Publisher normalizza sempre `full_article` in HTML pulito compatibile con Editor Classico prima di creare una bozza.
+
+Il campo `content_outline` del dry-run guida la conversione: gli heading vengono riconosciuti come sezioni H2 anche quando sono lunghi, mentre il testo viene distribuito in paragrafi `<p>` sanitizzati. Se l’output non contiene titoli chiari, il plugin usa comunque l’outline per ricostruire sezioni H2 e paragrafi leggibili.
+
+La bozza viene creata solo dopo normalizzazione e validazione: il contenuto deve avere almeno tre H2, almeno 300 parole, nessun blocco Gutenberg, nessuno script/iframe/style inline, nessun JSON grezzo, nessun placeholder editoriale e nessun prompt immagine. Il plugin non pubblica automaticamente e non scrive metadati AIOSEO in questa fase.
 
 ### Regola full_article obbligatorio
 
@@ -26,7 +35,7 @@ Il contenuto AI può arrivare come HTML o testo semplice. Prima del salvataggio 
 
 ### Sicurezza editoriale
 
-WP AI Publisher 0.4.4 continua a creare solo bozze o contenuti pending autorizzati dal flusso configurato. Non pubblica automaticamente, non genera immagini reali, non chiama OpenAI direttamente e non scrive metadati AIOSEO in questa fase.
+WP AI Publisher 0.4.5 continua a creare solo bozze o contenuti pending autorizzati dal flusso configurato. Non pubblica automaticamente, non genera immagini reali, non chiama OpenAI direttamente e non scrive metadati AIOSEO in questa fase.
 
 ## Stato sviluppo
 

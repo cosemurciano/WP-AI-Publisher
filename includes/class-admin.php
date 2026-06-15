@@ -197,6 +197,8 @@ class Admin {
 			$this->redirect_content_ideas(
 				array(
 					'wpai_notice' => ! empty( $result['success'] ) ? 'draft_created' : ( 'full_article' === ( $result['step_failed'] ?? '' ) ? 'full_article_failed' : ( 'draft' === ( $result['step_failed'] ?? '' ) && false !== strpos( (string) ( $result['message'] ?? '' ), 'Genera prima' ) ? 'missing_full_article' : 'draft_creation_failed' ) ),
+					'wpai_step'   => sanitize_key( (string) ( $result['step_failed'] ?? '' ) ),
+					'wpai_error'  => rawurlencode( sanitize_text_field( (string) ( $result['error_code'] ?? $result['message'] ?? '' ) ) ),
 					'view_idea'   => absint( $idea_id ),
 					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . absint( $idea_id ) ),
 				)
@@ -385,6 +387,8 @@ class Admin {
 		$this->redirect_content_ideas(
 			array(
 				'wpai_notice' => is_wp_error( $result ) && 'wpai_draft_creator_missing_full_article' === $result->get_error_code() ? 'missing_full_article' : ( is_wp_error( $result ) ? 'draft_creation_failed' : 'draft_created' ),
+				'wpai_step'   => is_wp_error( $result ) ? 'draft_insert' : '',
+				'wpai_error'  => is_wp_error( $result ) ? rawurlencode( sanitize_text_field( $result->get_error_code() . ': ' . $result->get_error_message() ) ) : '',
 				'view_idea'   => $idea_id,
 				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
 			)

@@ -179,38 +179,34 @@ class Classic_Content_Builder {
 		if ( preg_match( '/<(p|h2|h3|ul|ol|li|blockquote|strong|em)\b/i', $html ) ) {
 			$sanitized = $this->sanitize_classic_html( $html );
 			$sanitized = preg_replace( "/\n{3,}/", "\n\n", (string) $sanitized );
-			return trim( (string) $sanitized );
-		}
-
-		$outline_headings = array();
-		if ( ! empty( $dry_run_output['content_outline'] ) && is_array( $dry_run_output['content_outline'] ) ) {
-			foreach ( $dry_run_output['content_outline'] as $section ) {
-				$heading = sanitize_text_field( (string) ( is_array( $section ) ? ( $section['heading'] ?? '' ) : $section ) );
-				if ( '' !== $heading ) {
-					$outline_headings[] = strtolower( remove_accents( $heading ) );
-				}
+			$validation = $this->validate_publishable_article_html( (string) $sanitized );
+			if ( (int) ( $validation['h2_count'] ?? 0 ) >= 3 || empty( $dry_run_output['content_outline'] ) ) {
+				return trim( (string) $sanitized );
 			}
+			$html = wp_strip_all_tags( $sanitized );
 		}
 
-		$lines = preg_split( '/\R+/', wp_strip_all_tags( $html ) );
+		$outline_headings = $this->extract_outline_headings_for_normalization( $dry_run_output );
+		$plain = trim( preg_replace( '/\s+/', ' ', wp_strip_all_tags( $html ) ) );
+		$lines = preg_split( '/\R+/', wp_strip_all_tags( str_replace( array( "\r\n", "\r" ), "\n", (string) $html ) ) );
 		$parts = array();
 		$paragraph = '';
+
 		foreach ( (array) $lines as $line ) {
 			$line = trim( preg_replace( '/\s+/', ' ', (string) $line ) );
 			if ( '' === $line ) {
 				continue;
 			}
-			$line_key = strtolower( remove_accents( rtrim( $line, ':.' ) ) );
-			$is_outline_heading = in_array( $line_key, $outline_headings, true );
-			$is_short_heading = str_word_count( $line ) <= 14 && ! preg_match( '/[.!?]$/', $line );
-			if ( $is_outline_heading || $is_short_heading ) {
+			$is_outline_heading = $this->line_matches_outline_heading( $line, $outline_headings );
+			$is_heuristic_heading = ! $is_outline_heading && str_word_count( $line ) <= 14 && ! preg_match( '/[.!?]$/', $line );
+			if ( $is_outline_heading || $is_heuristic_heading ) {
 				if ( '' !== $paragraph ) {
 					foreach ( $this->split_long_plain_paragraph( $paragraph ) as $piece ) {
 						$parts[] = '<p>' . esc_html( $piece ) . '</p>';
 					}
 					$paragraph = '';
 				}
-				$parts[] = '<h2>' . esc_html( $line ) . '</h2>';
+				$parts[] = '<h2>' . esc_html( $this->canonical_outline_heading( $line, $outline_headings ) ) . '</h2>';
 				continue;
 			}
 			$paragraph .= ( '' === $paragraph ? '' : ' ' ) . $line;
@@ -221,6 +217,76 @@ class Classic_Content_Builder {
 			}
 		}
 
+		$normalized = $this->sanitize_classic_html( implode( "\n", $parts ) );
+		$validation = $this->validate_publishable_article_html( $normalized );
+		if ( (int) ( $validation['h2_count'] ?? 0 ) >= 3 || empty( $outline_headings ) ) {
+			return $normalized;
+		}
+
+		return $this->rebuild_plain_text_with_outline( $plain, $outline_headings, $dry_run_output );
+	}
+
+	/**
+	 * Extract normalized outline headings and preserve canonical labels.
+	 *
+	 * @param array<string,mixed> $dry_run_output Dry-run data.
+	 * @return array<int,array{heading:string,key:string}>
+	 */
+	private function extract_outline_headings_for_normalization( $dry_run_output ) {
+		$headings = array();
+		if ( empty( $dry_run_output['content_outline'] ) || ! is_array( $dry_run_output['content_outline'] ) ) {
+			return $headings;
+		}
+		foreach ( $dry_run_output['content_outline'] as $section ) {
+			$heading = sanitize_text_field( (string) ( is_array( $section ) ? ( $section['heading'] ?? '' ) : $section ) );
+			if ( '' !== $heading ) {
+				$headings[] = array( 'heading' => $heading, 'key' => $this->normalize_heading_key( $heading ) );
+			}
+		}
+		return $headings;
+	}
+
+	private function normalize_heading_key( $heading ) {
+		return strtolower( remove_accents( trim( preg_replace( '/\s+/', ' ', rtrim( wp_strip_all_tags( (string) $heading ), ':.' ) ) ) ) );
+	}
+
+	private function line_matches_outline_heading( $line, $outline_headings ) {
+		$key = $this->normalize_heading_key( $line );
+		foreach ( $outline_headings as $heading ) {
+			if ( $key === $heading['key'] ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private function canonical_outline_heading( $line, $outline_headings ) {
+		$key = $this->normalize_heading_key( $line );
+		foreach ( $outline_headings as $heading ) {
+			if ( $key === $heading['key'] ) {
+				return $heading['heading'];
+			}
+		}
+		return $line;
+	}
+
+	private function rebuild_plain_text_with_outline( $plain, $outline_headings, $dry_run_output ) {
+		$paragraphs = $this->split_long_plain_paragraph( $plain );
+		if ( empty( $paragraphs ) ) {
+			$paragraphs = array( $this->clean_reader_excerpt( (string) ( $dry_run_output['excerpt'] ?? '' ), (string) ( $dry_run_output['title'] ?? '' ), $dry_run_output ) );
+		}
+		$chunks = array_chunk( $paragraphs, max( 1, (int) ceil( count( $paragraphs ) / max( 1, count( $outline_headings ) ) ) ) );
+		$parts = array();
+		foreach ( $outline_headings as $index => $heading ) {
+			$parts[] = '<h2>' . esc_html( $heading['heading'] ) . '</h2>';
+			$section_paragraphs = $chunks[ $index ] ?? array();
+			if ( empty( $section_paragraphs ) ) {
+				$section_paragraphs = $this->expand_summary_to_reader_paragraphs( $heading['heading'], '', $dry_run_output );
+			}
+			foreach ( $section_paragraphs as $paragraph ) {
+				$parts[] = '<p>' . esc_html( $paragraph ) . '</p>';
+			}
+		}
 		return $this->sanitize_classic_html( implode( "\n", $parts ) );
 	}
 
