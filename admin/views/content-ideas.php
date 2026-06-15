@@ -199,9 +199,11 @@ $render_list = static function ( $items ) {
 						<td><?php echo esc_html( $language_labels[ $idea->language ] ?? (string) $idea->language ); ?></td>
 						<td>
 							<?php $atype_id = absint( $idea->article_type_id ?? 0 ); ?>
-							<?php if ( $atype_id > 0 ) : ?>
+							<?php $atype_valid = wpai_publisher_is_active_article_type_safe( $atype_id ); ?>
+							<?php if ( $atype_valid ) : ?>
 								<?php echo esc_html( get_the_title( $atype_id ) ); ?>
 							<?php else : ?>
+								<p class="description"><?php echo esc_html( $atype_id > 0 ? __( 'Tipologia non valida/inattiva', 'wp-ai-publisher' ) : __( 'Non assegnata', 'wp-ai-publisher' ) ); ?></p>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 									<input type="hidden" name="action" value="wpai_publisher_assign_article_type_to_idea" />
 									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
@@ -241,7 +243,7 @@ $render_list = static function ( $items ) {
 							?>
 							<?php if ( $draft_exists && $draft_edit_url ) : ?>
 								<a class="button button-primary button-small" href="<?php echo esc_url( $draft_edit_url ); ?>"><?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
-							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed' ), true ) && absint( $idea->article_type_id ?? 0 ) > 0 ) : ?>
+							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed' ), true ) && wpai_publisher_is_active_article_type_safe( absint( $idea->article_type_id ?? 0 ) ) ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
 									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />

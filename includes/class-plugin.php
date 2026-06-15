@@ -133,9 +133,6 @@ final class Plugin {
 			$this->db->create_tables();
 			$this->db->set_schema_version( WPAIP_DB_SCHEMA_VERSION );
 			update_option( 'wpai_publisher_version', WPAIP_VERSION, false );
-			if ( class_exists( __NAMESPACE__ . '\Article_Types' ) && method_exists( __NAMESPACE__ . '\Article_Types', 'maybe_create_defaults' ) ) {
-				Article_Types::maybe_create_defaults();
-			}
 		}
 	}
 

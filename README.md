@@ -1,8 +1,28 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.1**
+Versione corrente: **0.5.2**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
+
+## Hotfix 0.5.2 e recovery
+
+La versione **0.5.2** è una hotfix di recupero per siti che possono mostrare “Si è verificato un errore critico in questo sito” dopo un aggiornamento 0.5.x incompleto. La causa più probabile è l’esecuzione troppo precoce della creazione delle Tipologie articolo default durante il bootstrap, prima che classe, CPT o migrazione `article_type_id` siano disponibili in modo sicuro.
+
+### Recupero sito dopo fatal error
+
+1. Rinominare via FTP/SFTP la cartella `wp-ai-publisher` in `wp-ai-publisher-disabled`.
+2. Accedere a `wp-admin` e verificare che il sito torni operativo.
+3. Installare la hotfix 0.5.2 caricando la nuova cartella/ZIP del plugin.
+4. Riattivare WP AI Publisher.
+5. Aprire **WP AI Publisher > Stato sistema** e controllare classe `Article_Types`, CPT, colonna `article_type_id`, tipologie attive e idee da riassegnare.
+6. Aprire **Idee contenuto** e assegnare una Tipologia articolo attiva alle idee migrate, senza cancellare `dry_run_output` e senza cambiare stato idea.
+
+### Cosa controllare dopo update
+
+- Lo schema database deve restare alla versione `5`.
+- Le Tipologie articolo default vengono create solo in admin sicuro, dopo registrazione CPT, e mai durante bootstrap DB.
+- Idee con tipologia cancellata, cestinata, inattiva o inesistente mostrano il form **Assegna tipologia**.
+- Se una Tipologia articolo non contiene categorie consentite, WP AI Publisher non assegna categorie suggerite dall’AI e lascia a WordPress l’eventuale categoria predefinita.
 
 ## Workflow idea → bozza
 

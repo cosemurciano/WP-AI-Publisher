@@ -59,7 +59,7 @@ class Draft_Creator {
 			return new WP_Error( 'wpai_draft_creator_not_approved', __( 'Non puoi creare una bozza da un dry-run non approvato.', 'wp-ai-publisher' ) );
 		}
 		$article_type_id = absint( $idea->article_type_id ?? 0 );
-		if ( 0 === $article_type_id || ! class_exists( __NAMESPACE__ . '\Article_Types' ) || ! Article_Types::is_active_article_type( $article_type_id ) ) {
+		if ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
 			return new WP_Error( 'wpai_draft_creator_missing_article_type', __( 'Assegna una Tipologia articolo prima di generare la bozza.', 'wp-ai-publisher' ) );
 		}
 
@@ -98,7 +98,7 @@ class Draft_Creator {
 			}
 		}
 
-		$article_type = isset( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : Article_Types::get_article_type_config( $article_type_id );
+		$article_type = isset( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : wpai_publisher_get_article_type_config_safe( $article_type_id );
 		$dry_run['article_type'] = $article_type;
 		$builder = new Classic_Content_Builder( null, $article_type );
 		$original_full_article_html = (string) $dry_run['full_article']['html'];
@@ -272,6 +272,10 @@ class Draft_Creator {
 			$existing = term_exists( $name, $taxonomy );
 			if ( is_array( $existing ) && ! empty( $existing['term_id'] ) ) {
 				$ids[] = absint( $existing['term_id'] );
+				continue;
+			}
+			if ( 'category' === $taxonomy ) {
+				$this->logger->warning( __( 'Creazione categoria da AI bloccata.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'taxonomy' => $taxonomy, 'term' => $name ) );
 				continue;
 			}
 			$created = wp_insert_term( $name, $taxonomy );

@@ -91,7 +91,7 @@ class Content_Ideas {
 			return new WP_Error( 'wpai_content_idea_invalid_language', __( 'Lingua non valida.', 'wp-ai-publisher' ) );
 		}
 
-		if ( 0 === $article_type_id || ! class_exists( __NAMESPACE__ . '\Article_Types' ) || ! Article_Types::is_active_article_type( $article_type_id ) ) {
+		if ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
 			return new WP_Error( 'wpai_content_idea_invalid_article_type', __( 'Seleziona una Tipologia articolo attiva.', 'wp-ai-publisher' ) );
 		}
 		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) {
@@ -185,7 +185,8 @@ class Content_Ideas {
 		if ( 0 === $idea_id || 0 === $article_type_id ) {
 			return false;
 		}
-		if ( ! class_exists( __NAMESPACE__ . '\Article_Types' ) || ! Article_Types::is_active_article_type( $article_type_id ) ) {
+		if ( ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
+			$this->logger->warning( __( 'Assegnazione tipologia rifiutata: tipologia non attiva o non disponibile.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'article_type_id' => $article_type_id ) );
 			return false;
 		}
 		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) {
@@ -297,7 +298,7 @@ class Content_Ideas {
 			return new WP_Error( 'wpai_full_article_invalid_dry_run', __( 'Dry-run non decodificabile.', 'wp-ai-publisher' ) );
 		}
 		$article_type_id = absint( $idea->article_type_id ?? 0 );
-		$article_type = ! empty( $output['article_type'] ) && is_array( $output['article_type'] ) ? $output['article_type'] : ( class_exists( __NAMESPACE__ . '\Article_Types' ) && $article_type_id > 0 ? Article_Types::get_article_type_config( $article_type_id ) : array() );
+		$article_type = ! empty( $output['article_type'] ) && is_array( $output['article_type'] ) ? $output['article_type'] : ( wpai_publisher_get_article_type_config_safe( $article_type_id ) );
 		$builder = new Classic_Content_Builder( null, $article_type );
 		$full_article['html'] = $builder->normalize_full_article_html( (string) ( $full_article['html'] ?? '' ), $output );
 		$validation = $builder->validate_publishable_article_html( (string) ( $full_article['html'] ?? '' ) );
@@ -332,7 +333,7 @@ class Content_Ideas {
 		if ( ! is_array( $dry_run ) ) {
 			return new WP_Error( 'wpai_full_article_missing_dry_run', __( 'Dry-run assente.', 'wp-ai-publisher' ) );
 		}
-		$article_type = ! empty( $dry_run['article_type']['id'] ) ? $dry_run['article_type'] : ( ! empty( $idea->article_type_id ) ? Article_Types::get_article_type_config( absint( $idea->article_type_id ) ) : array() );
+		$article_type = ! empty( $dry_run['article_type']['id'] ) ? $dry_run['article_type'] : ( ! empty( $idea->article_type_id ) ? wpai_publisher_get_article_type_config_safe( absint( $idea->article_type_id ) ) : array() );
 		$full_article = $this->ai_provider->generate_full_classic_article( $dry_run, wpai_publisher_get_site_context(), $article_type );
 		if ( is_wp_error( $full_article ) ) {
 			$this->logger->warning( __( 'Generazione articolo completo fallita.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => (int) $id, 'step' => 'full_article_failed', 'error_code' => $full_article->get_error_code(), 'message' => $full_article->get_error_message() ) );
@@ -362,10 +363,10 @@ class Content_Ideas {
 		$legacy_audience  = sanitize_text_field( (string) ( $idea->target_audience ?? '' ) );
 		$target_audience  = '' !== $target_audience ? $target_audience : $legacy_audience;
 		$article_type_id = absint( $idea->article_type_id ?? 0 );
-		if ( 0 === $article_type_id || ! class_exists( __NAMESPACE__ . '\Article_Types' ) || ! Article_Types::is_active_article_type( $article_type_id ) ) {
+		if ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
 			return new WP_Error( 'wpai_content_idea_missing_article_type', __( 'Assegna una Tipologia articolo attiva prima di generare la bozza.', 'wp-ai-publisher' ) );
 		}
-		$article_type = Article_Types::get_article_type_config( $article_type_id );
+		$article_type = wpai_publisher_get_article_type_config_safe( $article_type_id );
 
 		$payload = array(
 			'task'                 => 'structured_content_dry_run',
@@ -489,7 +490,7 @@ class Content_Ideas {
 		$idea_id = absint( $idea_id );
 		$idea = $this->get_idea( $idea_id );
 		$article_type_id = $idea ? absint( $idea->article_type_id ?? 0 ) : 0;
-		if ( ! $idea || 0 === $article_type_id || ! class_exists( __NAMESPACE__ . '\Article_Types' ) || ! Article_Types::is_active_article_type( $article_type_id ) ) {
+		if ( ! $idea || 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
 			return array( 'success' => false, 'idea_id' => $idea_id, 'post_id' => 0, 'status' => $idea ? sanitize_key( (string) ( $idea->status ?? 'new' ) ) : 'new', 'step_failed' => 'article_type', 'message' => __( 'Assegna una Tipologia articolo prima di generare la bozza.', 'wp-ai-publisher' ) );
 		}
 		$this->update_idea_status( $idea_id, 'processing' );
@@ -515,7 +516,7 @@ class Content_Ideas {
 		$idea = $this->get_idea( $idea_id );
 		$dry_run = $idea && ! empty( $idea->dry_run_output ) ? json_decode( (string) $idea->dry_run_output, true ) : array();
 		if ( is_array( $dry_run ) && ! empty( $dry_run['full_article']['html'] ) ) {
-			$article_type = ! empty( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : ( class_exists( __NAMESPACE__ . '\Article_Types' ) && ! empty( $idea->article_type_id ) ? Article_Types::get_article_type_config( absint( $idea->article_type_id ) ) : array() );
+			$article_type = ! empty( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : ( ! empty( $idea->article_type_id ) ? wpai_publisher_get_article_type_config_safe( absint( $idea->article_type_id ) ) : array() );
 			$builder = new Classic_Content_Builder( null, $article_type );
 			$normalized_html = $builder->normalize_full_article_html( (string) $dry_run['full_article']['html'], $dry_run );
 			$validation = $builder->validate_publishable_article_html( $normalized_html );
