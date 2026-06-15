@@ -383,9 +383,9 @@ class Classic_Content_Builder {
 		return $chunks;
 	}
 
-	private function contains_placeholder_text( $text ) {
+	public function contains_placeholder_text( $text ) {
 		$lower = strtolower( remove_accents( wp_strip_all_tags( (string) $text ) ) );
-		foreach ( array( 'la sezione “', 'la sezione "', 'introduce gli aspetti pratici piu importanti', 'indica cosa controllare', 'aiuta a mantenere il risultato coerente', 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'articolo da completare', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare' ) as $needle ) {
+		foreach ( array( 'la sezione “', 'la sezione "', 'introduce gli aspetti pratici piu importanti', 'indica cosa controllare', 'aiuta a mantenere il risultato coerente', 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'articolo da completare', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'resta dry-run ready', 'da revisionare' ) as $needle ) {
 			if ( false !== strpos( $lower, $needle ) ) {
 				return true;
 			}
@@ -612,6 +612,36 @@ class Classic_Content_Builder {
 		);
 	}
 
+
+	private function extract_html_headings_text( $html ) {
+		$headings = array();
+		if ( preg_match_all( '/<h[2-4]\b[^>]*>(.*?)<\/h[2-4]>/is', (string) $html, $matches ) ) {
+			foreach ( (array) $matches[1] as $heading ) {
+				$heading = trim( wp_strip_all_tags( (string) $heading ) );
+				if ( '' !== $heading ) { $headings[] = $heading; }
+			}
+		}
+		return $headings;
+	}
+
+	private function matches_required_section_flexibly( $required_section, $plain, $headings ) {
+		$required_key = $this->normalize_heading_key( $required_section );
+		if ( '' === $required_key ) { return true; }
+		$plain_key = $this->normalize_heading_key( $plain );
+		if ( false !== strpos( $plain_key, $required_key ) ) { return true; }
+		$required_tokens = array_values( array_filter( preg_split( '/\s+/', $required_key ) ) );
+		foreach ( (array) $headings as $heading ) {
+			$heading_key = $this->normalize_heading_key( $heading );
+			if ( $heading_key === $required_key || false !== strpos( $heading_key, $required_key ) || false !== strpos( $required_key, $heading_key ) ) { return true; }
+			$matched = 0;
+			foreach ( $required_tokens as $token ) {
+				if ( strlen( $token ) >= 3 && false !== strpos( $heading_key, $token ) ) { $matched++; }
+			}
+			if ( $matched >= max( 1, min( count( $required_tokens ), 2 ) ) ) { return true; }
+		}
+		return false;
+	}
+
 	/**
 	 * Validate final Classic Editor article HTML before draft creation.
 	 *
@@ -706,7 +736,7 @@ class Classic_Content_Builder {
 		$heading = sanitize_text_field( (string) $heading );
 		$topic   = sanitize_text_field( (string) ( $dry_run_output['title'] ?? $dry_run_output['subtopic'] ?? $dry_run_output['cluster_topic'] ?? $heading ) );
 		$lower   = strtolower( remove_accents( $summary ) );
-		$blocked = array( 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'articolo da completare', 'senza pubblicare contenuti', 'utile per validare flusso' );
+		$blocked = array( 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'resta dry-run ready', 'da revisionare', 'articolo da completare', 'senza pubblicare contenuti', 'utile per validare flusso' );
 		$must_rewrite = '' === $summary || $this->is_editorial_instruction_sentence( $summary );
 		foreach ( $blocked as $needle ) {
 			if ( false !== strpos( $lower, $needle ) ) {
@@ -944,7 +974,7 @@ class Classic_Content_Builder {
 	 */
 	private function looks_like_placeholder_summary( $summary ) {
 		$summary = strtolower( remove_accents( (string) $summary ) );
-		foreach ( array( 'descrivere in modo pratico', 'descrivere in modo verificabile', 'descrivere il passaggio', 'nel contesto di', 'evitando dettagli tecnici non confermati', 'passaggio “', 'passaggio "', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'articolo da completare' ) as $needle ) {
+		foreach ( array( 'descrivere in modo pratico', 'descrivere in modo verificabile', 'descrivere il passaggio', 'nel contesto di', 'evitando dettagli tecnici non confermati', 'passaggio “', 'passaggio "', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'resta dry-run ready', 'da revisionare', 'articolo da completare' ) as $needle ) {
 			if ( false !== strpos( $summary, $needle ) ) {
 				return true;
 			}
