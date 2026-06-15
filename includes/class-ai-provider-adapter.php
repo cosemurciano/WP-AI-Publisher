@@ -195,7 +195,7 @@ class AI_Provider_Adapter {
 	public function get_selected_text_model() {
 		$settings = wpai_publisher_get_settings();
 
-		return isset( $settings['default_text_model'] ) ? sanitize_text_field( (string) $settings['default_text_model'] ) : '';
+		return isset( $settings['ai_model'] ) ? sanitize_text_field( (string) $settings['ai_model'] ) : '';
 	}
 
 	/**

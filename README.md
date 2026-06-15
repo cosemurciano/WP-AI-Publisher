@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.25**
+Versione corrente: **0.5.26**
+
+## Pulizia configurazione 0.5.26
+
+Rimosse impostazioni legacy mai usate (limiti di costo giornaliero/mensile, `default_text_model`, `ai_provider_preference`) e alleggerita la pagina **Impostazioni**. La scelta del modello AI resta in **Impostazioni → Parametri AI → “Modello AI”**.
 
 ## Immagine in evidenza con l'AI 0.5.25
 

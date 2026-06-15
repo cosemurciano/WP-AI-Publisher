@@ -47,12 +47,8 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 	 */
 	function wpai_publisher_default_settings() {
 		return array(
-			'ai_provider_preference'        => 'wordpress_ai_client_only',
-			'default_text_model'            => '',
 			'enable_logging'                => true,
 			'log_retention_days'            => 30,
-			'monthly_cost_limit'            => '',
-			'daily_cost_limit'              => '',
 			'safe_ai_ability_names'         => '',
 			'allow_unverified_ai_abilities' => false,
 			'auto_create_draft_from_idea'   => true,
@@ -98,9 +94,8 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings = is_array( $settings ) ? $settings : array();
 		$settings = wp_parse_args( $settings, wpai_publisher_default_settings() );
 
-		// Migrazione leggera: da 0.3.5 il plugin usa solo il sistema AI di WordPress.
-		$settings['ai_provider_preference'] = 'wordpress_ai_client_only';
-		unset( $settings['fallback_to_openai_direct'], $settings['default_image_model'] );
+		// Legacy keys non più usate (provider fisso al sistema AI di WordPress, modelli/limiti costo legacy).
+		unset( $settings['fallback_to_openai_direct'], $settings['default_image_model'], $settings['ai_provider_preference'], $settings['default_text_model'], $settings['monthly_cost_limit'], $settings['daily_cost_limit'] );
 
 		$defaults                                  = wpai_publisher_default_settings();
 		$settings['site_context']                  = wpai_publisher_normalize_site_context( $settings['site_context'] ?? array() );
