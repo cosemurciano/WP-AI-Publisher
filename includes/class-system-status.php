@@ -66,8 +66,8 @@ class System_Status {
 	public function get_status_items() {
 		return array(
 			$this->plugin_version_item(),
-			$this->row( 'wordpress_version', __( 'Versione WordPress', 'wp-ai-publisher' ), 'ok', (string) get_bloginfo( 'version' ), '' ),
-			$this->row( 'php_version', __( 'Versione PHP', 'wp-ai-publisher' ), version_compare( PHP_VERSION, '8.0', '>=' ) ? 'ok' : 'warning', PHP_VERSION, version_compare( PHP_VERSION, '8.0', '>=' ) ? '' : __( 'Aggiorna PHP alla versione 8.0 o superiore.', 'wp-ai-publisher' ) ),
+			$this->wordpress_version_item(),
+			$this->php_version_item(),
 			$this->openai_settings_item(),
 			$this->wordpress_ai_item(),
 			$this->aioseo_item(),
@@ -110,6 +110,62 @@ class System_Status {
 		}
 
 		return $this->row( 'plugin_version', __( 'Versione plugin', 'wp-ai-publisher' ), '' !== $version ? 'ok' : 'warning', '' !== $version ? $version : __( 'Mancante', 'wp-ai-publisher' ), '' !== $version ? '' : __( 'Verifica l’header Version del file principale del plugin.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Check current WordPress version against the plugin requirement.
+	 *
+	 * @return array<string,string>
+	 */
+	private function wordpress_version_item() {
+		$current_version  = (string) get_bloginfo( 'version' );
+		$required_version = defined( 'WPAIP_MIN_WP_VERSION' ) ? (string) WPAIP_MIN_WP_VERSION : '7.0';
+		$meets_requirement = '' !== $current_version && version_compare( $current_version, $required_version, '>=' );
+
+		return $this->row(
+			'wordpress_version',
+			__( 'Versione WordPress', 'wp-ai-publisher' ),
+			$meets_requirement ? 'ok' : 'warning',
+			sprintf(
+				/* translators: 1: Current WordPress version, 2: Required WordPress version. */
+				__( '%1$s (richiesto: %2$s o superiore)', 'wp-ai-publisher' ),
+				$current_version,
+				$required_version
+			),
+			$meets_requirement ? '' : sprintf(
+				/* translators: %s: Required WordPress version. */
+				__( 'Aggiorna WordPress alla versione %s o superiore.', 'wp-ai-publisher' ),
+				$required_version
+			)
+		);
+	}
+
+	/**
+	 * Check current PHP version against the plugin requirement.
+	 *
+	 * @return array<string,string>
+	 */
+	private function php_version_item() {
+		$current_version  = PHP_VERSION;
+		$required_version = defined( 'WPAIP_MIN_PHP_VERSION' ) ? (string) WPAIP_MIN_PHP_VERSION : '8.1';
+		$meets_requirement = version_compare( $current_version, $required_version, '>=' );
+
+		return $this->row(
+			'php_version',
+			__( 'Versione PHP', 'wp-ai-publisher' ),
+			$meets_requirement ? 'ok' : 'warning',
+			sprintf(
+				/* translators: 1: Current PHP version, 2: Required PHP version. */
+				__( '%1$s (richiesto: %2$s o superiore)', 'wp-ai-publisher' ),
+				$current_version,
+				$required_version
+			),
+			$meets_requirement ? '' : sprintf(
+				/* translators: %s: Required PHP version. */
+				__( 'Aggiorna PHP alla versione %s o superiore.', 'wp-ai-publisher' ),
+				$required_version
+			)
+		);
 	}
 
 	/**
@@ -162,14 +218,77 @@ class System_Status {
 	}
 
 	/**
-	 * Check main WordPress database object and posts table name.
+	 * Check the WordPress database connection and required plugin tables.
 	 *
 	 * @return array<string,string>
 	 */
 	private function main_database_item() {
 		global $wpdb;
-		$ok = is_object( $wpdb ) && ! empty( $wpdb->posts );
-		return $this->row( 'main_database', __( 'Database WordPress principale', 'wp-ai-publisher' ), $ok ? 'ok' : 'error', $ok ? __( 'OK', 'wp-ai-publisher' ) . ' — ' . (string) $wpdb->posts : __( 'Errore', 'wp-ai-publisher' ), $ok ? '' : __( 'Verifica la connessione database di WordPress.', 'wp-ai-publisher' ) );
+
+		if ( ! is_object( $wpdb ) || empty( $wpdb->posts ) || ! method_exists( $wpdb, 'get_var' ) || ! method_exists( $wpdb, 'prepare' ) ) {
+			return $this->row( 'main_database', __( 'Database WordPress principale', 'wp-ai-publisher' ), 'error', __( 'Database WordPress non disponibile', 'wp-ai-publisher' ), __( 'Verifica la connessione database di WordPress.', 'wp-ai-publisher' ) );
+		}
+
+		$posts_table = (string) $wpdb->posts;
+		$core_found  = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $posts_table ) );
+		if ( $core_found !== $posts_table ) {
+			return $this->row( 'main_database', __( 'Database WordPress principale', 'wp-ai-publisher' ), 'error', __( 'Tabella posts WordPress non trovata', 'wp-ai-publisher' ), __( 'Verifica la connessione database di WordPress.', 'wp-ai-publisher' ) );
+		}
+
+		$required_tables = $this->get_required_plugin_table_names();
+		$missing_tables  = array();
+
+		if ( method_exists( $this->db, 'check_tables' ) ) {
+			$table_checks = $this->db->check_tables();
+			$table_map    = array(
+				'logs'          => $required_tables[0],
+				'jobs'          => $required_tables[1],
+				'content_ideas' => $required_tables[2],
+			);
+
+			foreach ( $table_map as $check_key => $table_name ) {
+				if ( empty( $table_checks[ $check_key ] ) ) {
+					$missing_tables[] = $table_name;
+				}
+			}
+		} else {
+			foreach ( $required_tables as $table_name ) {
+				$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
+				if ( $found !== $table_name ) {
+					$missing_tables[] = $table_name;
+				}
+			}
+		}
+
+		if ( ! empty( $missing_tables ) ) {
+			return $this->row( 'main_database', __( 'Database WordPress principale', 'wp-ai-publisher' ), 'error', sprintf( __( 'Tabelle plugin mancanti: %s', 'wp-ai-publisher' ), implode( ', ', $missing_tables ) ), __( 'Disattiva e riattiva il plugin oppure esegui lo strumento di migrazione/riparazione database del plugin, se disponibile.', 'wp-ai-publisher' ) );
+		}
+
+		return $this->row( 'main_database', __( 'Database WordPress principale', 'wp-ai-publisher' ), 'ok', __( 'Database WordPress OK; tutte le tabelle plugin richieste sono presenti.', 'wp-ai-publisher' ), '' );
+	}
+
+	/**
+	 * Return the required plugin table names using the active site prefix.
+	 *
+	 * @return array<int,string>
+	 */
+	private function get_required_plugin_table_names() {
+		global $wpdb;
+
+		if ( method_exists( $this->db, 'get_logs_table_name' ) && method_exists( $this->db, 'get_jobs_table_name' ) && method_exists( $this->db, 'get_content_ideas_table_name' ) ) {
+			return array(
+				(string) $this->db->get_logs_table_name(),
+				(string) $this->db->get_jobs_table_name(),
+				(string) $this->db->get_content_ideas_table_name(),
+			);
+		}
+
+		$prefix = is_object( $wpdb ) && isset( $wpdb->prefix ) ? (string) $wpdb->prefix : '';
+		return array(
+			$prefix . 'wpai_publisher_logs',
+			$prefix . 'wpai_publisher_jobs',
+			$prefix . 'wpai_publisher_content_ideas',
+		);
 	}
 
 	/**
