@@ -199,7 +199,7 @@ class System_Status {
 	 */
 	private function wordpress_version_item() {
 		$current_version  = (string) get_bloginfo( 'version' );
-		$required_version = defined( 'WPAIP_MIN_WP_VERSION' ) ? (string) WPAIP_MIN_WP_VERSION : '7.0';
+		$required_version = defined( 'WPAIP_MIN_WP_VERSION' ) ? (string) WPAIP_MIN_WP_VERSION : '6.5';
 		$meets_requirement = '' !== $current_version && version_compare( $current_version, $required_version, '>=' );
 
 		return $this->row(

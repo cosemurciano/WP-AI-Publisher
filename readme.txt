@@ -1,10 +1,10 @@
 === WP AI Publisher ===
 Contributors: wp-ai-publisher
 Tags: ai, publishing, admin, drafts, wordpress-ai
-Requires at least: 7.0
-Tested up to: 7.0
+Requires at least: 6.5
+Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.11
+Stable tag: 0.5.13
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.13 =
+* Corretto il requisito minimo di WordPress: da 7.0 (versione inesistente che bloccava l’attivazione su qualsiasi sito) a 6.5, allineato in header plugin, readme, Stato sistema e Bacheca.
+* Allineate le versioni di plugin, readme.txt e README.md.
+* Reso atomico il claim dei job in coda per evitare doppia elaborazione e bozze duplicate quando WP-Cron e l’esecuzione manuale si sovrappongono.
 
 = 0.5.7 =
 * Semplificata la pagina Impostazioni: il contesto globale non duplica più tono, tag e categorie delle Tipologie Articolo.

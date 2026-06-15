@@ -139,29 +139,57 @@ class Job_Queue {
 
 	public function claim_job( $job_id, $timeout_minutes = 15 ) {
 		global $wpdb;
-		$job = $this->get_job( $job_id );
-		if ( ! $job ) {
+
+		$job_id = absint( $job_id );
+		if ( 0 === $job_id ) {
 			return false;
 		}
-		$status = sanitize_key( (string) $job->status );
-		if ( 'completed' === $status || 'failed' === $status || 'cancelled' === $status || 'timeout' === $status ) {
-			return false;
-		}
-		if ( 'running' === $status && ! $this->is_job_stale( $job, $timeout_minutes ) ) {
-			return false;
-		}
-		$attempts = absint( $job->attempts ) + 1;
-		if ( $attempts > max( 1, absint( $job->max_attempts ) ) ) {
-			$this->fail_job( $job_id, __( 'Numero massimo di tentativi superato.', 'wp-ai-publisher' ), array( 'error_code' => 'max_attempts_exceeded', 'step_failed' => 'queue' ) );
-			return false;
-		}
-		return false !== $wpdb->update(
-			$this->db->get_jobs_table_name(),
-			array( 'status' => 'running', 'attempts' => $attempts, 'started_at' => current_time( 'mysql' ), 'finished_at' => null, 'error_message' => null ),
-			array( 'id' => absint( $job_id ) ),
-			array( '%s', '%d', '%s', '%s', '%s' ),
-			array( '%d' )
+
+		$table           = $this->db->get_jobs_table_name();
+		$now             = current_time( 'mysql' );
+		$timeout_seconds = max( 60, absint( $timeout_minutes ) * MINUTE_IN_SECONDS );
+		$stale_cutoff    = gmdate( 'Y-m-d H:i:s', strtotime( $now ) - $timeout_seconds );
+
+		// Atomic claim: only a single concurrent worker (WP-Cron or manual "Esegui ora")
+		// can flip a claimable job to running. A job is claimable when it is pending,
+		// or it is running but stale, and it still has attempts left. Conditioning the
+		// UPDATE on the current status closes the read-then-update race that previously
+		// allowed two workers to process the same job and create duplicate drafts.
+		$claimed = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table}
+				SET status = 'running', attempts = attempts + 1, started_at = %s, finished_at = NULL, error_message = NULL
+				WHERE id = %d
+					AND attempts < GREATEST( 1, max_attempts )
+					AND (
+						status = 'pending'
+						OR ( status = 'running' AND started_at IS NOT NULL AND started_at < %s )
+					)",
+				$now,
+				$job_id,
+				$stale_cutoff
+			)
 		);
+
+		if ( 1 === (int) $claimed ) {
+			return true;
+		}
+
+		if ( false === $claimed ) {
+			return false;
+		}
+
+		// Not claimed: if the job is still open but has exhausted its attempts, fail it
+		// so the queue does not keep a dead job pending forever.
+		$job = $this->get_job( $job_id );
+		if ( $job
+			&& in_array( sanitize_key( (string) $job->status ), array( 'pending', 'running' ), true )
+			&& absint( $job->attempts ) >= max( 1, absint( $job->max_attempts ) )
+		) {
+			$this->fail_job( $job_id, __( 'Numero massimo di tentativi superato.', 'wp-ai-publisher' ), array( 'error_code' => 'max_attempts_exceeded', 'step_failed' => 'queue' ) );
+		}
+
+		return false;
 	}
 
 	public function complete_job( $job_id, $output = array(), $post_id = 0 ) {
