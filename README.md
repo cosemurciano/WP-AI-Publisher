@@ -1,6 +1,12 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.23**
+Versione corrente: **0.5.24**
+
+## UI/UX 0.5.24 — Tipologie articolo e Idee contenuto
+
+**Tipologie articolo**: il form è stato semplificato in un **unico “Prompt principale”** (tono, struttura, lunghezza, regole e sezioni si descrivono qui in testo libero) più una **textarea dedicata “Prompt immagini”** (nuova colonna database `image_prompt`, schema 8) per la futura generazione delle immagini. La lista mostra Nome, Attiva, Prompt, Immagini e Categorie.
+
+**Idee contenuto**: aggiunto il pulsante **Elimina** per la singola idea (la bozza collegata non viene rimossa), testi e avvisi ridondanti rimossi, e la sezione risultato è ora **“Risultato generazione”** senza i blocchi di debug non più necessari.
 
 ## Parametri AI configurabili 0.5.23
 

@@ -70,7 +70,7 @@ class Article_Type_Repository {
 		$row = (array) $row;
 		$decoded = json_decode( (string) ( $row['allowed_category_ids'] ?? '' ), true );
 		$row['allowed_category_ids'] = array_values( array_filter( array_map( 'absint', is_array( $decoded ) ? $decoded : preg_split( '/[\r\n,]+/', (string) ( $row['allowed_category_ids'] ?? '' ) ) ) ) );
-		foreach ( array( 'description', 'tone', 'length', 'search_intent', 'reader_level', 'prompt', 'structure', 'required_sections', 'forbidden_patterns', 'preferred_tags', 'quality_checklist' ) as $field ) {
+		foreach ( array( 'description', 'tone', 'length', 'search_intent', 'reader_level', 'prompt', 'image_prompt', 'structure', 'required_sections', 'forbidden_patterns', 'preferred_tags', 'quality_checklist' ) as $field ) {
 			$row[ $field ] = (string) ( $row[ $field ] ?? '' );
 		}
 		$row['id'] = absint( $row['id'] ?? 0 );
@@ -90,6 +90,7 @@ class Article_Type_Repository {
 			'name' => sanitize_text_field( (string) ( $data['name'] ?? '' ) ),
 			'description' => sanitize_textarea_field( (string) ( $data['description'] ?? '' ) ),
 			'prompt' => sanitize_textarea_field( (string) ( $data['prompt'] ?? '' ) ),
+			'image_prompt' => sanitize_textarea_field( (string) ( $data['image_prompt'] ?? '' ) ),
 			'structure' => sanitize_textarea_field( (string) ( $data['structure'] ?? '' ) ),
 			'required_sections' => sanitize_textarea_field( (string) ( $data['required_sections'] ?? '' ) ),
 			'forbidden_patterns' => sanitize_textarea_field( (string) ( $data['forbidden_patterns'] ?? '' ) ),
@@ -129,6 +130,7 @@ class Article_Type_Repository {
 			'search_intent' => '%s',
 			'reader_level' => '%s',
 			'prompt' => '%s',
+			'image_prompt' => '%s',
 			'structure' => '%s',
 			'required_sections' => '%s',
 			'forbidden_patterns' => '%s',

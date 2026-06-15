@@ -34,6 +34,8 @@ $notices    = array(
 	'missing_article_type'      => array( 'warning', __( 'Assegna una Tipologia articolo prima di generare la bozza.', 'wp-ai-publisher' ) ),
 	'article_type_assigned'     => array( 'success', __( 'Tipologia articolo assegnata.', 'wp-ai-publisher' ) ),
 	'article_type_assign_failed' => array( 'error', __( 'Impossibile assegnare la tipologia articolo.', 'wp-ai-publisher' ) ),
+	'idea_deleted'              => array( 'success', __( 'Idea contenuto eliminata.', 'wp-ai-publisher' ) ),
+	'idea_delete_failed'        => array( 'error', __( 'Impossibile eliminare l’idea contenuto.', 'wp-ai-publisher' ) ),
 );
 
 $language_labels = array(
@@ -82,7 +84,7 @@ $render_list = static function ( $items ) {
 ?>
 <div class="wrap wpai-admin">
 	<h1><?php echo esc_html__( 'Idee contenuto', 'wp-ai-publisher' ); ?></h1>
-	<p class="wpai-lead"><?php echo esc_html__( 'Crea e testa idee editoriali prima di trasformarle in bozze WordPress. In questa fase il dry-run non pubblica nulla e non modifica contenuti esistenti.', 'wp-ai-publisher' ); ?></p>
+	<p class="wpai-lead"><?php echo esc_html__( 'Inserisci un’idea, scegli la Tipologia articolo e crea la bozza: l’AI genera l’articolo e il plugin lo salva come bozza WordPress (mai pubblicato automaticamente).', 'wp-ai-publisher' ); ?></p>
 
 	<?php if ( isset( $notices[ $notice_key ] ) ) : ?>
 		<div class="notice notice-<?php echo esc_attr( $notices[ $notice_key ][0] ); ?> is-dismissible">
@@ -95,25 +97,6 @@ $render_list = static function ( $items ) {
 
 	<section class="wpai-card">
 		<h2><?php echo esc_html__( 'Nuova idea contenuto', 'wp-ai-publisher' ); ?></h2>
-
-		<div class="notice notice-info inline">
-			<p><?php echo esc_html__( 'Il dry-run userà il Contesto editoriale come quadro generale del sito.', 'wp-ai-publisher' ); ?> <a href="<?php echo esc_url( $settings_context_url ); ?>"><?php echo esc_html__( 'Vai alle impostazioni contesto editoriale', 'wp-ai-publisher' ); ?></a></p>
-			<p><?php echo esc_html__( 'Il pubblico target viene letto dal Contesto editoriale del sito configurato in Impostazioni.', 'wp-ai-publisher' ); ?></p>
-		</div>
-		<?php if ( '' !== $default_audience ) : ?>
-			<div class="notice notice-info inline">
-				<p><?php echo esc_html( sprintf( __( 'Pubblico target attuale: %s', 'wp-ai-publisher' ), $default_audience ) ); ?></p>
-			</div>
-		<?php else : ?>
-			<div class="notice notice-warning inline">
-				<p><?php echo esc_html__( 'Pubblico target non configurato. Il dry-run userà un pubblico generico.', 'wp-ai-publisher' ); ?></p>
-			</div>
-		<?php endif; ?>
-		<?php if ( ! $site_context_configured ) : ?>
-			<div class="notice notice-warning inline">
-				<p><?php echo esc_html__( 'Contesto editoriale non ancora configurato. Il dry-run userà impostazioni generiche.', 'wp-ai-publisher' ); ?></p>
-			</div>
-		<?php endif; ?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="wpai_publisher_create_content_idea" />
 			<?php wp_nonce_field( 'wpai_publisher_create_content_idea' ); ?>
@@ -156,7 +139,7 @@ $render_list = static function ( $items ) {
 				</tbody>
 			</table>
 
-			<?php if ( ! $article_types_enabled ) : ?><div class="notice notice-info inline"><p><?php echo esc_html__( 'Il modulo Tipologie articolo è temporaneamente disabilitato. Il plugin userà il contesto editoriale generale del sito.', 'wp-ai-publisher' ); ?></p></div><?php elseif ( empty( $active_article_types ) ) : ?><div class="notice notice-warning inline"><p><?php echo esc_html__( 'Crea almeno una Tipologia articolo prima di generare bozze.', 'wp-ai-publisher' ); ?> <a href="<?php echo esc_url( $article_types_url ); ?>"><?php echo esc_html__( 'Crea Tipologia articolo', 'wp-ai-publisher' ); ?></a></p></div><?php endif; ?>
+			<?php if ( $article_types_enabled && empty( $active_article_types ) ) : ?><div class="notice notice-warning inline"><p><?php echo esc_html__( 'Crea almeno una Tipologia articolo prima di generare bozze.', 'wp-ai-publisher' ); ?> <a href="<?php echo esc_url( $article_types_url ); ?>"><?php echo esc_html__( 'Crea Tipologia articolo', 'wp-ai-publisher' ); ?></a></p></div><?php endif; ?>
 			<p class="submit">
 				<button type="submit" name="wpai_creation_mode" value="create_draft" class="button button-primary" <?php disabled( $article_types_enabled && empty( $active_article_types ) ); ?>><?php echo esc_html__( 'Crea bozza', 'wp-ai-publisher' ); ?></button>
 				<button type="submit" name="wpai_creation_mode" value="save_only" class="button"><?php echo esc_html__( 'Salva solo idea', 'wp-ai-publisher' ); ?></button>
@@ -308,6 +291,12 @@ $render_list = static function ( $items ) {
 										<button class="button-link" type="submit"><?php echo esc_html__( 'Esegui dry-run', 'wp-ai-publisher' ); ?></button>
 									</form>
 								<?php endif; ?>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php echo esc_js( __( 'Eliminare questa idea? La bozza eventualmente collegata non verrà eliminata.', 'wp-ai-publisher' ) ); ?>');">
+									<input type="hidden" name="action" value="wpai_publisher_delete_content_idea" />
+									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+									<?php wp_nonce_field( 'wpai_publisher_delete_content_idea_' . $idea_id ); ?>
+									<button class="button-link delete" type="submit"><?php echo esc_html__( 'Elimina', 'wp-ai-publisher' ); ?></button>
+								</form>
 							</div>
 						</td>
 					</tr>
@@ -363,7 +352,7 @@ $render_list = static function ( $items ) {
 		}
 		?>
 		<section class="wpai-card" style="margin-top:20px;">
-			<h2><?php echo esc_html__( 'Risultato dry-run', 'wp-ai-publisher' ); ?> #<?php echo esc_html( (string) $selected_idea->id ); ?></h2>
+			<h2><?php echo esc_html__( 'Risultato generazione', 'wp-ai-publisher' ); ?> #<?php echo esc_html( (string) $selected_idea->id ); ?></h2>
 			<?php $selected_draft_id = absint( $selected_idea->draft_post_id ?? 0 ); ?>
 			<?php if ( $selected_draft_id > 0 && get_post( $selected_draft_id ) ) : ?>
 				<p>
@@ -432,12 +421,6 @@ $render_list = static function ( $items ) {
 				<h3><?php echo esc_html__( 'Meta description', 'wp-ai-publisher' ); ?></h3>
 				<p><?php echo esc_html( (string) ( $dry_run_data['meta_description'] ?? '—' ) ); ?></p>
 
-				<h3><?php echo esc_html__( 'Prompt immagine in evidenza', 'wp-ai-publisher' ); ?></h3>
-				<p><?php echo esc_html( (string) ( $dry_run_data['featured_image_prompt'] ?? '—' ) ); ?></p>
-
-				<h3><?php echo esc_html__( 'Link interni previsti', 'wp-ai-publisher' ); ?></h3>
-				<?php $render_list( $dry_run_data['internal_link_targets'] ?? array() ); ?>
-
 				<h3><?php echo esc_html__( 'Anteprima contenuto per Editor Classico', 'wp-ai-publisher' ); ?></h3>
 				<p>
 					<span class="wpai-badge wpai-badge--ok"><?php echo esc_html__( 'Compatibile con Editor Classico', 'wp-ai-publisher' ); ?></span>
@@ -464,15 +447,6 @@ $render_list = static function ( $items ) {
 					<li><strong><?php echo esc_html__( 'Stato:', 'wp-ai-publisher' ); ?></strong> <span class="<?php echo esc_attr( $full_valid ? 'wpai-badge wpai-badge--ok' : ( '' !== $full_html ? 'wpai-badge wpai-badge--warning' : 'wpai-badge wpai-badge--not-verified' ) ); ?>"><?php echo esc_html( $full_valid ? __( 'generato', 'wp-ai-publisher' ) : ( '' !== $full_html ? __( 'da revisionare', 'wp-ai-publisher' ) : __( 'non generato', 'wp-ai-publisher' ) ) ); ?></span></li>
 					<li><strong><?php echo esc_html__( 'Fonte:', 'wp-ai-publisher' ); ?></strong> <?php echo esc_html( $source_labels[ $full_source ] ?? __( 'Non disponibile', 'wp-ai-publisher' ) ); ?></li>
 					<li><strong><?php echo esc_html__( 'Qualità:', 'wp-ai-publisher' ); ?></strong> <?php echo esc_html( $full_status_message ); ?></li>
-				</ul>
-				<h4><?php echo esc_html__( 'Diagnostica candidato bozza', 'wp-ai-publisher' ); ?></h4>
-				<ul>
-					<li><strong>selected_source:</strong> <?php echo esc_html( (string) ( $full_diagnostics['selected_source'] ?? 'unknown' ) ); ?></li>
-					<li><strong>full_article_present:</strong> <?php echo esc_html( (string) ( $full_diagnostics['full_article_present'] ?? 'no' ) ); ?></li>
-					<li><strong>preview_present:</strong> <?php echo esc_html( (string) ( $full_diagnostics['preview_present'] ?? 'no' ) ); ?></li>
-					<li><strong>preview_rejected_as_placeholder:</strong> <?php echo esc_html( (string) ( $full_diagnostics['preview_rejected_as_placeholder'] ?? 'no' ) ); ?></li>
-					<li><strong>normalization_status:</strong> <?php echo esc_html( (string) ( $full_diagnostics['normalization_status'] ?? 'failure' ) ); ?></li>
-					<li><strong>validation_failed_rule:</strong> <?php echo esc_html( (string) ( $full_diagnostics['validation_failed_rule'] ?? '' ) ); ?></li>
 				</ul>
 				<?php if ( in_array( (string) $selected_idea->status, array( 'dry_run_ready', 'approved' ), true ) ) : ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin: 0 0 1em;">
@@ -507,11 +481,6 @@ $render_list = static function ( $items ) {
 					<div class="notice notice-error inline"><?php $render_list( $blocking_notes ); ?></div>
 				<?php endif; ?>
 
-				<h3><?php echo esc_html__( 'Note di validazione complete', 'wp-ai-publisher' ); ?></h3>
-				<?php $render_list( $notes_data ); ?>
-
-				<h3><?php echo esc_html__( 'JSON grezzo per debug', 'wp-ai-publisher' ); ?></h3>
-				<textarea class="large-text code" rows="12" readonly><?php echo esc_textarea( wp_json_encode( $dry_run_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) ); ?></textarea>
 			</details>
 		</section>
 	<?php endif; ?>

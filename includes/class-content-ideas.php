@@ -787,6 +787,21 @@ class Content_Ideas {
 	}
 
 	/**
+	 * Delete a single content idea. The linked draft post (if any) is kept.
+	 *
+	 * @param int $id Idea ID.
+	 * @return bool
+	 */
+	public function delete_idea( $id ) {
+		global $wpdb;
+		$id = absint( $id );
+		if ( 0 === $id ) {
+			return false;
+		}
+		return false !== $wpdb->delete( $this->get_table_name(), array( 'id' => $id ), array( '%d' ) );
+	}
+
+	/**
 	 * Count ideas by status.
 	 *
 	 * @return array<string,int>

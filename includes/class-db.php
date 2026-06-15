@@ -154,6 +154,7 @@ class DB {
 			name VARCHAR(190) NOT NULL,
 			description TEXT NULL,
 			prompt LONGTEXT NULL,
+			image_prompt LONGTEXT NULL,
 			structure LONGTEXT NULL,
 			required_sections LONGTEXT NULL,
 			forbidden_patterns LONGTEXT NULL,
@@ -176,6 +177,24 @@ class DB {
 		dbDelta( $article_types_sql );
 		$this->ensure_content_ideas_draft_columns();
 		$this->ensure_content_ideas_article_type_column();
+		$this->ensure_article_types_image_prompt_column();
+	}
+
+	/**
+	 * Ensure schema 8 image_prompt column exists on the article types table.
+	 *
+	 * @return void
+	 */
+	public function ensure_article_types_image_prompt_column() {
+		global $wpdb;
+		$table = $this->get_article_types_table_name();
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+			return;
+		}
+		$columns = (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+		if ( ! in_array( 'image_prompt', $columns, true ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN image_prompt LONGTEXT NULL AFTER prompt" );
+		}
 	}
 
 	/**

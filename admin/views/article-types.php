@@ -4,16 +4,15 @@
 	<a class="page-title-action" href="<?php echo esc_url( admin_url( 'admin.php?page=wp-ai-publisher-article-types&action=new' ) ); ?>"><?php echo esc_html__( 'Aggiungi nuova', 'wp-ai-publisher' ); ?></a>
 	<hr class="wp-header-end" />
 	<table class="widefat striped">
-		<thead><tr><th><?php esc_html_e( 'Nome', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Attiva', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Intento', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Lunghezza', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Livello lettore', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Categorie consentite', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Azioni', 'wp-ai-publisher' ); ?></th></tr></thead>
+		<thead><tr><th><?php esc_html_e( 'Nome', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Attiva', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Prompt', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Immagini', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Categorie consentite', 'wp-ai-publisher' ); ?></th><th><?php esc_html_e( 'Azioni', 'wp-ai-publisher' ); ?></th></tr></thead>
 		<tbody>
-		<?php if ( empty( $article_types ) ) : ?><tr><td colspan="7"><?php esc_html_e( 'Nessuna tipologia presente.', 'wp-ai-publisher' ); ?></td></tr><?php endif; ?>
+		<?php if ( empty( $article_types ) ) : ?><tr><td colspan="6"><?php esc_html_e( 'Nessuna tipologia presente.', 'wp-ai-publisher' ); ?></td></tr><?php endif; ?>
 		<?php foreach ( $article_types as $type ) : ?>
 			<tr>
 				<td><strong><?php echo esc_html( $type['name'] ); ?></strong></td>
 				<td><?php echo ! empty( $type['is_active'] ) ? esc_html__( 'Sì', 'wp-ai-publisher' ) : esc_html__( 'No', 'wp-ai-publisher' ); ?></td>
-				<td><?php echo esc_html( $type['search_intent'] ?: '—' ); ?></td>
-				<td><?php echo esc_html( $type['length'] ?: '—' ); ?></td>
-				<td><?php echo esc_html( $type['reader_level'] ?: '—' ); ?></td>
+				<td><?php echo '' !== trim( (string) ( $type['prompt'] ?? '' ) ) ? esc_html__( 'Sì', 'wp-ai-publisher' ) : esc_html__( '—', 'wp-ai-publisher' ); ?></td>
+				<td><?php echo '' !== trim( (string) ( $type['image_prompt'] ?? '' ) ) ? esc_html__( 'Sì', 'wp-ai-publisher' ) : esc_html__( '—', 'wp-ai-publisher' ); ?></td>
 				<td><?php echo esc_html( empty( $type['allowed_category_ids'] ) ? __( 'Nessuna', 'wp-ai-publisher' ) : implode( ', ', array_map( 'absint', $type['allowed_category_ids'] ) ) ); ?></td>
 				<td>
 					<a class="button button-small" href="<?php echo esc_url( admin_url( 'admin.php?page=wp-ai-publisher-article-types&article_type_id=' . absint( $type['id'] ) ) ); ?>"><?php esc_html_e( 'Modifica', 'wp-ai-publisher' ); ?></a>
