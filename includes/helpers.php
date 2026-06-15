@@ -310,7 +310,15 @@ if ( ! function_exists( 'wpai_publisher_article_types_available' ) ) {
 			return false;
 		}
 
-		return method_exists( $class, 'get_active_article_types' ) && method_exists( $class, 'is_active_article_type' ) && method_exists( $class, 'get_article_type_config' );
+		if ( ! method_exists( $class, 'get_active_article_types' ) || ! method_exists( $class, 'is_active_article_type' ) || ! method_exists( $class, 'get_article_type_config' ) ) {
+			return false;
+		}
+
+		if ( function_exists( 'post_type_exists' ) && did_action( 'init' ) && defined( $class . '::POST_TYPE' ) && ! post_type_exists( constant( $class . '::POST_TYPE' ) ) ) {
+			return false;
+		}
+
+		return true;
 	}
 }
 
@@ -325,7 +333,7 @@ if ( ! function_exists( 'wpai_publisher_get_active_article_types_safe' ) ) {
 		if ( ! wpai_publisher_article_types_available() || ! function_exists( 'post_type_exists' ) ) {
 			return array();
 		}
-		if ( did_action( 'init' ) && defined( $class . '::POST_TYPE' ) && ! post_type_exists( $class::POST_TYPE ) ) {
+		if ( did_action( 'init' ) && defined( $class . '::POST_TYPE' ) && ! post_type_exists( constant( $class . '::POST_TYPE' ) ) ) {
 			return array();
 		}
 
@@ -347,7 +355,7 @@ if ( ! function_exists( 'wpai_publisher_is_active_article_type_safe' ) ) {
 		if ( 0 === $post_id || ! wpai_publisher_article_types_available() ) {
 			return false;
 		}
-		if ( function_exists( 'post_type_exists' ) && did_action( 'init' ) && defined( $class . '::POST_TYPE' ) && ! post_type_exists( $class::POST_TYPE ) ) {
+		if ( function_exists( 'post_type_exists' ) && did_action( 'init' ) && defined( $class . '::POST_TYPE' ) && ! post_type_exists( constant( $class . '::POST_TYPE' ) ) ) {
 			return false;
 		}
 

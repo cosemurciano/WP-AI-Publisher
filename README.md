@@ -1,18 +1,18 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.2**
+Versione corrente: **0.5.3**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
-## Hotfix 0.5.2 e recovery
+## Hotfix 0.5.3 e recovery
 
-La versione **0.5.2** è una hotfix di recupero per siti che possono mostrare “Si è verificato un errore critico in questo sito” dopo un aggiornamento 0.5.x incompleto. La causa più probabile è l’esecuzione troppo precoce della creazione delle Tipologie articolo default durante il bootstrap, prima che classe, CPT o migrazione `article_type_id` siano disponibili in modo sicuro.
+La versione **0.5.3** è una hotfix di recupero per siti che possono mostrare “Si è verificato un errore critico in questo sito” dopo un aggiornamento 0.5.x incompleto. La causa più probabile è l’esecuzione troppo precoce della creazione delle Tipologie articolo default durante il bootstrap, prima che classe, CPT o migrazione `article_type_id` siano disponibili in modo sicuro.
 
 ### Recupero sito dopo fatal error
 
 1. Rinominare via FTP/SFTP la cartella `wp-ai-publisher` in `wp-ai-publisher-disabled`.
 2. Accedere a `wp-admin` e verificare che il sito torni operativo.
-3. Installare la hotfix 0.5.2 caricando la nuova cartella/ZIP del plugin.
+3. Installare la hotfix 0.5.3 caricando la nuova cartella/ZIP del plugin.
 4. Riattivare WP AI Publisher.
 5. Aprire **WP AI Publisher > Stato sistema** e controllare classe `Article_Types`, CPT, colonna `article_type_id`, tipologie attive e idee da riassegnare.
 6. Aprire **Idee contenuto** e assegnare una Tipologia articolo attiva alle idee migrate, senza cancellare `dry_run_output` e senza cambiare stato idea.
@@ -23,6 +23,27 @@ La versione **0.5.2** è una hotfix di recupero per siti che possono mostrare �
 - Le Tipologie articolo default vengono create solo in admin sicuro, dopo registrazione CPT, e mai durante bootstrap DB.
 - Idee con tipologia cancellata, cestinata, inattiva o inesistente mostrano il form **Assegna tipologia**.
 - Se una Tipologia articolo non contiene categorie consentite, WP AI Publisher non assegna categorie suggerite dall’AI e lascia a WordPress l’eventuale categoria predefinita.
+
+
+## Debug fatal error
+
+Per diagnosticare problemi di bootstrap, admin menu o caricamento admin, aggiungere temporaneamente in `wp-config.php` prima della riga “That’s all, stop editing”:
+
+```php
+define( 'WP_DEBUG', true );
+define( 'WP_DEBUG_LOG', true );
+define( 'WP_DEBUG_DISPLAY', false );
+define( 'SCRIPT_DEBUG', true );
+define( 'WP_DISABLE_FATAL_ERROR_HANDLER', true );
+```
+
+Il log atteso è:
+
+```text
+wp-content/debug.log
+```
+
+Dopo la verifica, rimuovere o disattivare queste costanti su siti di produzione.
 
 ## Workflow idea → bozza
 
@@ -337,6 +358,17 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.3
+
+- Hotfix bootstrap/admin menu per prevenire fatal error.
+- Rimossa creazione Tipologie articolo dal bootstrap database.
+- Spostata creazione tipologie default in `admin_init` sicuro.
+- Eliminato uso di `get_page_by_title`.
+- Aggiunti helper sicuri per `Article_Types`.
+- Reso admin menu difensivo se CPT o classe non sono disponibili.
+- Migliorata gestione tipologie inattive/cancellate nelle idee contenuto.
+- Aggiunte istruzioni debug nel README.
 
 ### 0.5.1
 

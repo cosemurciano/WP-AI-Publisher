@@ -101,8 +101,10 @@ class Article_Types {
 	}
 
 	public function maybe_create_defaults_safe() {
-		if ( ! function_exists( 'is_admin' ) || ! is_admin() || ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ) { return; }
+		if ( ! function_exists( 'is_admin' ) || ! is_admin() ) { return; }
+		if ( ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ) { return; }
 		if ( ! function_exists( 'post_type_exists' ) || ! post_type_exists( self::POST_TYPE ) ) { return; }
+		if ( get_option( self::DEFAULTS_OPTION ) ) { return; }
 		self::maybe_create_defaults();
 	}
 
@@ -117,7 +119,16 @@ class Article_Types {
 			'Articolo pillar' => array( 'search_intent'=>'informazionale', 'reader_level'=>'misto', 'length'=>'pillar', 'structure'=>"Introduzione\nPanoramica\nSezioni principali\nApprofondimenti\nFAQ\nConclusione" ),
 			'Tutorial WordPress passo passo' => array( 'search_intent'=>'tutorial', 'reader_level'=>'principianti', 'length'=>'lunga', 'prompt'=>'Scrivi una guida pratica, chiara e progressiva per utenti WordPress. Spiega ogni passaggio senza dare per scontate competenze tecniche. Usa H2 descrittivi, paragrafi brevi, liste solo se utili, avvisi quando una procedura può variare in base al tema, al plugin o alla versione di WordPress. Concludi con una verifica finale.', 'structure'=>"Introduzione\nPrerequisiti\nProcedura passo passo\nErrori comuni\nVerifica finale" ),
 		);
-		foreach ( $defaults as $title => $cfg ) { $existing = get_posts( array( 'post_type'=>self::POST_TYPE, 'post_status'=>array( 'publish', 'draft', 'pending', 'private' ), 'title'=>$title, 'posts_per_page'=>1, 'fields'=>'ids', 'no_found_rows'=>true ) ); if ( ! empty( $existing ) ) { continue; } $id = wp_insert_post( array( 'post_type'=>self::POST_TYPE, 'post_status'=>'publish', 'post_title'=>sanitize_text_field( $title ) ) ); if ( $id && ! is_wp_error( $id ) ) { foreach ( $cfg as $k=>$v ) { update_post_meta( $id, self::META_PREFIX . $k, sanitize_textarea_field( $v ) ); } update_post_meta( $id, 'article_type_tone', 'chiaro_didattico_e_operativo' ); update_post_meta( $id, 'article_type_active', '1' ); } }
+		foreach ( $defaults as $title => $cfg ) {
+			$existing = get_posts( array( 'post_type'=>self::POST_TYPE, 'post_status'=>array( 'publish', 'draft', 'pending', 'private' ), 's'=>$title, 'posts_per_page'=>5, 'fields'=>'ids', 'no_found_rows'=>true ) );
+			$already_exists = false;
+			foreach ( (array) $existing as $existing_id ) {
+				if ( function_exists( 'get_the_title' ) && $title === get_the_title( $existing_id ) ) { $already_exists = true; break; }
+			}
+			if ( $already_exists ) { continue; }
+			$id = wp_insert_post( array( 'post_type'=>self::POST_TYPE, 'post_status'=>'publish', 'post_title'=>sanitize_text_field( $title ) ) );
+			if ( $id && ! is_wp_error( $id ) ) { foreach ( $cfg as $k=>$v ) { update_post_meta( $id, self::META_PREFIX . $k, sanitize_textarea_field( $v ) ); } update_post_meta( $id, 'article_type_tone', 'chiaro_didattico_e_operativo' ); update_post_meta( $id, 'article_type_active', '1' ); }
+		}
 		update_option( self::DEFAULTS_OPTION, '1', false );
 	}
 }
