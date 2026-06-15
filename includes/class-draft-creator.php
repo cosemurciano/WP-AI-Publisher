@@ -95,11 +95,16 @@ class Draft_Creator {
 		}
 
 		$builder = new Classic_Content_Builder();
-		$dry_run['full_article']['html'] = $builder->normalize_full_article_html( (string) $dry_run['full_article']['html'], $dry_run );
+		$original_full_article_html = (string) $dry_run['full_article']['html'];
+		$dry_run['full_article']['html'] = $builder->normalize_full_article_html( $original_full_article_html, $dry_run );
 		$validation = $builder->validate_publishable_article_html( (string) $dry_run['full_article']['html'] );
+		if ( ! empty( $validation['valid'] ) && $original_full_article_html !== (string) $dry_run['full_article']['html'] && ! empty( $args['content_ideas'] ) && is_object( $args['content_ideas'] ) && method_exists( $args['content_ideas'], 'save_dry_run_output' ) ) {
+			$dry_run['full_article']['validation_notes'] = $validation['notes'];
+			$args['content_ideas']->save_dry_run_output( (int) $idea->id, $dry_run, isset( $dry_run['validation_notes'] ) && is_array( $dry_run['validation_notes'] ) ? $dry_run['validation_notes'] : array() );
+		}
 		if ( empty( $validation['valid'] ) ) {
-			$error = new WP_Error( 'wpai_draft_creator_full_article_not_publishable', __( 'Non è stato possibile generare un articolo completo dalla struttura approvata.', 'wp-ai-publisher' ), $validation );
-			$this->logger->warning( $error->get_error_message(), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_content_not_publishable', 'error_code' => $error->get_error_code(), 'message' => $error->get_error_message(), 'word_count' => (int) ( $validation['word_count'] ?? 0 ), 'h2_count' => (int) ( $validation['h2_count'] ?? 0 ) ) );
+			$error = new WP_Error( 'wpai_draft_creator_full_article_not_publishable', __( 'L’articolo completo è stato generato ma non è stato possibile strutturarlo in HTML per Editor Classico.', 'wp-ai-publisher' ), $validation );
+			$this->logger->warning( $error->get_error_message(), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'normalize_full_article', 'error_code' => $error->get_error_code(), 'message' => $error->get_error_message(), 'word_count' => (int) ( $validation['word_count'] ?? 0 ), 'h2_count' => (int) ( $validation['h2_count'] ?? 0 ) ) );
 			$this->update_idea_after_draft_failed( (int) $idea->id, $error->get_error_message() );
 			return $error;
 		}

@@ -929,7 +929,7 @@ class AI_Provider_Adapter {
 
 		$filtered = apply_filters( 'wpai_publisher_generate_full_classic_article', null, $dry_run_output, $site_context, $prompt );
 		if ( null !== $filtered ) {
-			$candidate = $this->normalize_full_article_candidate( $filtered, 'wordpress_ai', $builder );
+			$candidate = $this->normalize_full_article_candidate( $filtered, 'wordpress_ai', $builder, $dry_run_output );
 			if ( ! is_wp_error( $candidate ) ) {
 				return $candidate;
 			}
@@ -944,7 +944,7 @@ class AI_Provider_Adapter {
 			foreach ( array( array( 'prompt' => $prompt, 'temperature' => 0.2, 'format' => 'html' ), $prompt ) as $args ) {
 				try {
 					$result = call_user_func( 'wp_ai_generate_text', $args );
-					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder );
+					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $dry_run_output );
 					if ( ! is_wp_error( $candidate ) ) {
 						return $candidate;
 					}
@@ -1010,7 +1010,7 @@ class AI_Provider_Adapter {
 				}
 				try {
 					$result = $ability->{$method}( array( 'prompt' => $prompt, 'dry_run_output' => $dry_run_output, 'format' => 'html' ) );
-					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder );
+					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $dry_run_output );
 					if ( ! is_wp_error( $candidate ) ) {
 						$candidate['quality_notes'][] = __( 'Articolo generato tramite WordPress Abilities API sicura.', 'wp-ai-publisher' );
 						return $candidate;
@@ -1054,7 +1054,7 @@ class AI_Provider_Adapter {
 	 * @param Classic_Content_Builder $builder Builder/validator.
 	 * @return array<string,mixed>|WP_Error
 	 */
-	private function normalize_full_article_candidate( $candidate, $source, Classic_Content_Builder $builder ) {
+	private function normalize_full_article_candidate( $candidate, $source, Classic_Content_Builder $builder, $dry_run_output = array() ) {
 		$html = '';
 		if ( is_array( $candidate ) ) {
 			$html = (string) ( $candidate['html'] ?? $candidate['content'] ?? $candidate['post_content'] ?? '' );
@@ -1063,7 +1063,13 @@ class AI_Provider_Adapter {
 		} elseif ( is_string( $candidate ) ) {
 			$html = $candidate;
 		}
-		$html = $builder->normalize_full_article_html( $html, is_array( $candidate ) ? $candidate : array() );
+		$dry_run_output = is_array( $dry_run_output ) ? $dry_run_output : array();
+		$candidate_context = is_array( $candidate ) ? $candidate : array();
+		$normalization_context = array_merge( $dry_run_output, $candidate_context );
+		if ( ! empty( $dry_run_output['content_outline'] ) ) {
+			$normalization_context['content_outline'] = $dry_run_output['content_outline'];
+		}
+		$html = $builder->normalize_full_article_html( $html, $normalization_context );
 		$validation = $builder->validate_publishable_article_html( $html );
 		if ( empty( $validation['valid'] ) ) {
 			return new WP_Error( 'wpai_full_article_invalid', __( 'Output articolo completo non pubblicabile.', 'wp-ai-publisher' ), $validation );

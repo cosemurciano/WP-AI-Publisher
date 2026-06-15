@@ -10,6 +10,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $notice_key = sanitize_key( wp_unslash( $_GET['wpai_notice'] ?? '' ) );
+$notice_step = sanitize_key( wp_unslash( $_GET['wpai_step'] ?? '' ) );
+$notice_error = sanitize_text_field( wp_unslash( $_GET['wpai_error'] ?? '' ) );
 $notices    = array(
 	'idea_saved'               => array( 'success', __( 'Idea contenuto salvata.', 'wp-ai-publisher' ) ),
 	'dry_run_completed'        => array( 'success', __( 'Dry-run completato.', 'wp-ai-publisher' ) ),
@@ -85,7 +87,7 @@ $render_list = static function ( $items ) {
 
 	<?php if ( isset( $notices[ $notice_key ] ) ) : ?>
 		<div class="notice notice-<?php echo esc_attr( $notices[ $notice_key ][0] ); ?> is-dismissible">
-			<p><?php echo esc_html( $notices[ $notice_key ][1] ); ?></p>
+			<p><?php echo esc_html( $notices[ $notice_key ][1] ); ?><?php if ( 'draft_creation_failed' === $notice_key && ( '' !== $notice_step || '' !== $notice_error ) ) : ?> <?php echo esc_html( sprintf( __( 'Step: %1$s. Dettaglio: %2$s', 'wp-ai-publisher' ), '' !== $notice_step ? $notice_step : __( 'non disponibile', 'wp-ai-publisher' ), '' !== $notice_error ? $notice_error : __( 'non disponibile', 'wp-ai-publisher' ) ) ); ?><?php endif; ?></p>
 		</div>
 		<?php if ( defined( 'WP_DEBUG' ) && WP_DEBUG && ! empty( $_GET['wpai_debug'] ) ) : ?>
 			<div class="notice notice-warning is-dismissible"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['wpai_debug'] ) ) ); ?></p></div>
@@ -281,7 +283,9 @@ $render_list = static function ( $items ) {
 		$full_html      = isset( $full_article['html'] ) ? (string) $full_article['html'] : '';
 		$full_source    = sanitize_key( (string) ( $full_article['source'] ?? 'unknown' ) );
 		$full_notes     = isset( $full_article['validation_notes'] ) && is_array( $full_article['validation_notes'] ) ? $full_article['validation_notes'] : array();
-		$full_valid     = '' !== trim( $full_html ) && empty( $full_notes );
+		$full_validation = '' !== trim( $full_html ) ? ( new \WPAIPublisher\Classic_Content_Builder() )->validate_publishable_article_html( $full_html ) : array( 'valid' => false );
+		$full_valid     = ! empty( $full_validation['valid'] );
+		$full_status_message = $full_valid ? __( 'Articolo completo pronto per la bozza.', 'wp-ai-publisher' ) : ( '' !== trim( $full_html ) ? __( 'Articolo completo presente ma da normalizzare.', 'wp-ai-publisher' ) : __( 'Articolo completo non ancora generato.', 'wp-ai-publisher' ) );
 		$all_notes       = array_values( array_unique( array_filter( array_merge( (array) $notes_data, $classic_notes ) ) ) );
 		$review_notes    = array();
 		$blocking_notes  = array();
@@ -408,7 +412,7 @@ $render_list = static function ( $items ) {
 				<ul>
 					<li><strong><?php echo esc_html__( 'Stato:', 'wp-ai-publisher' ); ?></strong> <span class="<?php echo esc_attr( $full_valid ? 'wpai-badge wpai-badge--ok' : ( '' !== $full_html ? 'wpai-badge wpai-badge--warning' : 'wpai-badge wpai-badge--not-verified' ) ); ?>"><?php echo esc_html( $full_valid ? __( 'generato', 'wp-ai-publisher' ) : ( '' !== $full_html ? __( 'da revisionare', 'wp-ai-publisher' ) : __( 'non generato', 'wp-ai-publisher' ) ) ); ?></span></li>
 					<li><strong><?php echo esc_html__( 'Fonte:', 'wp-ai-publisher' ); ?></strong> <?php echo esc_html( $source_labels[ $full_source ] ?? __( 'Non disponibile', 'wp-ai-publisher' ) ); ?></li>
-					<li><strong><?php echo esc_html__( 'Qualità:', 'wp-ai-publisher' ); ?></strong> <?php echo esc_html( $full_valid ? __( 'pronto', 'wp-ai-publisher' ) : ( '' !== $full_html ? __( 'da revisionare', 'wp-ai-publisher' ) : __( 'non valido', 'wp-ai-publisher' ) ) ); ?></li>
+					<li><strong><?php echo esc_html__( 'Qualità:', 'wp-ai-publisher' ); ?></strong> <?php echo esc_html( $full_status_message ); ?></li>
 				</ul>
 				<?php if ( in_array( (string) $selected_idea->status, array( 'dry_run_ready', 'approved' ), true ) ) : ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin: 0 0 1em;">
