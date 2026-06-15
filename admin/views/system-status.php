@@ -86,6 +86,7 @@ $status_labels = array(
 						'present_classes'     => __( 'Classi AI', 'wp-ai-publisher' ),
 						'present_functions'   => __( 'Funzioni AI', 'wp-ai-publisher' ),
 						'channel_attempts'    => __( 'Esiti canali', 'wp-ai-publisher' ),
+						'abilities_detail'    => __( 'Ability esaminate', 'wp-ai-publisher' ),
 					) as $key => $label ) {
 						if ( array_key_exists( $key, $context ) ) {
 							$rendered = $flatten( $context[ $key ] );

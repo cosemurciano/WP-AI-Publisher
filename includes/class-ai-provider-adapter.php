@@ -1074,6 +1074,10 @@ class AI_Provider_Adapter {
 			return $ability_candidate;
 		}
 		$diagnostics['channel_attempts']['abilities_api'] = $ability_candidate->get_error_message();
+		$ability_data = $ability_candidate->get_error_data();
+		if ( is_array( $ability_data ) && ! empty( $ability_data['abilities'] ) ) {
+			$diagnostics['abilities_detail'] = $ability_data['abilities'];
+		}
 
 		$ai_services_candidate = $this->try_generate_with_ai_services( $prompt, $generation_context, $builder, true );
 		if ( ! is_wp_error( $ai_services_candidate ) ) {
@@ -1350,45 +1354,90 @@ class AI_Provider_Adapter {
 		} catch ( Throwable $error ) {
 			return new WP_Error( 'wpai_full_article_abilities_read_failed', $error->getMessage() );
 		}
+
+		$keywords = array( 'article', 'content', 'text', 'testo', 'contenuto', 'generate', 'genera', 'write', 'scriv', 'complete', 'completion', 'chat', 'prompt', 'llm', 'language model' );
+		$diag     = array();
 		foreach ( (array) $abilities as $key => $ability_def ) {
 			$metadata = $this->extract_ability_metadata( $ability_def, is_string( $key ) ? $key : '' );
+			$name     = sanitize_text_field( (string) ( $metadata['name'] ?? '' ) );
 			$haystack = strtolower( (string) ( $metadata['haystack'] ?? '' ) );
-			if ( false === strpos( $haystack, 'article' ) && false === strpos( $haystack, 'content' ) && false === strpos( $haystack, 'text' ) && false === strpos( $haystack, 'testo' ) && false === strpos( $haystack, 'contenuto' ) ) {
+
+			$matched = false;
+			foreach ( $keywords as $keyword ) {
+				if ( false !== strpos( $haystack, $keyword ) ) {
+					$matched = true;
+					break;
+				}
+			}
+			if ( ! $matched ) {
 				continue;
 			}
-			if ( ! $this->is_ability_safe_for_dry_run( $ability_def, $metadata ) ) {
+
+			$entry = array( 'name' => $name, 'input_schema_keys' => implode( ',', $this->get_schema_property_names( $metadata['input_schema'] ?? array() ) ), 'result' => '' );
+
+			// For article generation we only exclude abilities with destructive/side-effect
+			// signals (publish/create/delete/etc.); a plain text-generation ability is allowed
+			// even without explicit read-only markers.
+			if ( $this->ability_has_dangerous_signals( $metadata ) ) {
+				$entry['result'] = 'esclusa: segnali di azione/lato-effetto';
+				$diag[]          = $entry;
 				continue;
 			}
-			$name = sanitize_text_field( (string) ( $metadata['name'] ?? '' ) );
 			if ( '' === $name ) {
+				$entry['result'] = 'esclusa: nome ability assente';
+				$diag[]          = $entry;
 				continue;
 			}
 			try {
 				$ability = wp_get_ability( $name );
 			} catch ( Throwable $error ) {
-				unset( $error );
+				$entry['result'] = 'wp_get_ability eccezione: ' . $error->getMessage();
+				$diag[]          = $entry;
 				continue;
 			}
 			if ( ! is_object( $ability ) ) {
+				$entry['result'] = 'ability non istanziabile';
+				$diag[]          = $entry;
 				continue;
 			}
+
+			$inputs   = $this->get_ability_invocation_inputs( $prompt, array(), array(), $metadata['input_schema'] ?? array() );
+			$inputs[] = array( 'prompt' => $prompt, 'dry_run_output' => $dry_run_output, 'format' => 'html' );
+			$last     = '';
 			foreach ( array( 'execute', 'run', 'invoke', 'call', 'perform' ) as $method ) {
 				if ( ! method_exists( $ability, $method ) || ! is_callable( array( $ability, $method ) ) ) {
 					continue;
 				}
-				try {
-					$result = $ability->{$method}( array( 'prompt' => $prompt, 'dry_run_output' => $dry_run_output, 'format' => 'html' ) );
-					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $dry_run_output, $tolerant );
-					if ( ! is_wp_error( $candidate ) ) {
-						$candidate['quality_notes'][] = __( 'Articolo generato tramite WordPress Abilities API sicura.', 'wp-ai-publisher' );
-						return $candidate;
+				foreach ( $inputs as $input ) {
+					try {
+						$result = $ability->{$method}( $input );
+						if ( is_wp_error( $result ) ) {
+							$last = $result->get_error_message();
+							continue;
+						}
+						$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $dry_run_output, $tolerant );
+						if ( ! is_wp_error( $candidate ) ) {
+							$candidate['quality_notes'][] = sprintf( __( 'Articolo generato tramite ability WordPress: %s.', 'wp-ai-publisher' ), $name );
+							return $candidate;
+						}
+						$last = $candidate->get_error_message();
+					} catch ( Throwable $error ) {
+						$last = $error->getMessage();
 					}
-				} catch ( Throwable $error ) {
-					unset( $error );
 				}
 			}
+			$entry['result'] = '' !== $last ? 'invocata senza output valido: ' . $last : 'nessun metodo eseguibile';
+			$diag[]          = $entry;
+			if ( count( $diag ) >= 12 ) {
+				break;
+			}
 		}
-		return new WP_Error( 'wpai_full_article_abilities_unusable', __( 'Nessuna ability sicura ha generato un articolo completo valido.', 'wp-ai-publisher' ) );
+
+		return new WP_Error(
+			'wpai_full_article_abilities_unusable',
+			empty( $diag ) ? __( 'Nessuna ability WordPress pertinente alla generazione testo è stata trovata.', 'wp-ai-publisher' ) : __( 'Nessuna ability WordPress ha prodotto un articolo utilizzabile.', 'wp-ai-publisher' ),
+			array( 'abilities' => $diag )
+		);
 	}
 
 	/**

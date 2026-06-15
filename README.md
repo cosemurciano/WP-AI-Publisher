@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.16**
+Versione corrente: **0.5.17**
+
+## Generazione via Abilities API più robusta 0.5.17
+
+La versione **0.5.17** corregge la causa per cui la generazione tramite **WordPress Abilities API** non produceva contenuto: l’input dell’ability viene ora **derivato dal suo schema di input** (prima si usava un input fisso `prompt`/`dry_run_output` che falliva la validazione dello schema), vengono tentate più forme di input e più metodi (`execute`/`run`/`invoke`/`call`/`perform`), e gli eventuali `WP_Error` restituiti dall’ability vengono catturati e mostrati. Le ability di generazione testo non sono più escluse per la sola assenza di marcatori “read-only”: si escludono soltanto quelle con segnali distruttivi (pubblica, crea, elimina…). Per ogni ability pertinente la diagnostica registra nome, chiavi dello schema di input ed esito dell’invocazione, visibili in **Stato sistema → Dettaglio log critici interni**.
 
 ## Diagnostica generazione AI 0.5.16
 
