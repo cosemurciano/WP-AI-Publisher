@@ -410,9 +410,23 @@ class Admin {
 	}
 
 	public function process_next_job() {
-		$job = $this->job_queue->get_next_pending_job();
-		if ( $job ) {
+		// Process a small batch per cron run so low-traffic sites, where WP-Cron
+		// fires infrequently, do not drain the queue one job at a time. The batch
+		// size stays modest to keep each run within typical PHP time limits.
+		$max_per_run = max( 1, (int) apply_filters( 'wpai_publisher_jobs_per_run', 5 ) );
+
+		for ( $processed = 0; $processed < $max_per_run; $processed++ ) {
+			$job = $this->job_queue->get_next_pending_job();
+			if ( ! $job ) {
+				break;
+			}
 			$this->process_job( (int) $job->id );
+		}
+
+		// If work remains, re-arm the processor instead of waiting for the next
+		// organic cron tick.
+		if ( $this->job_queue->get_next_pending_job() ) {
+			$this->schedule_job_processor();
 		}
 	}
 
@@ -522,7 +536,7 @@ class Admin {
 
 
 	/**
-	 * Render a safe fallback when article types CPT is not available.
+	 * Handle article type creation/update.
 	 *
 	 * @return void
 	 */
@@ -566,13 +580,6 @@ class Admin {
 		if ( 'new' === sanitize_key( $_GET['action'] ?? '' ) || $article_type ) { include WPAIP_PLUGIN_DIR . 'admin/views/article-type-edit.php'; return; }
 		$article_types = $repo->get_all_article_types();
 		include WPAIP_PLUGIN_DIR . 'admin/views/article-types.php';
-	}
-
-	public function render_article_types_unavailable() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
-		}
-		echo '<div class="wrap wpai-admin"><h1>' . esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ) . '</h1><div class="notice notice-warning inline"><p>' . esc_html__( 'Il modulo Tipologie articolo è temporaneamente disabilitato in questa versione di recovery.', 'wp-ai-publisher' ) . '</p></div></div>';
 	}
 
 	/**

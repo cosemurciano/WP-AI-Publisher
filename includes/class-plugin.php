@@ -119,9 +119,17 @@ final class Plugin {
 		$stored_schema  = $this->db->get_schema_version();
 		$stored_version = (string) get_option( 'wpai_publisher_version', '' );
 
-		if ( version_compare( $stored_schema, WPAIP_DB_SCHEMA_VERSION, '<' ) || $stored_version !== WPAIP_VERSION ) {
+		// Only run the expensive dbDelta + ALTER scan when the schema is actually
+		// behind. A version-only bump (no schema change) must not trigger table
+		// rebuilds on every request for the whole site.
+		if ( version_compare( $stored_schema, WPAIP_DB_SCHEMA_VERSION, '<' ) ) {
 			$this->db->create_tables();
 			$this->db->set_schema_version( WPAIP_DB_SCHEMA_VERSION );
+		}
+
+		// Keep the stored plugin version in sync for diagnostics; this is a cheap
+		// option write and does not touch the schema.
+		if ( $stored_version !== WPAIP_VERSION ) {
 			update_option( 'wpai_publisher_version', WPAIP_VERSION, false );
 		}
 	}

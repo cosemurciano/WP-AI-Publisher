@@ -73,6 +73,10 @@ Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione atti
 * Corretto il requisito minimo di WordPress: da 7.0 (versione inesistente che bloccava l’attivazione su qualsiasi sito) a 6.5, allineato in header plugin, readme, Stato sistema e Bacheca.
 * Allineate le versioni di plugin, readme.txt e README.md.
 * Reso atomico il claim dei job in coda per evitare doppia elaborazione e bozze duplicate quando WP-Cron e l’esecuzione manuale si sovrappongono.
+* Ridotto l’overhead delle letture idee: il controllo della colonna article_type_id ora esegue le query SHOW al massimo una volta per richiesta.
+* La migrazione database non riesegue più dbDelta a ogni nuova versione, ma solo quando cambia effettivamente lo schema.
+* La coda elabora un piccolo batch di job per esecuzione cron (filtrabile via wpai_publisher_jobs_per_run) e si ripianifica se restano job pendenti.
+* Rimosso codice legacy non utilizzato: classe CPT Tipologie articolo, relativa vista metabox, costante WPAIP_ENABLE_ARTICLE_TYPES e fallback admin inutilizzato.
 
 = 0.5.7 =
 * Semplificata la pagina Impostazioni: il contesto globale non duplica più tono, tag e categorie delle Tipologie Articolo.
