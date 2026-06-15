@@ -104,7 +104,7 @@ class Draft_Creator {
 		$builder = new Classic_Content_Builder( null, $article_type );
 		$original_full_article_html = (string) $dry_run['full_article']['html'];
 		$dry_run['full_article']['html'] = $builder->normalize_full_article_html( $original_full_article_html, $dry_run );
-		$this->logger->info( __( 'Validazione bozza avviata.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_validation_started' ) );
+		$this->logger->info( __( 'Validazione bozza avviata.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_validation_started', 'selected_source' => 'full_article', 'full_article_present' => 'yes', 'preview_present' => ! empty( $dry_run['classic_editor_preview']['html'] ) ? 'yes' : 'no', 'preview_rejected_as_placeholder' => ! empty( $dry_run['classic_editor_preview']['html'] ) && $builder->contains_placeholder_text( (string) $dry_run['classic_editor_preview']['html'] ) ? 'yes' : 'no', 'normalization_status' => '' !== trim( (string) $dry_run['full_article']['html'] ) ? 'success' : 'failure' ) );
 		$validation = $builder->validate_publishable_article_html( (string) $dry_run['full_article']['html'] );
 		if ( ! empty( $validation['valid'] ) && $original_full_article_html !== (string) $dry_run['full_article']['html'] && ! empty( $args['content_ideas'] ) && is_object( $args['content_ideas'] ) && method_exists( $args['content_ideas'], 'save_dry_run_output' ) ) {
 			$dry_run['full_article']['validation_notes'] = $validation['notes'];

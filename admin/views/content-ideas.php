@@ -24,7 +24,7 @@ $notices    = array(
 	'full_article_failed'      => array( 'error', __( 'Non è stato possibile generare un articolo completo.', 'wp-ai-publisher' ) ),
 	'missing_full_article'     => array( 'warning', __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ) ),
 	'draft_already_exists'     => array( 'warning', __( 'La bozza esiste già.', 'wp-ai-publisher' ) ),
-	'draft_creation_failed'    => array( 'error', __( 'Creazione bozza fallita.', 'wp-ai-publisher' ) ),
+	'draft_creation_failed'    => array( 'error', __( 'L’AI ha generato l’articolo, ma la bozza non è stata creata perché il contenuto non ha superato la validazione di pubblicabilità.', 'wp-ai-publisher' ) ),
 	'draft_not_approved'       => array( 'error', __( 'Non puoi creare una bozza da un dry-run non approvato.', 'wp-ai-publisher' ) ),
 	'insufficient_permissions' => array( 'error', __( 'Permessi insufficienti.', 'wp-ai-publisher' ) ),
 	'idea_not_found'           => array( 'error', __( 'Idea non trovata.', 'wp-ai-publisher' ) ),
@@ -305,7 +305,11 @@ $render_list = static function ( $items ) {
 		$full_html      = isset( $full_article['html'] ) ? (string) $full_article['html'] : '';
 		$full_source    = sanitize_key( (string) ( $full_article['source'] ?? 'unknown' ) );
 		$full_notes     = isset( $full_article['validation_notes'] ) && is_array( $full_article['validation_notes'] ) ? $full_article['validation_notes'] : array();
-		$full_validation = '' !== trim( $full_html ) ? ( new \WPAIPublisher\Classic_Content_Builder() )->validate_publishable_article_html( $full_html ) : array( 'valid' => false );
+		$candidate_builder = new \WPAIPublisher\Classic_Content_Builder( null, isset( $dry_run_data['article_type'] ) && is_array( $dry_run_data['article_type'] ) ? $dry_run_data['article_type'] : array() );
+		$normalized_full_html = '' !== trim( $full_html ) ? $candidate_builder->normalize_full_article_html( $full_html, $dry_run_data ) : '';
+		$debug_candidate_html = '' !== trim( $normalized_full_html ) ? $normalized_full_html : $classic_html;
+		$full_validation = '' !== trim( $normalized_full_html ) ? $candidate_builder->validate_publishable_article_html( $normalized_full_html ) : array( 'valid' => false, 'notes' => array() );
+		$full_diagnostics = $candidate_builder->get_full_article_validation_diagnostics( $full_html, $normalized_full_html, $dry_run_data, $full_validation );
 		$full_valid     = ! empty( $full_validation['valid'] );
 		$full_status_message = $full_valid ? __( 'Articolo completo pronto per la bozza.', 'wp-ai-publisher' ) : ( '' !== trim( $full_html ) ? __( 'Articolo completo presente ma da normalizzare.', 'wp-ai-publisher' ) : __( 'Articolo completo non ancora generato.', 'wp-ai-publisher' ) );
 		$all_notes       = array_values( array_unique( array_filter( array_merge( (array) $notes_data, $classic_notes ) ) ) );
@@ -423,7 +427,7 @@ $render_list = static function ( $items ) {
 					<?php echo wp_kses_post( $classic_html ); ?>
 				</div>
 				<h4><?php echo esc_html__( 'HTML generato per debug o copia manuale', 'wp-ai-publisher' ); ?></h4>
-				<textarea class="large-text code" rows="12" readonly><?php echo esc_textarea( $classic_html ); ?></textarea>
+				<textarea class="large-text code" rows="12" readonly><?php echo esc_textarea( $debug_candidate_html ); ?></textarea>
 				<?php if ( ! empty( $classic_notes ) ) : ?>
 					<h4><?php echo esc_html__( 'Diagnostica compatibilità Classic Editor', 'wp-ai-publisher' ); ?></h4>
 					<?php $render_list( $classic_notes ); ?>
@@ -435,6 +439,15 @@ $render_list = static function ( $items ) {
 					<li><strong><?php echo esc_html__( 'Stato:', 'wp-ai-publisher' ); ?></strong> <span class="<?php echo esc_attr( $full_valid ? 'wpai-badge wpai-badge--ok' : ( '' !== $full_html ? 'wpai-badge wpai-badge--warning' : 'wpai-badge wpai-badge--not-verified' ) ); ?>"><?php echo esc_html( $full_valid ? __( 'generato', 'wp-ai-publisher' ) : ( '' !== $full_html ? __( 'da revisionare', 'wp-ai-publisher' ) : __( 'non generato', 'wp-ai-publisher' ) ) ); ?></span></li>
 					<li><strong><?php echo esc_html__( 'Fonte:', 'wp-ai-publisher' ); ?></strong> <?php echo esc_html( $source_labels[ $full_source ] ?? __( 'Non disponibile', 'wp-ai-publisher' ) ); ?></li>
 					<li><strong><?php echo esc_html__( 'Qualità:', 'wp-ai-publisher' ); ?></strong> <?php echo esc_html( $full_status_message ); ?></li>
+				</ul>
+				<h4><?php echo esc_html__( 'Diagnostica candidato bozza', 'wp-ai-publisher' ); ?></h4>
+				<ul>
+					<li><strong>selected_source:</strong> <?php echo esc_html( (string) ( $full_diagnostics['selected_source'] ?? 'unknown' ) ); ?></li>
+					<li><strong>full_article_present:</strong> <?php echo esc_html( (string) ( $full_diagnostics['full_article_present'] ?? 'no' ) ); ?></li>
+					<li><strong>preview_present:</strong> <?php echo esc_html( (string) ( $full_diagnostics['preview_present'] ?? 'no' ) ); ?></li>
+					<li><strong>preview_rejected_as_placeholder:</strong> <?php echo esc_html( (string) ( $full_diagnostics['preview_rejected_as_placeholder'] ?? 'no' ) ); ?></li>
+					<li><strong>normalization_status:</strong> <?php echo esc_html( (string) ( $full_diagnostics['normalization_status'] ?? 'failure' ) ); ?></li>
+					<li><strong>validation_failed_rule:</strong> <?php echo esc_html( (string) ( $full_diagnostics['validation_failed_rule'] ?? '' ) ); ?></li>
 				</ul>
 				<?php if ( in_array( (string) $selected_idea->status, array( 'dry_run_ready', 'approved' ), true ) ) : ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin: 0 0 1em;">
