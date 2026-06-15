@@ -64,6 +64,11 @@ class Settings {
 		$output['allow_unverified_ai_abilities'] = ! empty( $input['allow_unverified_ai_abilities'] );
 		$output['auto_create_draft_from_idea']   = ! empty( $input['auto_create_draft_from_idea'] );
 		$output['delete_data_on_uninstall']      = ! empty( $input['delete_data_on_uninstall'] );
+		$output['ai_model']                      = isset( $input['ai_model'] ) ? sanitize_text_field( $input['ai_model'] ) : $defaults['ai_model'];
+		$output['ai_http_timeout']               = isset( $input['ai_http_timeout'] ) ? max( 15, min( 600, absint( $input['ai_http_timeout'] ) ) ) : $defaults['ai_http_timeout'];
+		$output['ai_max_output_tokens']          = isset( $input['ai_max_output_tokens'] ) ? max( 0, min( 32000, absint( $input['ai_max_output_tokens'] ) ) ) : $defaults['ai_max_output_tokens'];
+		$raw_temperature                         = isset( $input['ai_temperature'] ) ? trim( (string) $input['ai_temperature'] ) : '';
+		$output['ai_temperature']                = ( '' === $raw_temperature ) ? '' : (string) max( 0, min( 2, (float) $raw_temperature ) );
 		$workflow_mode                           = sanitize_key( (string) ( $input['workflow_mode'] ?? $defaults['workflow_mode'] ) );
 		$output['workflow_mode']                 = in_array( $workflow_mode, array( 'simple', 'advanced' ), true ) ? $workflow_mode : 'simple';
 		$output['site_context']                  = $this->sanitize_site_context( $input['site_context'] ?? array() );

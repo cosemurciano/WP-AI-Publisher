@@ -1,6 +1,17 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.22**
+Versione corrente: **0.5.23**
+
+## Parametri AI configurabili 0.5.23
+
+La versione **0.5.23** risolve l’errore `400 Unsupported parameter: 'temperature'` (i modelli “reasoning” come o1/o3/gpt‑5 non accettano `temperature`): ora la temperatura **non viene inviata** salvo che tu la imposti esplicitamente. È stata aggiunta la sezione **Impostazioni → Parametri AI** dove puoi configurare:
+
+- **Modello AI**: ID del modello da richiedere (es. `gpt-4o-mini`); vuoto = modello predefinito del provider.
+- **Timeout richiesta AI**: secondi di attesa (default 180).
+- **Lunghezza massima output (token)**: limite per contenere i tempi (default 4000; 0 = nessun limite).
+- **Temperatura**: 0–2; **lasciala vuota** con i modelli reasoning.
+
+Tutti i valori sono sovrascrivibili via filtri (`wpai_publisher_ai_model`, `wpai_publisher_ai_http_timeout`, `wpai_publisher_ai_max_output_tokens`, `wpai_publisher_ai_temperature`). La scelta del modello viene applicata best-effort al PHP AI Client; se l’SDK non accetta l’ID indicato, viene usato il modello configurato nel provider AI.
 
 ## Generazione lenta vs rete 0.5.22
 

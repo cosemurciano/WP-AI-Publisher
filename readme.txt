@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.22
+Stable tag: 0.5.23
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.23 =
+* Risolto l'errore 400 "Unsupported parameter: 'temperature'": la temperatura non viene più inviata di default (molti modelli "reasoning" la rifiutano). Ora è opzionale e configurabile.
+* Nuova sezione Impostazioni → "Parametri AI": scelta del modello, timeout richiesta, lunghezza massima output (token) e temperatura. I valori sono usati dal PHP AI Client e sovrascrivibili via filtri.
+* La scelta del modello viene applicata best-effort tramite il PHP AI Client; se vuota si usa il modello configurato nel provider AI.
 
 = 0.5.22 =
 * Connettività OpenAI confermata funzionante: il timeout in generazione dipende dalla lentezza del modello/lunghezza output, non dalla rete. Timeout HTTP predefinito alzato a 180 secondi (filtrabile con wpai_publisher_ai_http_timeout).
