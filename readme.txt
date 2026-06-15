@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.5.1
+Stable tag: 0.5.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,17 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.2 =
+* Hotfix per errore fatale dopo aggiornamento 0.5.x.
+* Rimossa creazione tipologie default dal bootstrap diretto.
+* Spostata creazione tipologie default in fase admin sicura.
+* Rimosso uso di get_page_by_title.
+* Aggiunti helper sicuri per Article_Types.
+* Corretta gestione tipologie inattive, cancellate o mancanti.
+* Aggiunta riassegnazione tipologia per idee migrate o non valide.
+* Corretta logica categorie consentite vuote.
+* Rafforzata diagnostica Stato sistema.
 
 = 0.5.1 =
 * Hotfix per errore critico dopo aggiornamento 0.5.0.

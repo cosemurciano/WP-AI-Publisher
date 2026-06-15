@@ -42,6 +42,7 @@ class Article_Types {
 
 	public function hooks() {
 		add_action( 'init', array( $this, 'register' ) );
+		add_action( 'admin_init', array( $this, 'maybe_create_defaults_safe' ) );
 		add_action( 'add_meta_boxes_' . self::POST_TYPE, array( $this, 'add_meta_boxes' ) );
 		add_action( 'save_post_' . self::POST_TYPE, array( $this, 'save_meta' ), 10, 2 );
 		add_filter( 'manage_' . self::POST_TYPE . '_posts_columns', array( $this, 'columns' ) );
@@ -99,9 +100,15 @@ class Article_Types {
 		return $data;
 	}
 
+	public function maybe_create_defaults_safe() {
+		if ( ! function_exists( 'is_admin' ) || ! is_admin() || ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ) { return; }
+		if ( ! function_exists( 'post_type_exists' ) || ! post_type_exists( self::POST_TYPE ) ) { return; }
+		self::maybe_create_defaults();
+	}
+
 	public static function maybe_create_defaults() {
 		if ( get_option( self::DEFAULTS_OPTION ) ) { return; }
-		if ( ! post_type_exists( self::POST_TYPE ) ) { ( new self() )->register(); }
+		if ( ! function_exists( 'get_posts' ) || ! function_exists( 'wp_insert_post' ) || ! function_exists( 'post_type_exists' ) || ! post_type_exists( self::POST_TYPE ) ) { return; }
 		$defaults = array(
 			'Tutorial passo passo' => array( 'search_intent'=>'tutorial', 'reader_level'=>'principianti', 'length'=>'media', 'structure'=>"Introduzione\nPrerequisiti\nProcedura passo passo\nErrori comuni\nVerifica finale" ),
 			'Guida informativa' => array( 'search_intent'=>'informazionale', 'reader_level'=>'misto', 'length'=>'media', 'structure'=>"Introduzione\nCos’è\nQuando serve\nVantaggi\nConclusione" ),
@@ -110,7 +117,7 @@ class Article_Types {
 			'Articolo pillar' => array( 'search_intent'=>'informazionale', 'reader_level'=>'misto', 'length'=>'pillar', 'structure'=>"Introduzione\nPanoramica\nSezioni principali\nApprofondimenti\nFAQ\nConclusione" ),
 			'Tutorial WordPress passo passo' => array( 'search_intent'=>'tutorial', 'reader_level'=>'principianti', 'length'=>'lunga', 'prompt'=>'Scrivi una guida pratica, chiara e progressiva per utenti WordPress. Spiega ogni passaggio senza dare per scontate competenze tecniche. Usa H2 descrittivi, paragrafi brevi, liste solo se utili, avvisi quando una procedura può variare in base al tema, al plugin o alla versione di WordPress. Concludi con una verifica finale.', 'structure'=>"Introduzione\nPrerequisiti\nProcedura passo passo\nErrori comuni\nVerifica finale" ),
 		);
-		foreach ( $defaults as $title => $cfg ) { if ( get_page_by_title( $title, OBJECT, self::POST_TYPE ) ) { continue; } $id = wp_insert_post( array( 'post_type'=>self::POST_TYPE, 'post_status'=>'publish', 'post_title'=>sanitize_text_field( $title ) ) ); if ( $id && ! is_wp_error( $id ) ) { foreach ( $cfg as $k=>$v ) { update_post_meta( $id, self::META_PREFIX . $k, sanitize_textarea_field( $v ) ); } update_post_meta( $id, 'article_type_tone', 'chiaro_didattico_e_operativo' ); update_post_meta( $id, 'article_type_active', '1' ); } }
+		foreach ( $defaults as $title => $cfg ) { $existing = get_posts( array( 'post_type'=>self::POST_TYPE, 'post_status'=>array( 'publish', 'draft', 'pending', 'private' ), 'title'=>$title, 'posts_per_page'=>1, 'fields'=>'ids', 'no_found_rows'=>true ) ); if ( ! empty( $existing ) ) { continue; } $id = wp_insert_post( array( 'post_type'=>self::POST_TYPE, 'post_status'=>'publish', 'post_title'=>sanitize_text_field( $title ) ) ); if ( $id && ! is_wp_error( $id ) ) { foreach ( $cfg as $k=>$v ) { update_post_meta( $id, self::META_PREFIX . $k, sanitize_textarea_field( $v ) ); } update_post_meta( $id, 'article_type_tone', 'chiaro_didattico_e_operativo' ); update_post_meta( $id, 'article_type_active', '1' ); } }
 		update_option( self::DEFAULTS_OPTION, '1', false );
 	}
 }
