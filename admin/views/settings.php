@@ -121,6 +121,39 @@ $language_options = array(
 		</table>
 
 
+		<h2><?php echo esc_html__( 'Parametri AI', 'wp-ai-publisher' ); ?></h2>
+		<p><?php echo esc_html__( 'Parametri usati per la generazione tramite il sistema AI di WordPress (es. AI Provider for OpenAI). Lascia vuoto un campo per usare il valore predefinito del provider.', 'wp-ai-publisher' ); ?></p>
+		<table class="form-table" role="presentation">
+			<tbody>
+				<tr>
+					<th scope="row"><label for="wpai-ai-model"><?php echo esc_html__( 'Modello AI', 'wp-ai-publisher' ); ?></label></th>
+					<td>
+						<input type="text" id="wpai-ai-model" name="wpai_publisher_settings[ai_model]" class="regular-text" list="wpai-ai-model-options" value="<?php echo esc_attr( (string) ( $settings['ai_model'] ?? '' ) ); ?>" placeholder="<?php echo esc_attr__( 'es. gpt-4o-mini (vuoto = modello predefinito del provider)', 'wp-ai-publisher' ); ?>">
+						<?php if ( ! empty( $ai_models ) ) : ?>
+							<datalist id="wpai-ai-model-options">
+								<?php foreach ( $ai_models as $model ) : ?>
+									<option value="<?php echo esc_attr( $model['id'] ); ?>"><?php echo esc_html( $model['label'] ?? $model['id'] ); ?></option>
+								<?php endforeach; ?>
+							</datalist>
+						<?php endif; ?>
+						<p class="description"><?php echo esc_html__( 'ID del modello da richiedere. Consigliato un modello veloce (es. gpt-4o-mini) per restare entro il timeout. Se vuoto, viene usato il modello configurato nel provider AI.', 'wp-ai-publisher' ); ?></p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-ai-http-timeout"><?php echo esc_html__( 'Timeout richiesta AI (secondi)', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="number" min="15" max="600" id="wpai-ai-http-timeout" name="wpai_publisher_settings[ai_http_timeout]" value="<?php echo esc_attr( (string) ( $settings['ai_http_timeout'] ?? 180 ) ); ?>"><p class="description"><?php echo esc_html__( 'Tempo massimo di attesa della risposta AI. Aumentalo se la generazione è lenta (max 600).', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-ai-max-tokens"><?php echo esc_html__( 'Lunghezza massima output (token)', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="number" min="0" max="32000" id="wpai-ai-max-tokens" name="wpai_publisher_settings[ai_max_output_tokens]" value="<?php echo esc_attr( (string) ( $settings['ai_max_output_tokens'] ?? 4000 ) ); ?>"><p class="description"><?php echo esc_html__( 'Limite di token in uscita per contenere i tempi di generazione. 0 = nessun limite (usa il default del modello).', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-ai-temperature"><?php echo esc_html__( 'Temperatura', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="text" id="wpai-ai-temperature" name="wpai_publisher_settings[ai_temperature]" class="small-text" value="<?php echo esc_attr( (string) ( $settings['ai_temperature'] ?? '' ) ); ?>" placeholder="<?php echo esc_attr__( 'vuoto', 'wp-ai-publisher' ); ?>"><p class="description"><?php echo esc_html__( 'Valore 0–2. Lascia VUOTO se usi un modello “reasoning” (o1/o3/gpt-5): questi modelli rifiutano il parametro temperature.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+			</tbody>
+		</table>
+
 		<h2><?php echo esc_html__( 'Profilo sito', 'wp-ai-publisher' ); ?></h2>
 		<p><?php echo esc_html__( 'Contesto generale del sito. Le Tipologie Articolo restano la fonte principale per tono, struttura, tag e istruzioni specifiche.', 'wp-ai-publisher' ); ?></p>
 

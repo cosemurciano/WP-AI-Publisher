@@ -1193,6 +1193,28 @@ class AI_Provider_Adapter {
 	 * @param bool                    $tolerant Tolerant acceptance mode.
 	 * @return array<string,mixed>|WP_Error
 	 */
+	/**
+	 * Resolve AI generation parameters from settings, with filter overrides.
+	 *
+	 * @return array{model:string,http_timeout:int,max_output_tokens:int,temperature:float|null}
+	 */
+	public function get_ai_generation_params() {
+		$settings    = wpai_publisher_get_settings();
+		$model       = (string) apply_filters( 'wpai_publisher_ai_model', (string) ( $settings['ai_model'] ?? '' ) );
+		$timeout     = (int) apply_filters( 'wpai_publisher_ai_http_timeout', (int) ( $settings['ai_http_timeout'] ?? 180 ) );
+		$max_tokens  = (int) apply_filters( 'wpai_publisher_ai_max_output_tokens', (int) ( $settings['ai_max_output_tokens'] ?? 4000 ) );
+		$raw_temp    = $settings['ai_temperature'] ?? '';
+		$temperature = ( '' === $raw_temp || null === $raw_temp ) ? null : (float) $raw_temp;
+		$temperature = apply_filters( 'wpai_publisher_ai_temperature', $temperature );
+
+		return array(
+			'model'             => sanitize_text_field( $model ),
+			'http_timeout'      => max( 15, min( 600, $timeout ) ),
+			'max_output_tokens' => max( 0, $max_tokens ),
+			'temperature'       => ( null === $temperature ) ? null : (float) $temperature,
+		);
+	}
+
 	private function try_generate_with_php_ai_client( $prompt, $generation_context, Classic_Content_Builder $builder, $tolerant = true ) {
 		$class = '\\WordPress\\AiClient\\AiClient';
 		if ( ! class_exists( $class ) ) {
@@ -1210,18 +1232,28 @@ class AI_Provider_Adapter {
 					unset( $error );
 				}
 			}
-			// Bound the output to keep generation within the request timeout.
-			$max_tokens = max( 256, (int) apply_filters( 'wpai_publisher_ai_max_output_tokens', 4000 ) );
-			if ( method_exists( $request, 'usingMaxTokens' ) ) {
+			$params = $this->get_ai_generation_params();
+
+			// Optionally select a specific model; otherwise the provider default is used.
+			if ( '' !== $params['model'] && method_exists( $request, 'usingModel' ) ) {
 				try {
-					$request = $request->usingMaxTokens( $max_tokens );
+					$request = $request->usingModel( $params['model'] );
 				} catch ( Throwable $error ) {
 					unset( $error );
 				}
 			}
-			if ( method_exists( $request, 'usingTemperature' ) ) {
+			// Bound the output to keep generation within the request timeout.
+			if ( $params['max_output_tokens'] > 0 && method_exists( $request, 'usingMaxTokens' ) ) {
 				try {
-					$request = $request->usingTemperature( (float) apply_filters( 'wpai_publisher_ai_temperature', 0.7 ) );
+					$request = $request->usingMaxTokens( $params['max_output_tokens'] );
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+			// Temperature is opt-in: some models (e.g. reasoning models) reject it.
+			if ( null !== $params['temperature'] && method_exists( $request, 'usingTemperature' ) ) {
+				try {
+					$request = $request->usingTemperature( $params['temperature'] );
 				} catch ( Throwable $error ) {
 					unset( $error );
 				}
@@ -1232,7 +1264,7 @@ class AI_Provider_Adapter {
 
 			// AI text generation can take far longer than the 5s WordPress HTTP
 			// default; raise the timeout only for the duration of this request.
-			$timeout       = max( 15, (int) apply_filters( 'wpai_publisher_ai_http_timeout', 180 ) );
+			$timeout       = max( 15, (int) $params['http_timeout'] );
 			$raise_timeout = static function ( $value ) use ( $timeout ) {
 				return max( (float) $value, (float) $timeout );
 			};

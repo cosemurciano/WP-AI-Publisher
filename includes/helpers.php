@@ -58,6 +58,10 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'auto_create_draft_from_idea'   => true,
 			'workflow_mode'                 => 'simple',
 			'delete_data_on_uninstall'      => false,
+			'ai_model'                      => '',
+			'ai_http_timeout'               => 180,
+			'ai_max_output_tokens'          => 4000,
+			'ai_temperature'                => '',
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -104,6 +108,11 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['auto_create_draft_from_idea']   = ! empty( $settings['auto_create_draft_from_idea'] );
 		$settings['delete_data_on_uninstall']      = ! empty( $settings['delete_data_on_uninstall'] );
 		$settings['workflow_mode']                 = in_array( sanitize_key( (string) ( $settings['workflow_mode'] ?? 'simple' ) ), array( 'simple', 'advanced' ), true ) ? sanitize_key( (string) $settings['workflow_mode'] ) : 'simple';
+		$settings['ai_model']                      = sanitize_text_field( (string) ( $settings['ai_model'] ?? '' ) );
+		$settings['ai_http_timeout']               = max( 15, min( 600, (int) ( $settings['ai_http_timeout'] ?? 180 ) ) );
+		$settings['ai_max_output_tokens']          = max( 0, min( 32000, (int) ( $settings['ai_max_output_tokens'] ?? 4000 ) ) );
+		$raw_temperature                           = $settings['ai_temperature'] ?? '';
+		$settings['ai_temperature']                = ( '' === $raw_temperature || null === $raw_temperature ) ? '' : (string) max( 0, min( 2, (float) $raw_temperature ) );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );
