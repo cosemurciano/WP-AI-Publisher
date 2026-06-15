@@ -179,7 +179,7 @@ class DB {
 	 *
 	 * @return void
 	 */
-	private function ensure_content_ideas_article_type_column() {
+	public function ensure_content_ideas_article_type_column() {
 		global $wpdb;
 		$table = $this->get_content_ideas_table_name();
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) { return; }
@@ -191,6 +191,27 @@ class DB {
 		if ( ! in_array( 'article_type_id', $indexes, true ) ) {
 			$wpdb->query( "ALTER TABLE {$table} ADD KEY article_type_id (article_type_id)" );
 		}
+	}
+
+	public function has_content_ideas_article_type_column() {
+		global $wpdb;
+		$table = $this->get_content_ideas_table_name();
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+			return false;
+		}
+		return in_array( 'article_type_id', (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 ), true );
+	}
+
+	public function count_content_ideas_without_article_type() {
+		global $wpdb;
+		if ( ! $this->has_content_ideas_article_type_column() ) {
+			$this->ensure_content_ideas_article_type_column();
+		}
+		if ( ! $this->has_content_ideas_article_type_column() ) {
+			return 0;
+		}
+		$table = $this->get_content_ideas_table_name();
+		return absint( $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE article_type_id IS NULL OR article_type_id = 0" ) );
 	}
 
 	/**

@@ -81,6 +81,7 @@ class Admin {
 		add_action( 'admin_post_wpai_publisher_reject_content_idea', array( $this, 'handle_reject_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_create_draft_from_idea', array( $this, 'handle_create_draft_from_idea' ) );
 		add_action( 'admin_post_wpai_publisher_generate_full_article', array( $this, 'handle_generate_full_article' ) );
+		add_action( 'admin_post_wpai_publisher_assign_article_type_to_idea', array( $this, 'handle_assign_article_type_to_idea' ) );
 	}
 
 	/**
@@ -203,7 +204,7 @@ class Admin {
 			$result = $this->content_ideas->process_idea_to_draft( absint( $idea_id ) );
 			$this->redirect_content_ideas(
 				array(
-					'wpai_notice' => ! empty( $result['success'] ) ? 'draft_created' : ( 'full_article' === ( $result['step_failed'] ?? '' ) ? 'full_article_failed' : ( 'draft' === ( $result['step_failed'] ?? '' ) && false !== strpos( (string) ( $result['message'] ?? '' ), 'Genera prima' ) ? 'missing_full_article' : 'draft_creation_failed' ) ),
+					'wpai_notice' => ! empty( $result['success'] ) ? 'draft_created' : ( 'article_type' === ( $result['step_failed'] ?? '' ) ? 'missing_article_type' : ( 'full_article' === ( $result['step_failed'] ?? '' ) ? 'full_article_failed' : ( 'draft' === ( $result['step_failed'] ?? '' ) && false !== strpos( (string) ( $result['message'] ?? '' ), 'Genera prima' ) ? 'missing_full_article' : 'draft_creation_failed' ) ) ),
 					'wpai_step'   => sanitize_key( (string) ( $result['step_failed'] ?? '' ) ),
 					'wpai_error'  => rawurlencode( sanitize_text_field( (string) ( $result['error_code'] ?? $result['message'] ?? '' ) ) ),
 					'view_idea'   => absint( $idea_id ),
@@ -241,7 +242,7 @@ class Admin {
 		if ( is_wp_error( $result ) || empty( $result['valid'] ) ) {
 			$this->redirect_content_ideas(
 				array(
-					'wpai_notice' => 'dry_run_failed',
+					'wpai_notice' => is_wp_error( $result ) && 'wpai_content_idea_missing_article_type' === $result->get_error_code() ? 'missing_article_type' : 'dry_run_failed',
 					'view_idea'   => $idea_id,
 					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
 				)
@@ -251,6 +252,23 @@ class Admin {
 		$this->redirect_content_ideas(
 			array(
 				'wpai_notice' => 'dry_run_completed',
+				'view_idea'   => $idea_id,
+				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
+			)
+		);
+	}
+
+	public function handle_assign_article_type_to_idea() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+		$idea_id = absint( $_POST['idea_id'] ?? 0 );
+		check_admin_referer( 'wpai_publisher_assign_article_type_to_idea_' . $idea_id );
+		$article_type_id = absint( $_POST['article_type_id'] ?? 0 );
+		$assigned = method_exists( $this->content_ideas, 'assign_article_type' ) ? $this->content_ideas->assign_article_type( $idea_id, $article_type_id ) : false;
+		$this->redirect_content_ideas(
+			array(
+				'wpai_notice' => $assigned ? 'article_type_assigned' : 'article_type_assign_failed',
 				'view_idea'   => $idea_id,
 				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
 			)
@@ -413,8 +431,8 @@ class Admin {
 		}
 
 		$content_ideas = $this->content_ideas;
-		$active_article_types = Article_Types::get_active_article_types();
-		$article_types_url = admin_url( 'edit.php?post_type=' . Article_Types::POST_TYPE );
+		$active_article_types = class_exists( __NAMESPACE__ . '\Article_Types' ) ? Article_Types::get_active_article_types() : array();
+		$article_types_url = class_exists( __NAMESPACE__ . '\Article_Types' ) ? admin_url( 'edit.php?post_type=' . Article_Types::POST_TYPE ) : admin_url( 'admin.php?page=wp-ai-publisher-system-status' );
 		$ideas         = $content_ideas->get_recent_ideas( 20 );
 		$selected_idea = null;
 		$dry_run_data  = array();

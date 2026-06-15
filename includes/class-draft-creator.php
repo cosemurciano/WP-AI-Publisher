@@ -58,6 +58,10 @@ class Draft_Creator {
 		if ( ! in_array( sanitize_key( (string) ( $idea->status ?? '' ) ), array( 'approved', 'full_article_ready' ), true ) ) {
 			return new WP_Error( 'wpai_draft_creator_not_approved', __( 'Non puoi creare una bozza da un dry-run non approvato.', 'wp-ai-publisher' ) );
 		}
+		$article_type_id = absint( $idea->article_type_id ?? 0 );
+		if ( 0 === $article_type_id || ! class_exists( __NAMESPACE__ . '\Article_Types' ) || ! Article_Types::is_active_article_type( $article_type_id ) ) {
+			return new WP_Error( 'wpai_draft_creator_missing_article_type', __( 'Assegna una Tipologia articolo prima di generare la bozza.', 'wp-ai-publisher' ) );
+		}
 
 		$existing_post_id = absint( $idea->draft_post_id ?? 0 );
 		if ( $existing_post_id > 0 && get_post( $existing_post_id ) ) {
@@ -94,7 +98,9 @@ class Draft_Creator {
 			}
 		}
 
-		$builder = new Classic_Content_Builder();
+		$article_type = isset( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : Article_Types::get_article_type_config( $article_type_id );
+		$dry_run['article_type'] = $article_type;
+		$builder = new Classic_Content_Builder( null, $article_type );
 		$original_full_article_html = (string) $dry_run['full_article']['html'];
 		$dry_run['full_article']['html'] = $builder->normalize_full_article_html( $original_full_article_html, $dry_run );
 		$validation = $builder->validate_publishable_article_html( (string) $dry_run['full_article']['html'] );
@@ -163,7 +169,7 @@ class Draft_Creator {
 	 * @param string $html Raw HTML.
 	 * @return string|WP_Error Sanitized HTML or error.
 	 */
-	public function sanitize_post_content( $html ) {
+	public function sanitize_post_content( $html, $article_type = array() ) {
 		$html = (string) $html;
 		if ( $this->contains_gutenberg_blocks( $html ) ) {
 			return new WP_Error( 'wpai_draft_creator_gutenberg_blocks', __( 'Il contenuto contiene blocchi Gutenberg non consentiti.', 'wp-ai-publisher' ) );
@@ -192,7 +198,7 @@ class Draft_Creator {
 		);
 
 		$sanitized = wp_kses( $html, $allowed_html );
-		$builder = new Classic_Content_Builder();
+		$builder = new Classic_Content_Builder( null, is_array( $article_type ) ? $article_type : array() );
 		$validation = $builder->validate_publishable_article_html( $sanitized );
 		if ( empty( $validation['valid'] ) ) {
 			return new WP_Error( 'wpai_draft_creator_unpublishable_content', __( 'Il contenuto completo non è pubblicabile come bozza Classic Editor.', 'wp-ai-publisher' ), $validation );
@@ -212,9 +218,10 @@ class Draft_Creator {
 	 * @return array<string,mixed>|WP_Error
 	 */
 	public function prepare_post_data( $idea, $dry_run ) {
-		$builder = new Classic_Content_Builder();
+		$article_type = isset( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : array();
+		$builder = new Classic_Content_Builder( null, $article_type );
 		$html = $builder->normalize_full_article_html( (string) ( $dry_run['full_article']['html'] ?? '' ), $dry_run );
-		$content = $this->sanitize_post_content( $html );
+		$content = $this->sanitize_post_content( $html, $article_type );
 		if ( is_wp_error( $content ) ) {
 			return $content;
 		}
@@ -303,7 +310,12 @@ class Draft_Creator {
 		}
 
 		$category_ids = array_values( array_intersect( $requested_ids, $existing_category_ids ) );
-		if ( ! empty( $allowed_category_ids ) ) { $category_ids = array_values( array_intersect( $category_ids, $allowed_category_ids ) ); }
+		if ( empty( $allowed_category_ids ) ) {
+			$this->logger->info( __( 'Nessuna categoria consentita configurata nella tipologia articolo.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'post_id' => $post_id ) );
+			$category_ids = array();
+		} else {
+			$category_ids = array_values( array_intersect( $category_ids, $allowed_category_ids ) );
+		}
 		if ( ! empty( $category_ids ) ) { wp_set_post_categories( $post_id, $category_ids, false ); }
 
 		$tags = array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $dry_run['tags'] ?? array() ) ) ) );

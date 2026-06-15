@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.0**
+Versione corrente: **0.5.1**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
@@ -48,6 +48,16 @@ Il **Contesto editoriale del sito** resta il quadro generale: descrive il sito, 
 Il form **Idee contenuto** è stato semplificato: l’utente inserisce argomento principale, keyword principale, lingua e Tipologia articolo. I vecchi campi “Livello tutorial” e “Note editoriali” sono stati rimossi dal form perché ora appartengono alla Tipologia articolo, così il flusso resta più coerente e riutilizzabile.
 
 Le categorie non vengono create dall’AI. Ogni Tipologia può selezionare solo categorie WordPress già esistenti; l’output AI può suggerire `category_ids`, ma il plugin li interseca con le categorie consentite e assegna solo termini esistenti.
+
+## Hotfix upgrade 0.5.1
+
+La versione **0.5.1** è una hotfix di recovery per aggiornamenti da 0.5.0 e versioni precedenti. Stabilizza il caricamento del plugin anche quando dati, colonne, Tipologie articolo o meta non sono ancora disponibili.
+
+- Risolve possibili errori critici post-upgrade con controlli difensivi su classi, metodi, colonne database e CPT.
+- Rende sicure le idee migrate senza Tipologia articolo: non eseguono dry-run o creazione bozza finché non viene assegnata una tipologia.
+- Introduce l’assegnazione reale della Tipologia articolo alle idee migrate dalla schermata Idee contenuto.
+- Non crea categorie nuove: le categorie suggerite dall’AI vengono applicate solo se esistono e sono esplicitamente consentite dalla Tipologia articolo.
+- Stabilizza la validazione `full_article` passando la Tipologia articolo al builder Classic Editor e rispettando sezioni obbligatorie e pattern vietati.
 
 ## Stato sviluppo
 
@@ -307,6 +317,12 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.1
+
+- Hotfix per errore critico dopo aggiornamento 0.5.0.
+- Rafforzata sicurezza upgrade, migrazione `article_type_id`, assegnazione tipologie migrate e validazione full article con Tipologia articolo.
+- Corretto comportamento categorie: nessuna categoria AI viene assegnata se la Tipologia articolo non configura categorie consentite.
 
 ### 0.5.0
 
