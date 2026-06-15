@@ -383,9 +383,9 @@ class Classic_Content_Builder {
 		return $chunks;
 	}
 
-	private function contains_placeholder_text( $text ) {
+	public function contains_placeholder_text( $text ) {
 		$lower = strtolower( remove_accents( wp_strip_all_tags( (string) $text ) ) );
-		foreach ( array( 'la sezione “', 'la sezione "', 'introduce gli aspetti pratici piu importanti', 'indica cosa controllare', 'aiuta a mantenere il risultato coerente', 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'articolo da completare', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare' ) as $needle ) {
+		foreach ( array( 'la sezione “', 'la sezione "', 'introduce gli aspetti pratici piu importanti', 'indica cosa controllare', 'aiuta a mantenere il risultato coerente', 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'articolo da completare', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'resta dry-run ready', 'da revisionare' ) as $needle ) {
 			if ( false !== strpos( $lower, $needle ) ) {
 				return true;
 			}
@@ -426,6 +426,12 @@ class Classic_Content_Builder {
 		}
 
 		return array(
+			'selected_source' => '' !== trim( $raw_html ) ? 'full_article' : 'fallback',
+			'full_article_present' => '' !== trim( $raw_html ) ? 'yes' : 'no',
+			'preview_present' => '' !== trim( $preview_html ) ? 'yes' : 'no',
+			'preview_rejected_as_placeholder' => '' !== trim( $preview_html ) && $this->contains_placeholder_text( $preview_html ) ? 'yes' : 'no',
+			'normalization_status' => '' !== trim( $normalized_html ) ? 'success' : 'failure',
+			'validation_failed_rule' => ! empty( $validation['notes'][0] ) ? (string) $validation['notes'][0] : '',
 			'full_article_html_exists' => '' !== trim( $raw_html ),
 			'full_article_html_length' => strlen( $raw_html ),
 			'full_article_contains_html_tags' => 1 === preg_match( '/<[a-z][\s\S]*>/i', $raw_html ),
@@ -438,6 +444,36 @@ class Classic_Content_Builder {
 			'classic_editor_preview_available' => '' !== trim( $preview_html ),
 			'classic_editor_preview_rejected_as_placeholder' => '' !== trim( $preview_html ) && $this->contains_placeholder_text( $preview_html ),
 		);
+	}
+
+
+	private function extract_html_headings_text( $html ) {
+		$headings = array();
+		if ( preg_match_all( '/<h[2-4]\b[^>]*>(.*?)<\/h[2-4]>/is', (string) $html, $matches ) ) {
+			foreach ( (array) $matches[1] as $heading ) {
+				$heading = trim( wp_strip_all_tags( (string) $heading ) );
+				if ( '' !== $heading ) { $headings[] = $heading; }
+			}
+		}
+		return $headings;
+	}
+
+	private function matches_required_section_flexibly( $required_section, $plain, $headings ) {
+		$required_key = $this->normalize_heading_key( $required_section );
+		if ( '' === $required_key ) { return true; }
+		$plain_key = $this->normalize_heading_key( $plain );
+		if ( false !== strpos( $plain_key, $required_key ) ) { return true; }
+		$required_tokens = array_values( array_filter( preg_split( '/\s+/', $required_key ) ) );
+		foreach ( (array) $headings as $heading ) {
+			$heading_key = $this->normalize_heading_key( $heading );
+			if ( $heading_key === $required_key || false !== strpos( $heading_key, $required_key ) || false !== strpos( $required_key, $heading_key ) ) { return true; }
+			$matched = 0;
+			foreach ( $required_tokens as $token ) {
+				if ( strlen( $token ) >= 3 && false !== strpos( $heading_key, $token ) ) { $matched++; }
+			}
+			if ( $matched >= max( 1, min( count( $required_tokens ), 2 ) ) ) { return true; }
+		}
+		return false;
 	}
 
 	/**
@@ -457,7 +493,12 @@ class Classic_Content_Builder {
 
 		if ( '' === $plain ) { $notes[] = __( 'Articolo completo vuoto.', 'wp-ai-publisher' ); }
 		foreach ( array( '<!-- wp:', 'wp-block', '<script', '<iframe', ' style=', '<style', '[caption', '[gallery' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Markup non consentito nel contenuto finale.', 'wp-ai-publisher' ); break; } }
-		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['required_sections'] ?? '' ) ) ) ) as $required_section ) { if ( '' !== $required_section && false === stripos( wp_strip_all_tags( $html ), $required_section ) ) { $notes[] = sprintf( __( 'Sezione obbligatoria mancante dalla Tipologia articolo: %s', 'wp-ai-publisher' ), $required_section ); } }
+		$headings_text = $this->extract_html_headings_text( $html );
+		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['required_sections'] ?? '' ) ) ) ) as $required_section ) {
+			if ( '' !== $required_section && ! $this->matches_required_section_flexibly( $required_section, $plain, $headings_text ) ) {
+				$notes[] = sprintf( __( 'Sezione obbligatoria mancante dalla Tipologia articolo: %s', 'wp-ai-publisher' ), $required_section );
+			}
+		}
 		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['forbidden_patterns'] ?? '' ) ) ) ) as $forbidden_pattern ) { if ( '' !== $forbidden_pattern && false !== stripos( wp_strip_all_tags( $html ), $forbidden_pattern ) ) { $notes[] = sprintf( __( 'Pattern vietato dalla Tipologia articolo rilevato: %s', 'wp-ai-publisher' ), $forbidden_pattern ); } }
 		foreach ( array( 'pubblico:', 'tono:', 'formato preferito:', 'target tecnico:', 'nota editoriale:', 'regole editoriali:', 'claim vietati:', 'termini brand:', 'contesto editoriale:', 'writing rules:', 'forbidden_claims', 'site_context', 'validation_notes', 'knowledge_summary' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene note interne visibili.', 'wp-ai-publisher' ); break; } }
 		if ( $this->contains_placeholder_text( $html ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); }
@@ -532,7 +573,7 @@ class Classic_Content_Builder {
 		$heading = sanitize_text_field( (string) $heading );
 		$topic   = sanitize_text_field( (string) ( $dry_run_output['title'] ?? $dry_run_output['subtopic'] ?? $dry_run_output['cluster_topic'] ?? $heading ) );
 		$lower   = strtolower( remove_accents( $summary ) );
-		$blocked = array( 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'articolo da completare', 'senza pubblicare contenuti', 'utile per validare flusso' );
+		$blocked = array( 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'resta dry-run ready', 'da revisionare', 'articolo da completare', 'senza pubblicare contenuti', 'utile per validare flusso' );
 		$must_rewrite = '' === $summary || $this->is_editorial_instruction_sentence( $summary );
 		foreach ( $blocked as $needle ) {
 			if ( false !== strpos( $lower, $needle ) ) {
@@ -770,7 +811,7 @@ class Classic_Content_Builder {
 	 */
 	private function looks_like_placeholder_summary( $summary ) {
 		$summary = strtolower( remove_accents( (string) $summary ) );
-		foreach ( array( 'descrivere in modo pratico', 'descrivere in modo verificabile', 'descrivere il passaggio', 'nel contesto di', 'evitando dettagli tecnici non confermati', 'passaggio “', 'passaggio "', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'articolo da completare' ) as $needle ) {
+		foreach ( array( 'descrivere in modo pratico', 'descrivere in modo verificabile', 'descrivere il passaggio', 'nel contesto di', 'evitando dettagli tecnici non confermati', 'passaggio “', 'passaggio "', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'resta dry-run ready', 'da revisionare', 'articolo da completare' ) as $needle ) {
 			if ( false !== strpos( $summary, $needle ) ) {
 				return true;
 			}
