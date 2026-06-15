@@ -92,7 +92,7 @@ class Content_Ideas {
 			return new WP_Error( 'wpai_content_idea_invalid_language', __( 'Lingua non valida.', 'wp-ai-publisher' ) );
 		}
 
-		if ( $article_types_enabled && ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) ) {
+		if ( $article_types_enabled && $article_type_id > 0 && ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
 			return new WP_Error( 'wpai_content_idea_invalid_article_type', __( 'Seleziona una Tipologia articolo attiva.', 'wp-ai-publisher' ) );
 		}
 		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) {
@@ -383,6 +383,7 @@ class Content_Ideas {
 			'required_schema'      => $this->ai_provider->get_content_dry_run_schema(),
 			'allow_local_fallback' => true,
 			'site_context'         => $site_context,
+			'instruction_priority' => array( 'sicurezza sistema', 'tipologia articolo', 'contesto editoriale sito', 'idea utente' ),
 			'safety'               => array(
 				'create_posts'       => false,
 				'publish_content'    => false,

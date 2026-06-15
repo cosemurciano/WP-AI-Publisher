@@ -70,7 +70,14 @@ Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione atti
 == Changelog ==
 
 = 0.5.5 =
-* Aggiunta pagina admin Stato sistema di sola lettura con diagnostica ambiente e integrazioni.
+* Reintrodotte Tipologie articolo come entità interne del plugin.
+* Rimossa dipendenza dal Custom Post Type per le Tipologie articolo.
+* Aggiunta tabella wpai_publisher_article_types.
+* Aggiunta gestione admin interna per creare, modificare, eliminare e attivare tipologie.
+* Le Tipologie articolo guidano prompt, struttura, tono, intento, lunghezza e categorie consentite.
+* Il workflow Idee contenuto usa le tipologie dalla tabella custom.
+* Evitato uso di map_meta_cap e capability post custom.
+* Mantenuta stabilità admin della recovery 0.5.4.
 
 = 0.5.4 =
 * Recovery release per stabilizzare admin menu.
