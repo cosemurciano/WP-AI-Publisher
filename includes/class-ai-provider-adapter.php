@@ -84,6 +84,7 @@ class AI_Provider_Adapter {
 			'WP_AI_Client',
 			'WP_AI_Abilities_Registry',
 			'WP_AI_Ability_Registry',
+			'\\WordPress\\AiClient\\AiClient',
 			'\\WordPress\\AI\\Client',
 			'\\WordPress\\AI\\Services\\Services_API',
 			'\\WordPress\\AI\\Services\\AI_Service',
@@ -1068,6 +1069,13 @@ class AI_Provider_Adapter {
 			$diagnostics['channel_attempts']['filter'] = $diagnostics['channel_filter'] ? 'filtro registrato ma ha restituito null' : 'nessun filtro registrato';
 		}
 
+		$client_candidate = $this->try_generate_with_php_ai_client( $prompt, $generation_context, $builder, true );
+		if ( ! is_wp_error( $client_candidate ) ) {
+			$client_candidate['channel'] = 'php_ai_client';
+			return $client_candidate;
+		}
+		$diagnostics['channel_attempts']['php_ai_client'] = $client_candidate->get_error_message();
+
 		$ability_candidate = $this->try_generate_full_article_with_wp_abilities( $generation_context, $site_context, $prompt, $builder, true );
 		if ( ! is_wp_error( $ability_candidate ) ) {
 			$ability_candidate['channel'] = 'abilities_api';
@@ -1115,7 +1123,7 @@ class AI_Provider_Adapter {
 
 		return new WP_Error(
 			'wpai_article_no_ai_output',
-			__( 'Un sistema AI risulta rilevato ma nessun canale di generazione ha prodotto contenuto. Apri Stato sistema → Dettaglio log critici interni per vedere quale integrazione è presente e quale canale ha fallito.', 'wp-ai-publisher' ),
+			__( 'Un sistema AI è rilevato ma nessun canale ha generato l’articolo. Le ability disponibili potrebbero non includere la generazione di testo/articoli (spesso sono specifiche: immagini, classificazione, SEO) o richiedere permessi non disponibili durante l’esecuzione pianificata (WP-Cron senza utente). Soluzione consigliata: collega un generatore di testo con il filtro wpai_publisher_generate_article_from_idea (vedi README → Integrazione AI). Dettagli per-ability in Stato sistema → Dettaglio log critici interni.', 'wp-ai-publisher' ),
 			$diagnostics
 		);
 	}
@@ -1149,10 +1157,56 @@ class AI_Provider_Adapter {
 			'present_classes'             => array_values( array_unique( $present_classes ) ),
 			'present_functions'           => array_values( array_unique( $present_functions ) ),
 			'channel_filter'              => (bool) ( function_exists( 'has_filter' ) ? has_filter( 'wpai_publisher_generate_article_from_idea' ) : false ),
+			'channel_php_ai_client'       => class_exists( '\\WordPress\\AiClient\\AiClient' ),
 			'channel_abilities_api'       => function_exists( 'wp_get_abilities' ) && function_exists( 'wp_get_ability' ),
 			'channel_ai_services'         => function_exists( 'ai_services' ),
 			'channel_wp_ai_generate_text' => function_exists( 'wp_ai_generate_text' ),
 		);
+	}
+
+	/**
+	 * Try generating with the official WordPress PHP AI Client SDK.
+	 *
+	 * This is the canonical, cross-plugin text-generation entrypoint bundled by
+	 * the WordPress/ai plugin and used by "AI Provider for OpenAI":
+	 *   WordPress\AiClient\AiClient::prompt( $prompt )->generateText()
+	 * It uses the provider/model configured on the site (e.g. OpenAI). Fully
+	 * guarded so any API change is reported instead of fataling.
+	 *
+	 * @param string                  $prompt Prompt.
+	 * @param array<string,mixed>     $generation_context Generation context.
+	 * @param Classic_Content_Builder $builder Builder/validator.
+	 * @param bool                    $tolerant Tolerant acceptance mode.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private function try_generate_with_php_ai_client( $prompt, $generation_context, Classic_Content_Builder $builder, $tolerant = true ) {
+		$class = '\\WordPress\\AiClient\\AiClient';
+		if ( ! class_exists( $class ) ) {
+			return new WP_Error( 'wpai_php_ai_client_unavailable', __( 'PHP AI Client (WordPress\\AiClient) non disponibile.', 'wp-ai-publisher' ) );
+		}
+		try {
+			$request = call_user_func( array( $class, 'prompt' ), $prompt );
+			if ( ! is_object( $request ) ) {
+				return new WP_Error( 'wpai_php_ai_client_no_builder', __( 'AiClient::prompt() non ha restituito un builder.', 'wp-ai-publisher' ) );
+			}
+			if ( method_exists( $request, 'usingSystemInstruction' ) ) {
+				try {
+					$request = $request->usingSystemInstruction( __( 'Sei un assistente editoriale WordPress. Restituisci solo HTML pulito compatibile con Editor Classico (p, h2, h3, ul, ol, li, strong, em, blockquote, code, pre, br), senza blocchi Gutenberg, senza markdown e senza note interne.', 'wp-ai-publisher' ) );
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+			if ( ! method_exists( $request, 'generateText' ) ) {
+				return new WP_Error( 'wpai_php_ai_client_no_method', __( 'Il metodo generateText() non è disponibile nel PHP AI Client installato.', 'wp-ai-publisher' ) );
+			}
+			$text = $this->stringify_ai_result( $request->generateText() );
+			if ( '' === trim( (string) $text ) ) {
+				return new WP_Error( 'wpai_php_ai_client_empty', __( 'Il PHP AI Client non ha restituito testo.', 'wp-ai-publisher' ) );
+			}
+			return $this->normalize_full_article_candidate( $text, 'wordpress_ai', $builder, $generation_context, $tolerant );
+		} catch ( Throwable $error ) {
+			return new WP_Error( 'wpai_php_ai_client_exception', $error->getMessage() );
+		}
 	}
 
 	/**
@@ -1240,7 +1294,7 @@ class AI_Provider_Adapter {
 			return (string) ( $result['text'] ?? $result['content'] ?? $result['html'] ?? '' );
 		}
 		if ( is_object( $result ) ) {
-			foreach ( array( 'get_text', 'to_text', '__toString' ) as $method ) {
+			foreach ( array( 'toText', 'getText', 'get_text', 'to_text', '__toString' ) as $method ) {
 				if ( method_exists( $result, $method ) ) {
 					try {
 						$text = $result->{$method}();
