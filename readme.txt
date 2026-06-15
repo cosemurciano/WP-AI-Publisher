@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.18
+Stable tag: 0.5.19
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,10 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.19 =
+* Aggiunto il canale di generazione tramite il PHP AI Client ufficiale di WordPress (WordPress\AiClient\AiClient::prompt()->generateText()), usato dallo stack "AI Provider for OpenAI". È il canale primario dopo l’eventuale filtro personalizzato e usa il provider/modello configurato sul sito (es. OpenAI). Questo abilita finalmente la generazione reale dell’articolo e la creazione della bozza.
+* Stato sistema e diagnostica generazione riportano il nuovo canale php_ai_client.
 
 = 0.5.18 =
 * Messaggio d’errore chiaro quando l’integrazione AI presente non offre una generazione di testo/articoli: molti stack espongono solo ability specifiche (immagini, classificazione, SEO) o richiedono permessi non disponibili in WP-Cron.
