@@ -1,12 +1,12 @@
 # WP AI Publisher
 
-Versione corrente: **0.4.5**
+Versione corrente: **0.5.0**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
 ## Workflow idea → bozza
 
-Dalla versione **0.4.5** il workflow principale è pensato per il sito con Editor Classico: l’utente scrive o programma un’idea e il plugin la porta fino alla bozza WordPress senza pubblicarla automaticamente.
+Dalla versione **0.5.0** il workflow principale è pensato per il sito con Editor Classico: l’utente scrive o programma un’idea e il plugin la porta fino alla bozza WordPress senza pubblicarla automaticamente.
 
 ### Modalità semplice
 
@@ -35,7 +35,19 @@ Il contenuto AI può arrivare come HTML o testo semplice. Prima del salvataggio 
 
 ### Sicurezza editoriale
 
-WP AI Publisher 0.4.5 continua a creare solo bozze o contenuti pending autorizzati dal flusso configurato. Non pubblica automaticamente, non genera immagini reali, non chiama OpenAI direttamente e non scrive metadati AIOSEO in questa fase.
+WP AI Publisher 0.5.0 continua a creare solo bozze o contenuti pending autorizzati dal flusso configurato. Non pubblica automaticamente, non genera immagini reali, non chiama OpenAI direttamente e non scrive metadati AIOSEO in questa fase.
+
+## Tipologie di Articolo
+
+Dalla versione **0.5.0** WP AI Publisher introduce le **Tipologie di Articolo**, un Custom Post Type interno (`wpai_article_type`) gestibile dal pannello WordPress in **WP AI Publisher → Tipologie articolo**.
+
+Le Tipologie di Articolo definiscono struttura, prompt specifico, sezioni obbligatorie, pattern vietati, tono, lunghezza, intento di ricerca, livello lettore, categorie WordPress esistenti consentite, tag consigliati, regole SEO, regole di linking interno e checklist qualità.
+
+Il **Contesto editoriale del sito** resta il quadro generale: descrive il sito, il pubblico, la nicchia e le regole comuni. La **Tipologia di Articolo** è invece l’istruzione specifica principale per generare un singolo contenuto e ha priorità più alta del contesto generale.
+
+Il form **Idee contenuto** è stato semplificato: l’utente inserisce argomento principale, keyword principale, lingua e Tipologia articolo. I vecchi campi “Livello tutorial” e “Note editoriali” sono stati rimossi dal form perché ora appartengono alla Tipologia articolo, così il flusso resta più coerente e riutilizzabile.
+
+Le categorie non vengono create dall’AI. Ogni Tipologia può selezionare solo categorie WordPress già esistenti; l’output AI può suggerire `category_ids`, ma il plugin li interseca con le categorie consentite e assegna solo termini esistenti.
 
 ## Stato sviluppo
 
@@ -65,7 +77,7 @@ Il contesto guida:
 - anteprima HTML compatibile con Classic Editor;
 - futura creazione controllata di bozze.
 
-Il target editoriale corrente resta **Editor Classico**: il plugin produce HTML pulito e non genera blocchi Gutenberg. La creazione 0.4.0 può produrre **bozze** o contenuti **in attesa di revisione**, ma non pubblicazioni automatiche.
+Il target editoriale corrente resta **Editor Classico**: il plugin produce HTML pulito e non genera blocchi Gutenberg. La creazione 0.5.0 può produrre **bozze** o contenuti **in attesa di revisione**, ma non pubblicazioni automatiche.
 
 
 ## Pubblico target dal contesto editoriale
@@ -86,7 +98,7 @@ Dalla versione **0.3.2** il target editoriale principale è l’**Editor Classic
 
 La bozza WordPress usa `post_content` con HTML pulito e sicuro, ad esempio paragrafi, titoli `h2`/`h3`, liste e altri tag consentiti da allowlist. L’anteprima del dry-run passa da sanitizzazione dedicata e viene mostrata nell’admin come contenuto compatibile con Classic Editor.
 
-AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.4.0.
+AIOSEO sarà gestito separatamente in una fase successiva e non viene scritto in questa versione. Le immagini saranno integrate più avanti tramite Media Library, senza generazione reale nella fase 0.5.0.
 
 Funzioni presenti:
 
@@ -121,7 +133,7 @@ Funzioni presenti:
 
 ## Creazione bozza WordPress
 
-Dalla versione **0.4.0** WP AI Publisher introduce la prima creazione reale di contenuto WordPress con un flusso a due passaggi:
+Dalla versione **0.5.0** WP AI Publisher introduce la prima creazione reale di contenuto WordPress con un flusso a due passaggi:
 
 1. generare e verificare un dry-run;
 2. approvare il dry-run;
@@ -133,7 +145,7 @@ Lo stato post è prudente:
 
 - `draft` resta `draft`;
 - `pending` resta `pending`;
-- `publish` viene convertito in `draft` in 0.4.0, salvo costante di sviluppo esplicita `WPAIP_ALLOW_DIRECT_PUBLISH`.
+- `publish` viene convertito in `draft` in 0.5.0, salvo costante di sviluppo esplicita `WPAIP_ALLOW_DIRECT_PUBLISH`.
 
 La pubblicazione automatica resta disabilitata. La creazione assegna categorie e tag sanificati, rispetta le categorie consentite nel contesto sito, limita i tag e collega l’idea alla bozza con `draft_post_id`, `draft_status` e `draft_created_at`. Se una bozza collegata esiste già, il plugin non crea duplicati e mostra il link **Modifica bozza**.
 
@@ -206,9 +218,9 @@ Il contesto editoriale permette di scegliere lo stato post previsto per la creaz
 
 - **Bozza** (`draft`) — valore predefinito e più sicuro;
 - **In attesa di revisione** (`pending`) — previsto per workflow editoriali con revisione;
-- **Pubblicato** (`publish`) — selezionabile come intenzione futura, ma in 0.4.0 viene convertito in `draft` salvo costante di sviluppo esplicita.
+- **Pubblicato** (`publish`) — selezionabile come intenzione futura, ma in 0.5.0 viene convertito in `draft` salvo costante di sviluppo esplicita.
 
-Nella fase 0.4.0 il plugin crea solo bozze o post in attesa di revisione da dry-run approvati. L’eventuale pubblicazione automatica richiederà una fase futura, conferma esplicita e controlli dedicati.
+Nella fase 0.5.0 il plugin crea solo bozze o post in attesa di revisione da dry-run approvati. L’eventuale pubblicazione automatica richiederà una fase futura, conferma esplicita e controlli dedicati.
 
 ## Diagnostica AI
 
@@ -296,6 +308,15 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 
 ## Changelog
 
+### 0.5.0
+
+- Aggiunte Tipologie di Articolo e CPT `wpai_article_type`.
+- Semplificato il form Idee contenuto con selezione obbligatoria della Tipologia.
+- Aggiunto `article_type_id` alle idee e aggiornato schema database a 5.
+- Bloccata la creazione di nuove categorie da output AI: sono assegnate solo categorie esistenti consentite.
+- Rimossa l’impostazione Aggiornamenti da GitHub dalle impostazioni principali.
+
+
 ### 0.4.2
 
 - Aggiunta generazione articolo completo da dry-run approvato.
@@ -309,7 +330,7 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - Confermata assenza di pubblicazione automatica.
 
 
-### 0.4.0
+### 0.5.0
 
 - Aggiunta creazione bozza WordPress da dry-run approvato.
 - Aggiunto flusso Approva dry-run / Crea bozza.

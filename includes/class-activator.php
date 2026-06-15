@@ -38,6 +38,9 @@ final class Activator {
 		$db->set_schema_version( WPAIP_DB_SCHEMA_VERSION );
 
 		update_option( 'wpai_publisher_version', WPAIP_VERSION, false );
+		if ( class_exists( __NAMESPACE__ . '\\Article_Types' ) ) {
+			Article_Types::maybe_create_defaults();
+		}
 
 		if ( false === get_option( 'wpai_publisher_settings', false ) ) {
 			add_option( 'wpai_publisher_settings', wpai_publisher_default_settings(), '', false );

@@ -85,19 +85,14 @@ class Content_Ideas {
 
 		$language       = sanitize_key( (string) ( $data['language'] ?? 'it' ) );
 		$allowed_langs  = array( 'it', 'en', 'fr', 'es', 'de' );
-		$tutorial_level = sanitize_key( (string) ( $data['tutorial_level'] ?? '' ) );
-		$allowed_levels = array( 'base', 'intermedio', 'avanzato' );
+		$article_type_id = absint( $data['article_type_id'] ?? 0 );
 
 		if ( ! in_array( $language, $allowed_langs, true ) ) {
 			return new WP_Error( 'wpai_content_idea_invalid_language', __( 'Lingua non valida.', 'wp-ai-publisher' ) );
 		}
 
-		if ( '' !== $tutorial_level && ! in_array( $tutorial_level, $allowed_levels, true ) ) {
-			return new WP_Error( 'wpai_content_idea_invalid_tutorial_level', __( 'Livello tutorial non valido.', 'wp-ai-publisher' ) );
-		}
-
-		if ( '' === $tutorial_level ) {
-			$tutorial_level = null;
+		if ( 0 === $article_type_id || ! Article_Types::is_active_article_type( $article_type_id ) ) {
+			return new WP_Error( 'wpai_content_idea_invalid_article_type', __( 'Seleziona una Tipologia articolo attiva.', 'wp-ai-publisher' ) );
 		}
 
 		$table_name = $this->get_table_name();
@@ -118,10 +113,11 @@ class Content_Ideas {
 				'keyword'         => sanitize_text_field( (string) ( $data['keyword'] ?? '' ) ),
 				'language'        => $language,
 				'target_audience' => '',
-				'tutorial_level'  => $tutorial_level,
-				'notes'           => sanitize_textarea_field( (string) ( $data['notes'] ?? '' ) ),
+				'tutorial_level'  => null,
+				'article_type_id' => $article_type_id,
+				'notes'           => '',
 			),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' )
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
 		);
 
 		if ( false === $inserted ) {
@@ -296,7 +292,8 @@ class Content_Ideas {
 		if ( ! is_array( $dry_run ) ) {
 			return new WP_Error( 'wpai_full_article_missing_dry_run', __( 'Dry-run assente.', 'wp-ai-publisher' ) );
 		}
-		$full_article = $this->ai_provider->generate_full_classic_article( $dry_run, wpai_publisher_get_site_context() );
+		$article_type = ! empty( $dry_run['article_type']['id'] ) ? $dry_run['article_type'] : ( ! empty( $idea->article_type_id ) ? Article_Types::get_article_type_config( absint( $idea->article_type_id ) ) : array() );
+		$full_article = $this->ai_provider->generate_full_classic_article( $dry_run, wpai_publisher_get_site_context(), $article_type );
 		if ( is_wp_error( $full_article ) ) {
 			$this->logger->warning( __( 'Generazione articolo completo fallita.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => (int) $id, 'step' => 'full_article_failed', 'error_code' => $full_article->get_error_code(), 'message' => $full_article->get_error_message() ) );
 			return $full_article;
@@ -324,6 +321,11 @@ class Content_Ideas {
 		$target_audience  = sanitize_text_field( (string) ( $site_context['default_audience'] ?? '' ) );
 		$legacy_audience  = sanitize_text_field( (string) ( $idea->target_audience ?? '' ) );
 		$target_audience  = '' !== $target_audience ? $target_audience : $legacy_audience;
+		$article_type_id = absint( $idea->article_type_id ?? 0 );
+		if ( 0 === $article_type_id || ! Article_Types::is_active_article_type( $article_type_id ) ) {
+			return new WP_Error( 'wpai_content_idea_missing_article_type', __( 'Assegna una Tipologia articolo attiva prima di generare la bozza.', 'wp-ai-publisher' ) );
+		}
+		$article_type = Article_Types::get_article_type_config( $article_type_id );
 
 		$payload = array(
 			'task'                 => 'structured_content_dry_run',
@@ -331,8 +333,10 @@ class Content_Ideas {
 			'keyword'              => (string) $idea->keyword,
 			'language'             => (string) $idea->language,
 			'target_audience'      => $target_audience,
-			'tutorial_level'       => (string) $idea->tutorial_level,
-			'notes'                => (string) $idea->notes,
+			'tutorial_level'       => (string) ( $article_type['reader_level'] ?? '' ),
+			'article_type'         => $article_type,
+			'article_type_id'      => $article_type_id,
+			'notes'                => '',
 			'required_schema'      => $this->ai_provider->get_content_dry_run_schema(),
 			'allow_local_fallback' => true,
 			'site_context'         => $site_context,
@@ -382,7 +386,8 @@ class Content_Ideas {
 			$notes[] = __( 'Risultato prodotto tramite sistema AI di WordPress.', 'wp-ai-publisher' );
 		}
 
-		$classic_builder    = new Classic_Content_Builder( $site_context );
+		$normalized['article_type'] = $article_type;
+		$classic_builder    = new Classic_Content_Builder( $site_context, $article_type );
 		$classic_preview    = $classic_builder->build_from_dry_run( $normalized );
 		$classic_preview['validation_notes'] = $this->remove_generic_placeholder_preview_notes( $classic_preview['validation_notes'] ?? array() );
 		$classic_validation = $this->validate_classic_editor_preview( $classic_preview );
@@ -650,6 +655,7 @@ class Content_Ideas {
 			'slug'                   => '',
 			'excerpt'                => '',
 			'content_outline'        => array(),
+			'category_ids'            => array(),
 			'categories'             => array(),
 			'tags'                   => array(),
 			'meta_title'             => '',
@@ -712,7 +718,7 @@ class Content_Ideas {
 			$notes[] = __( 'La struttura articolo deve essere un array non vuoto.', 'wp-ai-publisher' );
 		}
 
-		foreach ( array( 'categories', 'tags' ) as $array_field ) {
+		foreach ( array( 'category_ids', 'categories', 'tags' ) as $array_field ) {
 			if ( ! isset( $output[ $array_field ] ) || ! is_array( $output[ $array_field ] ) ) {
 				$notes[] = sprintf( __( 'Il campo %s deve essere un array.', 'wp-ai-publisher' ), $array_field );
 			}

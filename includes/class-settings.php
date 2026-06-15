@@ -56,7 +56,6 @@ class Settings {
 		$output['log_retention_days']            = isset( $input['log_retention_days'] ) ? max( 1, min( 365, absint( $input['log_retention_days'] ) ) ) : $defaults['log_retention_days'];
 		$output['daily_cost_limit']              = $this->sanitize_cost_limit( $input['daily_cost_limit'] ?? '' );
 		$output['monthly_cost_limit']            = $this->sanitize_cost_limit( $input['monthly_cost_limit'] ?? '' );
-		$output['github_updater_enabled']        = false;
 		$output['safe_ai_ability_names']         = isset( $input['safe_ai_ability_names'] ) ? sanitize_textarea_field( $input['safe_ai_ability_names'] ) : $defaults['safe_ai_ability_names'];
 		$output['allow_unverified_ai_abilities'] = ! empty( $input['allow_unverified_ai_abilities'] );
 		$output['auto_create_draft_from_idea']   = ! empty( $input['auto_create_draft_from_idea'] );

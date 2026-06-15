@@ -41,11 +41,6 @@ $language_labels = array(
 	'de' => __( 'Tedesco', 'wp-ai-publisher' ),
 );
 
-$level_labels = array(
-	'base'       => __( 'Base', 'wp-ai-publisher' ),
-	'intermedio' => __( 'Intermedio', 'wp-ai-publisher' ),
-	'avanzato'   => __( 'Avanzato', 'wp-ai-publisher' ),
-);
 
 $site_context              = wpai_publisher_get_site_context();
 $site_context_configured   = wpai_publisher_is_site_context_configured( $site_context );
@@ -98,7 +93,7 @@ $render_list = static function ( $items ) {
 		<h2><?php echo esc_html__( 'Nuova idea contenuto', 'wp-ai-publisher' ); ?></h2>
 
 		<div class="notice notice-info inline">
-			<p><?php echo esc_html__( 'Il dry-run userà il contesto editoriale configurato in Impostazioni.', 'wp-ai-publisher' ); ?> <a href="<?php echo esc_url( $settings_context_url ); ?>"><?php echo esc_html__( 'Vai alle impostazioni contesto editoriale', 'wp-ai-publisher' ); ?></a></p>
+			<p><?php echo esc_html__( 'Il dry-run userà il Contesto editoriale come quadro generale e la Tipologia articolo come istruzione specifica principale.', 'wp-ai-publisher' ); ?> <a href="<?php echo esc_url( $settings_context_url ); ?>"><?php echo esc_html__( 'Vai alle impostazioni contesto editoriale', 'wp-ai-publisher' ); ?></a></p>
 			<p><?php echo esc_html__( 'Il pubblico target viene letto dal Contesto editoriale del sito configurato in Impostazioni.', 'wp-ai-publisher' ); ?></p>
 		</div>
 		<?php if ( '' !== $default_audience ) : ?>
@@ -142,24 +137,22 @@ $render_list = static function ( $items ) {
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="wpai-content-level"><?php echo esc_html__( 'Livello tutorial', 'wp-ai-publisher' ); ?></label></th>
+						<th scope="row"><label for="wpai-content-article-type"><?php echo esc_html__( 'Tipologia articolo', 'wp-ai-publisher' ); ?></label></th>
 						<td>
-							<select id="wpai-content-level" name="tutorial_level">
-								<option value="base"><?php echo esc_html__( 'Base', 'wp-ai-publisher' ); ?></option>
-								<option value="intermedio"><?php echo esc_html__( 'Intermedio', 'wp-ai-publisher' ); ?></option>
-								<option value="avanzato"><?php echo esc_html__( 'Avanzato', 'wp-ai-publisher' ); ?></option>
+							<select id="wpai-content-article-type" name="article_type_id" required>
+								<option value=""><?php echo esc_html__( 'Seleziona una tipologia', 'wp-ai-publisher' ); ?></option>
+								<?php foreach ( $active_article_types as $article_type ) : ?>
+									<option value="<?php echo esc_attr( (string) $article_type->ID ); ?>"><?php echo esc_html( get_the_title( $article_type ) ); ?></option>
+								<?php endforeach; ?>
 							</select>
 						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="wpai-content-notes"><?php echo esc_html__( 'Note editoriali', 'wp-ai-publisher' ); ?></label></th>
-						<td><textarea id="wpai-content-notes" name="notes" rows="4" class="large-text"></textarea></td>
 					</tr>
 				</tbody>
 			</table>
 
+			<?php if ( empty( $active_article_types ) ) : ?><div class="notice notice-warning inline"><p><?php echo esc_html__( 'Crea almeno una Tipologia articolo prima di generare bozze.', 'wp-ai-publisher' ); ?> <a href="<?php echo esc_url( $article_types_url ); ?>"><?php echo esc_html__( 'Crea Tipologia articolo', 'wp-ai-publisher' ); ?></a></p></div><?php endif; ?>
 			<p class="submit">
-				<button type="submit" name="wpai_creation_mode" value="create_draft" class="button button-primary"><?php echo esc_html__( 'Crea bozza', 'wp-ai-publisher' ); ?></button>
+				<button type="submit" name="wpai_creation_mode" value="create_draft" class="button button-primary" <?php disabled( empty( $active_article_types ) ); ?>><?php echo esc_html__( 'Crea bozza', 'wp-ai-publisher' ); ?></button>
 				<button type="submit" name="wpai_creation_mode" value="save_only" class="button"><?php echo esc_html__( 'Salva solo idea', 'wp-ai-publisher' ); ?></button>
 			</p>
 		</form>
@@ -179,7 +172,7 @@ $render_list = static function ( $items ) {
 					<th scope="col"><?php echo esc_html__( 'Argomento', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Keyword', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Lingua', 'wp-ai-publisher' ); ?></th>
-					<th scope="col"><?php echo esc_html__( 'Livello', 'wp-ai-publisher' ); ?></th>
+					<th scope="col"><?php echo esc_html__( 'Tipologia articolo', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Data creazione', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Bozza', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Stato bozza', 'wp-ai-publisher' ); ?></th>
@@ -201,7 +194,7 @@ $render_list = static function ( $items ) {
 						<td><?php echo esc_html( wp_trim_words( (string) $idea->topic, 18, '…' ) ); ?></td>
 						<td><?php echo '' !== (string) $idea->keyword ? esc_html( (string) $idea->keyword ) : esc_html__( '—', 'wp-ai-publisher' ); ?></td>
 						<td><?php echo esc_html( $language_labels[ $idea->language ] ?? (string) $idea->language ); ?></td>
-						<td><?php echo esc_html( $level_labels[ $idea->tutorial_level ] ?? __( '—', 'wp-ai-publisher' ) ); ?></td>
+						<td><?php $atype_id = absint( $idea->article_type_id ?? 0 ); echo $atype_id > 0 ? esc_html( get_the_title( $atype_id ) ) : esc_html__( 'Non assegnata', 'wp-ai-publisher' ); ?></td>
 						<td><?php echo esc_html( (string) $idea->created_at ); ?></td>
 						<td>
 							<?php if ( $draft_exists && $draft_edit_url ) : ?>
@@ -227,13 +220,14 @@ $render_list = static function ( $items ) {
 							?>
 							<?php if ( $draft_exists && $draft_edit_url ) : ?>
 								<a class="button button-primary button-small" href="<?php echo esc_url( $draft_edit_url ); ?>"><?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
-							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed' ), true ) ) : ?>
+							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed' ), true ) && absint( $idea->article_type_id ?? 0 ) > 0 ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
 									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
 									<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
 									<?php submit_button( 'draft_failed' === $status ? __( 'Riprova', 'wp-ai-publisher' ) : __( 'Genera bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
 								</form>
+							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed' ), true ) ) : ?><a class="button button-small" href="<?php echo esc_url( $article_types_url ); ?>"><?php echo esc_html__( 'Assegna tipologia', 'wp-ai-publisher' ); ?></a>
 							<?php elseif ( in_array( $status, array( 'dry_run_ready', 'approved', 'full_article_ready' ), true ) && ! $has_full_article ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_generate_full_article" />

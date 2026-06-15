@@ -69,6 +69,10 @@ class System_Status {
 		$classic_builder_available = class_exists( __NAMESPACE__ . '\Classic_Content_Builder' );
 		$ai_diagnostics_available  = class_exists( __NAMESPACE__ . '\AI_Diagnostics' );
 		$draft_creator_available  = class_exists( __NAMESPACE__ . '\Draft_Creator' );
+		$article_type_cpt_registered = post_type_exists( Article_Types::POST_TYPE );
+		$active_article_types = Article_Types::get_active_article_types();
+		$article_types_with_categories = 0;
+		foreach ( $active_article_types as $article_type_post ) { if ( ! empty( Article_Types::get_article_type_config( $article_type_post->ID )['allowed_category_ids'] ) ) { $article_types_with_categories++; } }
 		$ai_diagnostics_paths      = array();
 		$ai_diagnostics_routes     = array();
 
@@ -113,11 +117,15 @@ class System_Status {
 			$this->row( __( 'Validatore output strutturato', 'wp-ai-publisher' ), $validator_available ? __( 'Classe Structured_Output_Validator disponibile', 'wp-ai-publisher' ) : __( 'Validazione interna basilare', 'wp-ai-publisher' ), $validator_available ? 'ok' : 'warning' ),
 			$this->row( __( 'Classic Content Builder', 'wp-ai-publisher' ), $classic_builder_available ? __( 'Classe Classic_Content_Builder disponibile', 'wp-ai-publisher' ) : __( 'Classe Classic_Content_Builder non disponibile', 'wp-ai-publisher' ), $classic_builder_available ? 'ok' : 'error' ),
 			$this->row( __( 'Draft Creator', 'wp-ai-publisher' ), $draft_creator_available ? __( 'Classe Draft_Creator disponibile', 'wp-ai-publisher' ) : __( 'Classe Draft_Creator non disponibile', 'wp-ai-publisher' ), $draft_creator_available ? 'ok' : 'error' ),
+			$this->row( __( 'Tipologie articolo', 'wp-ai-publisher' ), $article_type_cpt_registered ? __( 'CPT wpai_article_type registrato', 'wp-ai-publisher' ) : __( 'CPT non registrato', 'wp-ai-publisher' ), $article_type_cpt_registered ? 'ok' : 'error' ),
+			$this->row( __( 'Tipologie attive', 'wp-ai-publisher' ), sprintf( __( '%d tipologie attive', 'wp-ai-publisher' ), count( $active_article_types ) ), count( $active_article_types ) > 0 ? 'ok' : 'warning' ),
+			$this->row( __( 'Categorie tipologie', 'wp-ai-publisher' ), $article_types_with_categories > 0 ? __( 'Almeno una tipologia ha categorie associate', 'wp-ai-publisher' ) : __( 'Nessuna tipologia ha categorie associate', 'wp-ai-publisher' ), $article_types_with_categories > 0 ? 'ok' : 'warning' ),
+			$this->row( __( 'Workflow contenuto', 'wp-ai-publisher' ), __( 'Contesto sito + Tipologia articolo + Idea → Bozza', 'wp-ai-publisher' ), 'ok' ),
 			$this->row( __( 'Modalità workflow', 'wp-ai-publisher' ), 'advanced' === $workflow_mode ? __( 'Avanzato', 'wp-ai-publisher' ) : __( 'Semplificato', 'wp-ai-publisher' ), 'ok' ),
 			$this->row( __( 'Creazione automatica bozza', 'wp-ai-publisher' ), ! empty( $settings['auto_create_draft_from_idea'] ) ? __( 'Attiva', 'wp-ai-publisher' ) : __( 'Disattiva', 'wp-ai-publisher' ), ! empty( $settings['auto_create_draft_from_idea'] ) ? 'ok' : 'warning' ),
 			$this->row( __( 'Full Article Generator', 'wp-ai-publisher' ), method_exists( $this->ai_provider, 'generate_full_classic_article' ) ? __( 'OK', 'wp-ai-publisher' ) : __( 'Non disponibile', 'wp-ai-publisher' ), method_exists( $this->ai_provider, 'generate_full_classic_article' ) ? 'ok' : 'error' ),
 			$this->row( __( 'Creazione bozze', 'wp-ai-publisher' ), function_exists( 'wp_insert_post' ) && 'classic' === $site_context['default_editor'] ? __( 'wp_insert_post disponibile; target Editor Classico', 'wp-ai-publisher' ) : __( 'Requisiti creazione bozza non completi', 'wp-ai-publisher' ), function_exists( 'wp_insert_post' ) && 'classic' === $site_context['default_editor'] ? 'ok' : 'error' ),
-			$this->row( __( 'Pubblicazione automatica', 'wp-ai-publisher' ), 'publish' === $site_context['default_post_status_after_generation'] ? __( 'Disabilitata in 0.4.0; setting publish verrà convertito in draft', 'wp-ai-publisher' ) : __( 'Disabilitata in 0.4.0', 'wp-ai-publisher' ), 'publish' === $site_context['default_post_status_after_generation'] ? 'warning' : 'ok' ),
+			$this->row( __( 'Pubblicazione automatica', 'wp-ai-publisher' ), 'publish' === $site_context['default_post_status_after_generation'] ? __( 'Disabilitata in 0.5.0; setting publish verrà convertito in draft', 'wp-ai-publisher' ) : __( 'Disabilitata in 0.5.0', 'wp-ai-publisher' ), 'publish' === $site_context['default_post_status_after_generation'] ? 'warning' : 'ok' ),
 			$this->row( __( 'OpenAI diretto', 'wp-ai-publisher' ), __( 'Disabilitato: il plugin non usa un client custom', 'wp-ai-publisher' ), 'not-configured' ),
 			$this->row( __( 'Diagnostica AI', 'wp-ai-publisher' ), $ai_diagnostics_available ? __( 'Classe AI_Diagnostics disponibile', 'wp-ai-publisher' ) : __( 'Classe AI_Diagnostics non disponibile', 'wp-ai-publisher' ), $ai_diagnostics_available ? 'ok' : 'error' ),
 			$this->row( __( 'Percorsi generazione AI', 'wp-ai-publisher' ), $generation_paths_label, $generation_paths_status ),
@@ -136,7 +144,7 @@ class System_Status {
 				$this->row( __( 'Permessi file', 'wp-ai-publisher' ), $uploads_writable ? __( 'Cartella uploads scrivibile', 'wp-ai-publisher' ) : __( 'Cartella uploads non scrivibile', 'wp-ai-publisher' ), $uploads_writable ? 'ok' : 'error' ),
 				$this->row( __( 'Media Library', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? __( 'Disponibile', 'wp-ai-publisher' ) : __( 'Non disponibile', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? 'ok' : 'warning' ),
 				$this->row( __( 'Knowledge Index', 'wp-ai-publisher' ), __( 'Non ancora implementato', 'wp-ai-publisher' ), 'not-implemented' ),
-				$this->row( __( 'Aggiornamenti GitHub', 'wp-ai-publisher' ), __( 'Gestiti tramite Git Updater se installato e configurato.', 'wp-ai-publisher' ), 'not-configured' ),
+				$this->row( __( 'Aggiornamenti GitHub', 'wp-ai-publisher' ), __( 'Configurati tramite header plugin / Git Updater.', 'wp-ai-publisher' ), 'not-configured' ),
 				$this->row( __( 'Versione schema database', 'wp-ai-publisher' ), $this->db->get_schema_version(), $this->db->get_schema_version() === WPAIP_DB_SCHEMA_VERSION ? 'ok' : 'warning' ),
 			)
 		);

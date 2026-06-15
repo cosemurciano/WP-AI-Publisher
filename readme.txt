@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.4.5
+Stable tag: 0.5.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -12,7 +12,7 @@ Base modulare per la pubblicazione assistita da AI in WordPress.
 
 == Descrizione ==
 
-WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.4.0 aggiunge il flusso prudente “Approva dry-run / Crea bozza”, crea post WordPress solo in stato draft o pending, collega la bozza all’idea e continua a bloccare la pubblicazione automatica.
+WP AI Publisher prepara l’infrastruttura del plugin per la futura generazione assistita di articoli, bozze strutturate, media, metadati SEO, link interni, knowledge index, coda job, dry-run, controllo duplicati e pubblicazione assistita. La versione 0.5.0 aggiunge il flusso prudente “Approva dry-run / Crea bozza”, crea post WordPress solo in stato draft o pending, collega la bozza all’idea e continua a bloccare la pubblicazione automatica.
 
 Il plugin usa esclusivamente il sistema AI di WordPress configurato sul sito. Non gestisce un client OpenAI custom e non salva chiavi API proprie. Include diagnostica difensiva per plugin terzi richiesti o consigliati, senza creare dipendenze rigide.
 
@@ -69,6 +69,18 @@ Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione atti
 
 == Changelog ==
 
+= 0.5.0 =
+* Aggiunte Tipologie di Articolo gestibili da pannello WordPress.
+* Aggiunto CPT wpai_article_type.
+* Le Tipologie di Articolo guidano prompt, struttura, tono, intento, lunghezza e sezioni obbligatorie.
+* Semplificato il form Idee contenuto rimuovendo Livello tutorial e Note editoriali.
+* Aggiunta selezione obbligatoria della Tipologia articolo nella creazione idea.
+* Le categorie non vengono più create dall’AI: vengono associate solo categorie WordPress esistenti.
+* Aggiunto campo article_type_id alla tabella idee.
+* Aggiornato workflow: Contesto sito + Tipologia articolo + Idea → Bozza.
+* Rimossa impostazione Aggiornamenti da GitHub non più necessaria.
+* Spostata/verificata configurazione Sicurezza Abilities AI come opzione avanzata.
+
 = 0.4.5 =
 * Corretto il passaggio del dry-run originale nella normalizzazione di full_article.
 * Migliorata conversione di articoli plain text in HTML per Editor Classico.
@@ -110,7 +122,7 @@ Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione atti
 * Consolidato l’uso di booleani interni nella diagnostica AI, separati dalle label tradotte.
 * Mantenuta la creazione bozza da dry-run approvato.
 
-= 0.4.0 =
+= 0.5.0 =
 * Aggiunta creazione bozza WordPress da dry-run approvato.
 * Aggiunto flusso Approva dry-run / Crea bozza.
 * Aggiunta classe Draft_Creator.

@@ -109,6 +109,7 @@ class DB {
 			language VARCHAR(20) NOT NULL DEFAULT 'it',
 			target_audience VARCHAR(255) NULL,
 			tutorial_level VARCHAR(50) NULL,
+			article_type_id BIGINT unsigned NULL,
 			notes LONGTEXT NULL,
 			dry_run_output LONGTEXT NULL,
 			validation_notes LONGTEXT NULL,
@@ -122,6 +123,7 @@ class DB {
 			PRIMARY KEY  (id),
 			KEY status (status),
 			KEY language (language),
+			KEY article_type_id (article_type_id),
 			KEY related_post_id (related_post_id),
 			KEY draft_post_id (draft_post_id),
 			KEY draft_status (draft_status),
@@ -133,6 +135,7 @@ class DB {
 		dbDelta( $jobs_sql );
 		dbDelta( $content_ideas_sql );
 		$this->ensure_content_ideas_draft_columns();
+		$this->ensure_content_ideas_article_type_column();
 	}
 
 	/**
@@ -168,6 +171,25 @@ class DB {
 			if ( ! in_array( $index, $indexes, true ) ) {
 				$wpdb->query( "ALTER TABLE {$table} ADD KEY {$index} ({$index})" );
 			}
+		}
+	}
+
+	/**
+	 * Ensure schema 5 article type column/index exists.
+	 *
+	 * @return void
+	 */
+	private function ensure_content_ideas_article_type_column() {
+		global $wpdb;
+		$table = $this->get_content_ideas_table_name();
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) { return; }
+		$columns = (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+		if ( ! in_array( 'article_type_id', $columns, true ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN article_type_id BIGINT unsigned NULL AFTER tutorial_level" );
+		}
+		$indexes = (array) $wpdb->get_col( "SHOW INDEX FROM {$table}", 2 );
+		if ( ! in_array( 'article_type_id', $indexes, true ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD KEY article_type_id (article_type_id)" );
 		}
 	}
 

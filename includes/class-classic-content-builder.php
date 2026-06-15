@@ -23,12 +23,20 @@ class Classic_Content_Builder {
 	private $site_context;
 
 	/**
+	 * Article type configuration.
+	 *
+	 * @var array<string,mixed>
+	 */
+	private $article_type = array();
+
+	/**
 	 * Constructor.
 	 *
 	 * @param array<string,mixed>|null $site_context Optional site context.
 	 */
-	public function __construct( $site_context = null ) {
+	public function __construct( $site_context = null, $article_type = array() ) {
 		$this->site_context = wpai_publisher_normalize_site_context( null === $site_context ? wpai_publisher_get_site_context() : $site_context );
+		$this->article_type = is_array( $article_type ) ? $article_type : array();
 	}
 
 	/**
@@ -39,6 +47,7 @@ class Classic_Content_Builder {
 	 */
 	public function build_from_dry_run( $dry_run_output ) {
 		$dry_run_output = is_array( $dry_run_output ) ? $dry_run_output : array();
+		if ( empty( $this->article_type ) && isset( $dry_run_output['article_type'] ) && is_array( $dry_run_output['article_type'] ) ) { $this->article_type = $dry_run_output['article_type']; }
 		$notes          = array();
 
 		$html_parts = array(
@@ -335,6 +344,8 @@ class Classic_Content_Builder {
 
 		if ( '' === $plain ) { $notes[] = __( 'Articolo completo vuoto.', 'wp-ai-publisher' ); }
 		foreach ( array( '<!-- wp:', 'wp-block', '<script', '<iframe', ' style=', '<style', '[caption', '[gallery' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Markup non consentito nel contenuto finale.', 'wp-ai-publisher' ); break; } }
+		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['required_sections'] ?? '' ) ) ) ) as $required_section ) { if ( '' !== $required_section && false === stripos( wp_strip_all_tags( $html ), $required_section ) ) { $notes[] = sprintf( __( 'Sezione obbligatoria mancante dalla Tipologia articolo: %s', 'wp-ai-publisher' ), $required_section ); } }
+		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['forbidden_patterns'] ?? '' ) ) ) ) as $forbidden_pattern ) { if ( '' !== $forbidden_pattern && false !== stripos( wp_strip_all_tags( $html ), $forbidden_pattern ) ) { $notes[] = sprintf( __( 'Pattern vietato dalla Tipologia articolo rilevato: %s', 'wp-ai-publisher' ), $forbidden_pattern ); } }
 		foreach ( array( 'pubblico:', 'tono:', 'formato preferito:', 'target tecnico:', 'nota editoriale:', 'regole editoriali:', 'claim vietati:', 'termini brand:', 'contesto editoriale:', 'writing rules:', 'forbidden_claims', 'site_context', 'validation_notes', 'knowledge_summary' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene note interne visibili.', 'wp-ai-publisher' ); break; } }
 		foreach ( array( 'spiegare', 'indicare', 'descrivere', 'mostrare', 'illustrare', 'suggerire', 'riassumere', 'chiudere', 'elencare', 'presentare', 'approfondire' ) as $needle ) { if ( 1 === preg_match( '/<(p|li)>\s*' . preg_quote( $needle, '/' ) . '\b(\s+(che|come|in modo|i passaggi)\b)?/i', $lower ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); break; } }
 		foreach ( array( 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'procedi per passaggi ordinati e annota le verifiche necessarie', 'verifica il risultato finale prima di usare il contenuto in una bozza', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'articolo da completare' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); break; } }
