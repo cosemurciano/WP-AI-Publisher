@@ -301,10 +301,12 @@ class Content_Ideas {
 		$article_type_id = absint( $idea->article_type_id ?? 0 );
 		$article_type = ! empty( $output['article_type'] ) && is_array( $output['article_type'] ) ? $output['article_type'] : ( wpai_publisher_get_article_type_config_safe( $article_type_id ) );
 		$builder = new Classic_Content_Builder( null, $article_type );
-		$full_article['html'] = $builder->normalize_full_article_html( (string) ( $full_article['html'] ?? '' ), $output );
+		$raw_full_article_html = (string) ( $full_article['html'] ?? '' );
+		$full_article['html'] = $builder->normalize_full_article_html( $raw_full_article_html, $output );
 		$validation = $builder->validate_publishable_article_html( (string) ( $full_article['html'] ?? '' ) );
 		if ( empty( $validation['valid'] ) ) {
-			return new WP_Error( 'wpai_full_article_not_publishable', __( 'L’articolo completo è stato generato ma non è stato possibile strutturarlo in HTML per Editor Classico.', 'wp-ai-publisher' ), $validation );
+			$validation['diagnostics'] = $builder->get_full_article_validation_diagnostics( $raw_full_article_html, (string) ( $full_article['html'] ?? '' ), $output, $validation );
+			return new WP_Error( 'wpai_full_article_not_publishable', __( 'L’AI ha generato il contenuto, ma l’articolo completo non ha superato la validazione di pubblicabilità.', 'wp-ai-publisher' ), $validation );
 		}
 		$full_article['validation_notes'] = array_values( array_unique( array_merge( (array) ( $full_article['validation_notes'] ?? array() ), $validation['notes'] ) ) );
 		$output['full_article'] = $full_article;
@@ -546,7 +548,7 @@ class Content_Ideas {
 		$post_id = $creator->create_draft_from_idea( $idea, array( 'automatic' => true, 'content_ideas' => $this ) );
 		if ( is_wp_error( $post_id ) ) {
 			$this->logger->warning( __( 'Creazione bozza fallita nel workflow semplice.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'step' => 'draft_failed', 'error_code' => $post_id->get_error_code(), 'message' => $post_id->get_error_message() ) );
-			return array( 'success' => false, 'idea_id' => $idea_id, 'post_id' => 0, 'status' => sanitize_key( (string) ( $this->get_idea( $idea_id )->status ?? 'draft_failed' ) ), 'step_failed' => 'draft', 'error_code' => $post_id->get_error_code(), 'message' => $post_id->get_error_message() );
+			return array( 'success' => false, 'idea_id' => $idea_id, 'post_id' => 0, 'status' => sanitize_key( (string) ( $this->get_idea( $idea_id )->status ?? 'draft_failed' ) ), 'step_failed' => 'draft', 'error_code' => $post_id->get_error_code(), 'message' => $post_id->get_error_message(), 'details' => $post_id->get_error_data() );
 		}
 
 		$this->logger->info( __( 'Bozza creata nel workflow semplice.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'step' => 'draft_created', 'post_id' => absint( $post_id ) ) );
@@ -917,6 +919,11 @@ class Content_Ideas {
 			'evitando dettagli tecnici non confermati',
 			'passaggio “',
 			'passaggio "',
+			'la sezione “',
+			'la sezione "',
+			'introduce gli aspetti pratici più importanti',
+			'indica cosa controllare',
+			'aiuta a mantenere il risultato coerente',
 		);
 
 		$lower_html = function_exists( 'mb_strtolower' ) ? mb_strtolower( $html ) : strtolower( $html );

@@ -253,6 +253,11 @@ class Structured_Output_Validator {
 			'<script'  => __( 'Nota grave: classic_editor_preview contiene script non consentiti.', 'wp-ai-publisher' ),
 			'<iframe'  => __( 'Nota grave: classic_editor_preview contiene iframe non consentiti.', 'wp-ai-publisher' ),
 			' style='  => __( 'Nota grave: classic_editor_preview contiene style inline non consentiti.', 'wp-ai-publisher' ),
+			'la sezione “' => __( 'Nota grave: classic_editor_preview contiene testo placeholder.', 'wp-ai-publisher' ),
+			'la sezione "' => __( 'Nota grave: classic_editor_preview contiene testo placeholder.', 'wp-ai-publisher' ),
+			'introduce gli aspetti pratici più importanti' => __( 'Nota grave: classic_editor_preview contiene testo placeholder.', 'wp-ai-publisher' ),
+			'indica cosa controllare' => __( 'Nota grave: classic_editor_preview contiene testo placeholder.', 'wp-ai-publisher' ),
+			'aiuta a mantenere il risultato coerente' => __( 'Nota grave: classic_editor_preview contiene testo placeholder.', 'wp-ai-publisher' ),
 		);
 
 		$lower_html = strtolower( $html );
