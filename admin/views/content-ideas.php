@@ -31,6 +31,9 @@ $notices    = array(
 	'idea_save_failed'         => array( 'error', __( 'Impossibile salvare l’idea contenuto. Controlla i log del plugin o lo stato del database.', 'wp-ai-publisher' ) ),
 	'content_ideas_table_missing' => array( 'error', __( 'La tabella delle idee contenuto non è disponibile. Apri Stato sistema o riattiva il plugin per eseguire la migrazione.', 'wp-ai-publisher' ) ),
 	'linked_draft_not_found'    => array( 'warning', __( 'Bozza collegata non trovata.', 'wp-ai-publisher' ) ),
+	'missing_article_type'      => array( 'warning', __( 'Assegna una Tipologia articolo prima di generare la bozza.', 'wp-ai-publisher' ) ),
+	'article_type_assigned'     => array( 'success', __( 'Tipologia articolo assegnata.', 'wp-ai-publisher' ) ),
+	'article_type_assign_failed' => array( 'error', __( 'Impossibile assegnare la tipologia articolo.', 'wp-ai-publisher' ) ),
 );
 
 $language_labels = array(
@@ -194,7 +197,25 @@ $render_list = static function ( $items ) {
 						<td><?php echo esc_html( wp_trim_words( (string) $idea->topic, 18, '…' ) ); ?></td>
 						<td><?php echo '' !== (string) $idea->keyword ? esc_html( (string) $idea->keyword ) : esc_html__( '—', 'wp-ai-publisher' ); ?></td>
 						<td><?php echo esc_html( $language_labels[ $idea->language ] ?? (string) $idea->language ); ?></td>
-						<td><?php $atype_id = absint( $idea->article_type_id ?? 0 ); echo $atype_id > 0 ? esc_html( get_the_title( $atype_id ) ) : esc_html__( 'Non assegnata', 'wp-ai-publisher' ); ?></td>
+						<td>
+							<?php $atype_id = absint( $idea->article_type_id ?? 0 ); ?>
+							<?php if ( $atype_id > 0 ) : ?>
+								<?php echo esc_html( get_the_title( $atype_id ) ); ?>
+							<?php else : ?>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+									<input type="hidden" name="action" value="wpai_publisher_assign_article_type_to_idea" />
+									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+									<?php wp_nonce_field( 'wpai_publisher_assign_article_type_to_idea_' . $idea_id ); ?>
+									<select name="article_type_id" required>
+										<option value=""><?php echo esc_html__( 'Tipologia articolo', 'wp-ai-publisher' ); ?></option>
+										<?php foreach ( $active_article_types as $article_type ) : ?>
+											<option value="<?php echo esc_attr( (string) $article_type->ID ); ?>"><?php echo esc_html( get_the_title( $article_type ) ); ?></option>
+										<?php endforeach; ?>
+									</select>
+									<?php submit_button( __( 'Assegna', 'wp-ai-publisher' ), 'secondary small', 'submit', false, array( 'disabled' => empty( $active_article_types ) ) ); ?>
+								</form>
+							<?php endif; ?>
+						</td>
 						<td><?php echo esc_html( (string) $idea->created_at ); ?></td>
 						<td>
 							<?php if ( $draft_exists && $draft_edit_url ) : ?>
@@ -227,7 +248,7 @@ $render_list = static function ( $items ) {
 									<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
 									<?php submit_button( 'draft_failed' === $status ? __( 'Riprova', 'wp-ai-publisher' ) : __( 'Genera bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
 								</form>
-							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed' ), true ) ) : ?><a class="button button-small" href="<?php echo esc_url( $article_types_url ); ?>"><?php echo esc_html__( 'Assegna tipologia', 'wp-ai-publisher' ); ?></a>
+							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed' ), true ) ) : ?><span class="description"><?php echo esc_html__( 'Assegna prima una Tipologia articolo.', 'wp-ai-publisher' ); ?></span>
 							<?php elseif ( in_array( $status, array( 'dry_run_ready', 'approved', 'full_article_ready' ), true ) && ! $has_full_article ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_generate_full_article" />

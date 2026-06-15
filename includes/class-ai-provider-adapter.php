@@ -927,7 +927,7 @@ class AI_Provider_Adapter {
 		$site_context   = wpai_publisher_normalize_site_context( ! empty( $site_context ) ? $site_context : wpai_publisher_get_site_context() );
 		$article_type = is_array( $article_type ) && ! empty( $article_type ) ? $article_type : ( isset( $dry_run_output['article_type'] ) && is_array( $dry_run_output['article_type'] ) ? $dry_run_output['article_type'] : array() );
 		$prompt         = $this->build_full_article_prompt( $dry_run_output, $site_context, $article_type );
-		$builder        = new Classic_Content_Builder( $site_context );
+		$builder        = new Classic_Content_Builder( $site_context, $article_type );
 
 		$filtered = apply_filters( 'wpai_publisher_generate_full_classic_article', null, $dry_run_output, $site_context, $prompt, $article_type );
 		if ( null !== $filtered ) {

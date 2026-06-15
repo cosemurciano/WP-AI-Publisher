@@ -100,14 +100,18 @@ final class Plugin {
 
 		$this->logger      = new Logger( $this->db );
 		$this->settings    = new Settings();
-		$this->article_types = new Article_Types();
+		$this->article_types = class_exists( __NAMESPACE__ . '\Article_Types' ) ? new Article_Types() : null;
 		$this->job_queue   = new Job_Queue( $this->db );
 		$this->ai_provider   = new AI_Provider_Adapter();
 		$this->content_ideas = new Content_Ideas( $this->db, $this->ai_provider, $this->logger );
 		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas );
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );
-		$this->article_types->hooks();
+		if ( $this->article_types && method_exists( $this->article_types, 'hooks' ) ) {
+			$this->article_types->hooks();
+		} elseif ( $this->logger ) {
+			$this->logger->warning( __( 'Classe Article_Types non disponibile: il plugin continua senza CPT tipologie.', 'wp-ai-publisher' ), array( 'source' => 'plugin' ) );
+		}
 		add_action( 'admin_init', array( $this->settings, 'register' ) );
 		add_action( 'admin_menu', array( $this->admin, 'register_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
@@ -129,7 +133,9 @@ final class Plugin {
 			$this->db->create_tables();
 			$this->db->set_schema_version( WPAIP_DB_SCHEMA_VERSION );
 			update_option( 'wpai_publisher_version', WPAIP_VERSION, false );
-			Article_Types::maybe_create_defaults();
+			if ( class_exists( __NAMESPACE__ . '\Article_Types' ) && method_exists( __NAMESPACE__ . '\Article_Types', 'maybe_create_defaults' ) ) {
+				Article_Types::maybe_create_defaults();
+			}
 		}
 	}
 

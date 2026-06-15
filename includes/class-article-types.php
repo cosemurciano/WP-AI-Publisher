@@ -49,6 +49,7 @@ class Article_Types {
 	}
 
 	public function add_meta_boxes() {
+		if ( ! function_exists( 'add_meta_box' ) ) { return; }
 		add_meta_box( 'wpai_article_type_details', __( 'Configurazione Tipologia articolo', 'wp-ai-publisher' ), array( $this, 'render_meta_box' ), self::POST_TYPE, 'normal', 'high' );
 		add_meta_box( 'wpai_article_type_usage', __( 'Uso nella generazione', 'wp-ai-publisher' ), array( $this, 'render_usage_box' ), self::POST_TYPE, 'side', 'default' );
 	}
@@ -58,8 +59,10 @@ class Article_Types {
 	}
 
 	public function render_meta_box( $post ) {
-		$meta = self::get_article_type_config( $post->ID );
-		$categories = get_categories( array( 'hide_empty' => false ) );
+		$post_id = is_object( $post ) ? absint( $post->ID ?? 0 ) : 0;
+		$meta = self::get_article_type_config( $post_id );
+		$categories = function_exists( 'get_categories' ) ? get_categories( array( 'hide_empty' => false ) ) : array();
+		$categories = is_array( $categories ) ? $categories : array();
 		include WPAIP_PLUGIN_DIR . 'admin/views/article-type-meta-boxes.php';
 	}
 
@@ -75,7 +78,7 @@ class Article_Types {
 		update_post_meta( $post_id, 'article_type_active', ! empty( $_POST['article_type_active'] ) ? '1' : '0' );
 	}
 
-	public function columns( $columns ) { return array( 'cb'=>$columns['cb'], 'title'=>$columns['title'], 'active'=>__( 'Attiva', 'wp-ai-publisher' ), 'intent'=>__( 'Intento', 'wp-ai-publisher' ), 'length'=>__( 'Lunghezza', 'wp-ai-publisher' ), 'categories'=>__( 'Categorie', 'wp-ai-publisher' ), 'date'=>$columns['date'] ); }
+	public function columns( $columns ) { $columns = is_array( $columns ) ? $columns : array(); return array( 'cb'=>$columns['cb'] ?? '', 'title'=>$columns['title'] ?? __( 'Titolo', 'wp-ai-publisher' ), 'active'=>__( 'Attiva', 'wp-ai-publisher' ), 'intent'=>__( 'Intento', 'wp-ai-publisher' ), 'length'=>__( 'Lunghezza', 'wp-ai-publisher' ), 'categories'=>__( 'Categorie', 'wp-ai-publisher' ), 'date'=>$columns['date'] ?? __( 'Data', 'wp-ai-publisher' ) ); }
 	public function column_content( $column, $post_id ) {
 		$config = self::get_article_type_config( $post_id );
 		if ( 'active' === $column ) { echo ! empty( $config['active'] ) ? esc_html__( 'Sì', 'wp-ai-publisher' ) : esc_html__( 'No', 'wp-ai-publisher' ); }
@@ -84,10 +87,11 @@ class Article_Types {
 		if ( 'categories' === $column ) { $names = array(); foreach ( $config['allowed_category_ids'] as $id ) { $term = get_term( $id, 'category' ); if ( $term && ! is_wp_error( $term ) ) { $names[] = $term->name; } } echo esc_html( ! empty( $names ) ? implode( ', ', $names ) : __( '—', 'wp-ai-publisher' ) ); }
 	}
 
-	public static function get_active_article_types() { return get_posts( array( 'post_type'=>self::POST_TYPE, 'post_status'=>'publish', 'numberposts'=>-1, 'orderby'=>'title', 'order'=>'ASC', 'meta_key'=>'article_type_active', 'meta_value'=>'1' ) ); }
+	public static function get_active_article_types() { return post_type_exists( self::POST_TYPE ) ? get_posts( array( 'post_type'=>self::POST_TYPE, 'post_status'=>'publish', 'numberposts'=>-1, 'orderby'=>'title', 'order'=>'ASC', 'meta_key'=>'article_type_active', 'meta_value'=>'1' ) ) : array(); }
 	public static function is_active_article_type( $post_id ) { $post = get_post( absint( $post_id ) ); return $post && self::POST_TYPE === $post->post_type && '1' === (string) get_post_meta( $post->ID, 'article_type_active', true ); }
 	public static function get_article_type_config( $post_id ) {
 		$post_id = absint( $post_id );
+		if ( 0 === $post_id || ! get_post( $post_id ) ) { return array( 'id'=>0, 'title'=> '', 'allowed_category_ids'=>array(), 'active'=>false ); }
 		$data = array( 'id'=>$post_id, 'title'=> get_the_title( $post_id ), 'allowed_category_ids'=>array(), 'active'=>false );
 		foreach ( array( 'description','goal','prompt','structure','required_sections','forbidden_patterns','tone','length','search_intent','reader_level','preferred_tags','internal_linking_rules','seo_rules','quality_checklist' ) as $field ) { $data[ $field ] = (string) get_post_meta( $post_id, self::META_PREFIX . $field, true ); }
 		$data['allowed_category_ids'] = array_values( array_filter( array_map( 'absint', (array) get_post_meta( $post_id, 'article_type_allowed_category_ids', true ) ) ) );
