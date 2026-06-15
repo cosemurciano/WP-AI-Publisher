@@ -213,7 +213,7 @@ class Admin {
 				array(
 					'wpai_notice' => ! empty( $result['success'] ) ? 'draft_created' : ( 'article_type' === ( $result['step_failed'] ?? '' ) ? 'missing_article_type' : ( 'full_article' === ( $result['step_failed'] ?? '' ) ? 'full_article_failed' : ( 'draft' === ( $result['step_failed'] ?? '' ) && false !== strpos( (string) ( $result['message'] ?? '' ), 'Genera prima' ) ? 'missing_full_article' : 'draft_creation_failed' ) ) ),
 					'wpai_step'   => sanitize_key( (string) ( $result['step_failed'] ?? '' ) ),
-					'wpai_error'  => rawurlencode( sanitize_text_field( (string) ( $result['error_code'] ?? $result['message'] ?? '' ) ) ),
+					'wpai_error'  => rawurlencode( sanitize_text_field( (string) ( $result['message'] ?? $result['error_code'] ?? '' ) ) ),
 					'view_idea'   => absint( $idea_id ),
 					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . absint( $idea_id ) ),
 				)
