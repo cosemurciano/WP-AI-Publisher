@@ -62,6 +62,7 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'ai_http_timeout'               => 180,
 			'ai_max_output_tokens'          => 4000,
 			'ai_temperature'                => '',
+			'generate_featured_image'       => false,
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -113,6 +114,7 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['ai_max_output_tokens']          = max( 0, min( 32000, (int) ( $settings['ai_max_output_tokens'] ?? 4000 ) ) );
 		$raw_temperature                           = $settings['ai_temperature'] ?? '';
 		$settings['ai_temperature']                = ( '' === $raw_temperature || null === $raw_temperature ) ? '' : (string) max( 0, min( 2, (float) $raw_temperature ) );
+		$settings['generate_featured_image']       = ! empty( $settings['generate_featured_image'] );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );

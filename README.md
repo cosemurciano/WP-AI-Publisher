@@ -1,6 +1,12 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.24**
+Versione corrente: **0.5.25**
+
+## Immagine in evidenza con l'AI 0.5.25
+
+Dalla **0.5.25** il plugin può generare automaticamente l'**immagine in evidenza** della bozza. Attiva l'opzione in **Impostazioni → Parametri AI → “Immagine in evidenza AI”**: alla creazione della bozza, il plugin chiama `WordPress\AiClient\AiClient::prompt( $imagePrompt )->generateImage()` usando il **“Prompt immagini”** della Tipologia articolo (se vuoto, ne costruisce uno dal titolo), importa il file nella **Libreria media** e lo imposta come immagine in evidenza.
+
+La funzione è **opt-in e non bloccante**: richiede un provider AI con generazione immagini (es. un modello immagini OpenAI configurato in AI Provider for OpenAI); se la generazione o l'import falliscono, la bozza viene comunque creata **senza** immagine e l'errore è registrato nei log (Stato sistema).
 
 ## UI/UX 0.5.24 — Tipologie articolo e Idee contenuto
 

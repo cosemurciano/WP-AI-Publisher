@@ -1294,6 +1294,202 @@ class AI_Provider_Adapter {
 	}
 
 	/**
+	 * Generate an image from a prompt using the official WordPress PHP AI Client.
+	 *
+	 * Uses the provider/model configured on the site (e.g. OpenAI image model).
+	 * Fully guarded; returns decoded image bytes + mime or a WP_Error.
+	 *
+	 * @param string $prompt Image prompt.
+	 * @return array{bytes:string,mime:string}|WP_Error
+	 */
+	public function generate_image( $prompt ) {
+		$prompt = sanitize_textarea_field( (string) $prompt );
+		if ( '' === $prompt ) {
+			return new WP_Error( 'wpai_image_empty_prompt', __( 'Prompt immagine vuoto.', 'wp-ai-publisher' ) );
+		}
+		$class = '\\WordPress\\AiClient\\AiClient';
+		if ( ! class_exists( $class ) ) {
+			return new WP_Error( 'wpai_image_client_unavailable', __( 'PHP AI Client non disponibile per la generazione immagini.', 'wp-ai-publisher' ) );
+		}
+		$params = $this->get_ai_generation_params();
+		try {
+			$request = call_user_func( array( $class, 'prompt' ), $prompt );
+			if ( ! is_object( $request ) || ! method_exists( $request, 'generateImage' ) ) {
+				return new WP_Error( 'wpai_image_no_method', __( 'Il metodo generateImage() non è disponibile nel PHP AI Client installato.', 'wp-ai-publisher' ) );
+			}
+
+			$timeout       = max( 15, (int) $params['http_timeout'] );
+			$raise_timeout = static function ( $value ) use ( $timeout ) {
+				return max( (float) $value, (float) $timeout );
+			};
+			$raise_args = static function ( $args ) use ( $timeout ) {
+				if ( is_array( $args ) ) {
+					$args['timeout'] = max( (float) ( $args['timeout'] ?? 0 ), (float) $timeout );
+				}
+				return $args;
+			};
+			add_filter( 'http_request_timeout', $raise_timeout, 9999 );
+			add_filter( 'http_request_args', $raise_args, 9999 );
+			try {
+				$result = $request->generateImage();
+			} finally {
+				remove_filter( 'http_request_timeout', $raise_timeout, 9999 );
+				remove_filter( 'http_request_args', $raise_args, 9999 );
+			}
+
+			$image = $this->extract_image_file( $result );
+			if ( empty( $image['bytes'] ) ) {
+				return new WP_Error( 'wpai_image_unreadable', sprintf( __( 'Risultato immagine non leggibile (%s).', 'wp-ai-publisher' ), is_object( $result ) ? get_class( $result ) : gettype( $result ) ) );
+			}
+			return $image;
+		} catch ( Throwable $error ) {
+			return new WP_Error( 'wpai_image_exception', $error->getMessage() );
+		}
+	}
+
+	/**
+	 * Extract image bytes + mime from a heterogeneous generateImage() result.
+	 *
+	 * @param mixed $result Result (string/array/object/file).
+	 * @return array{bytes:string,mime:string}|null
+	 */
+	private function extract_image_file( $result ) {
+		if ( is_string( $result ) ) {
+			return $this->decode_image_payload( $result, '' );
+		}
+		if ( is_array( $result ) ) {
+			$mime = (string) ( $result['mimeType'] ?? $result['mime'] ?? $result['mime_type'] ?? '' );
+			foreach ( array( 'base64Data', 'base64', 'data', 'bytes', 'content' ) as $key ) {
+				if ( ! empty( $result[ $key ] ) && is_string( $result[ $key ] ) ) {
+					$decoded = $this->decode_image_payload( $result[ $key ], $mime );
+					if ( ! empty( $decoded['bytes'] ) ) {
+						return $decoded;
+					}
+				}
+			}
+			foreach ( array( 'url', 'uri', 'sourceUrl', 'src' ) as $key ) {
+				if ( ! empty( $result[ $key ] ) && is_string( $result[ $key ] ) ) {
+					$downloaded = $this->image_from_url( $result[ $key ], $mime );
+					if ( ! empty( $downloaded['bytes'] ) ) {
+						return $downloaded;
+					}
+				}
+			}
+			return null;
+		}
+		if ( is_object( $result ) ) {
+			$mime = '';
+			foreach ( array( 'getMimeType', 'getMediaType', 'mimeType' ) as $method ) {
+				if ( method_exists( $result, $method ) ) {
+					try {
+						$value = $result->{$method}();
+						if ( is_string( $value ) && '' !== $value ) {
+							$mime = $value;
+							break;
+						}
+					} catch ( Throwable $error ) {
+						unset( $error );
+					}
+				}
+			}
+			foreach ( array( 'getBase64Data', 'getBase64', 'toBase64', 'getData', 'getBytes', 'getBinaryData', 'getContents', 'getBlob', '__toString' ) as $method ) {
+				if ( method_exists( $result, $method ) ) {
+					try {
+						$value = $result->{$method}();
+						if ( is_string( $value ) && '' !== trim( $value ) ) {
+							$decoded = $this->decode_image_payload( $value, $mime );
+							if ( ! empty( $decoded['bytes'] ) ) {
+								return $decoded;
+							}
+						}
+					} catch ( Throwable $error ) {
+						unset( $error );
+					}
+				}
+			}
+			foreach ( array( 'getUrl', 'getUri', 'getSourceUrl' ) as $method ) {
+				if ( method_exists( $result, $method ) ) {
+					try {
+						$value = $result->{$method}();
+						if ( is_string( $value ) && 1 === preg_match( '#^https?://#i', $value ) ) {
+							$downloaded = $this->image_from_url( $value, $mime );
+							if ( ! empty( $downloaded['bytes'] ) ) {
+								return $downloaded;
+							}
+						}
+					} catch ( Throwable $error ) {
+						unset( $error );
+					}
+				}
+			}
+			if ( method_exists( $result, 'toArray' ) ) {
+				try {
+					$array = $result->toArray();
+					if ( is_array( $array ) ) {
+						return $this->extract_image_file( $array );
+					}
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Decode an image payload that may be a data URI, raw base64, or binary.
+	 *
+	 * @param string $payload Payload.
+	 * @param string $mime Known mime type, if any.
+	 * @return array{bytes:string,mime:string}|null
+	 */
+	private function decode_image_payload( $payload, $mime = '' ) {
+		$payload = (string) $payload;
+		if ( '' === trim( $payload ) ) {
+			return null;
+		}
+		if ( 1 === preg_match( '#^https?://#i', $payload ) ) {
+			return $this->image_from_url( $payload, $mime );
+		}
+		if ( 1 === preg_match( '#^data:([^;,]+)?(;base64)?,(.*)$#is', $payload, $matches ) ) {
+			$mime    = '' !== $mime ? $mime : (string) ( $matches[1] ?? '' );
+			$is_b64  = '' !== (string) ( $matches[2] ?? '' );
+			$content = (string) ( $matches[3] ?? '' );
+			$bytes   = $is_b64 ? base64_decode( $content, true ) : rawurldecode( $content );
+			return ( false !== $bytes && '' !== $bytes ) ? array( 'bytes' => $bytes, 'mime' => $mime ?: 'image/png' ) : null;
+		}
+		$decoded = base64_decode( $payload, true );
+		if ( false !== $decoded && '' !== $decoded && strlen( $decoded ) > 8 ) {
+			return array( 'bytes' => $decoded, 'mime' => $mime ?: 'image/png' );
+		}
+		return null;
+	}
+
+	/**
+	 * Download image bytes from a URL via the WordPress HTTP API.
+	 *
+	 * @param string $url URL.
+	 * @param string $mime Known mime type, if any.
+	 * @return array{bytes:string,mime:string}|null
+	 */
+	private function image_from_url( $url, $mime = '' ) {
+		$url = esc_url_raw( (string) $url );
+		if ( '' === $url ) {
+			return null;
+		}
+		$response = wp_remote_get( $url, array( 'timeout' => max( 15, (int) $this->get_ai_generation_params()['http_timeout'] ) ) );
+		if ( is_wp_error( $response ) ) {
+			return null;
+		}
+		$bytes = (string) wp_remote_retrieve_body( $response );
+		if ( '' === $bytes ) {
+			return null;
+		}
+		$header_mime = (string) wp_remote_retrieve_header( $response, 'content-type' );
+		return array( 'bytes' => $bytes, 'mime' => $mime ?: ( '' !== $header_mime ? $header_mime : 'image/png' ) );
+	}
+
+	/**
 	 * Try generating with the "AI Services" plugin (felix-arntz/ai-services).
 	 *
 	 * Fully guarded: any incompatible API shape is caught and reported instead of
@@ -3124,18 +3320,6 @@ class AI_Provider_Adapter {
 		unset( $payload );
 
 		return new WP_Error( 'wpai_text_generation_not_implemented', __( 'La generazione testo tramite WordPress AI non è ancora implementata in questa fase.', 'wp-ai-publisher' ) );
-	}
-
-	/**
-	 * Stub for future image generation through WordPress AI only.
-	 *
-	 * @param mixed $payload Request payload.
-	 * @return WP_Error
-	 */
-	public function generate_image( $payload ) {
-		unset( $payload );
-
-		return new WP_Error( 'wpai_image_generation_not_implemented', __( 'La generazione immagini tramite WordPress AI non è ancora implementata in questa fase.', 'wp-ai-publisher' ) );
 	}
 
 	/**

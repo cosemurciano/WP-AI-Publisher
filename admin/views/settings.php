@@ -151,6 +151,10 @@ $language_options = array(
 					<th scope="row"><label for="wpai-ai-temperature"><?php echo esc_html__( 'Temperatura', 'wp-ai-publisher' ); ?></label></th>
 					<td><input type="text" id="wpai-ai-temperature" name="wpai_publisher_settings[ai_temperature]" class="small-text" value="<?php echo esc_attr( (string) ( $settings['ai_temperature'] ?? '' ) ); ?>" placeholder="<?php echo esc_attr__( 'vuoto', 'wp-ai-publisher' ); ?>"><p class="description"><?php echo esc_html__( 'Valore 0–2. Lascia VUOTO se usi un modello “reasoning” (o1/o3/gpt-5): questi modelli rifiutano il parametro temperature.', 'wp-ai-publisher' ); ?></p></td>
 				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Immagine in evidenza AI', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[generate_featured_image]" value="1" <?php checked( ! empty( $settings['generate_featured_image'] ) ); ?>> <?php echo esc_html__( 'Genera automaticamente un’immagine in evidenza quando creo la bozza.', 'wp-ai-publisher' ); ?></label><p class="description"><?php echo esc_html__( 'Usa il “Prompt immagini” della Tipologia articolo (se vuoto, ne crea uno dal titolo). Richiede un provider AI con generazione immagini. Se fallisce, la bozza viene comunque creata senza immagine.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
 			</tbody>
 		</table>
 
