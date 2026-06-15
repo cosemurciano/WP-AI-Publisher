@@ -1057,14 +1057,14 @@ class AI_Provider_Adapter {
 		 */
 		$filtered = apply_filters( 'wpai_publisher_generate_article_from_idea', null, $generation_context, $site_context, $prompt, $article_type );
 		if ( null !== $filtered ) {
-			$candidate = $this->normalize_full_article_candidate( $filtered, 'wordpress_ai', $builder, $generation_context );
+			$candidate = $this->normalize_full_article_candidate( $filtered, 'wordpress_ai', $builder, $generation_context, true );
 			if ( ! is_wp_error( $candidate ) ) {
 				return $candidate;
 			}
 			$errors[] = $candidate->get_error_message();
 		}
 
-		$ability_candidate = $this->try_generate_full_article_with_wp_abilities( $generation_context, $site_context, $prompt, $builder );
+		$ability_candidate = $this->try_generate_full_article_with_wp_abilities( $generation_context, $site_context, $prompt, $builder, true );
 		if ( ! is_wp_error( $ability_candidate ) ) {
 			return $ability_candidate;
 		}
@@ -1074,7 +1074,7 @@ class AI_Provider_Adapter {
 			foreach ( array( array( 'prompt' => $prompt, 'temperature' => 0.4, 'format' => 'html' ), $prompt ) as $args ) {
 				try {
 					$result    = call_user_func( 'wp_ai_generate_text', $args );
-					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $generation_context );
+					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $generation_context, true );
 					if ( ! is_wp_error( $candidate ) ) {
 						return $candidate;
 					}
@@ -1171,7 +1171,7 @@ class AI_Provider_Adapter {
 	 * @param Classic_Content_Builder $builder Builder/validator.
 	 * @return array<string,mixed>|WP_Error
 	 */
-	private function try_generate_full_article_with_wp_abilities( $dry_run_output, $site_context, $prompt, Classic_Content_Builder $builder ) {
+	private function try_generate_full_article_with_wp_abilities( $dry_run_output, $site_context, $prompt, Classic_Content_Builder $builder, $tolerant = false ) {
 		unset( $site_context );
 		if ( ! function_exists( 'wp_get_abilities' ) || ! function_exists( 'wp_get_ability' ) ) {
 			return new WP_Error( 'wpai_full_article_abilities_unavailable', __( 'WordPress Abilities API non disponibile.', 'wp-ai-publisher' ) );
@@ -1209,7 +1209,7 @@ class AI_Provider_Adapter {
 				}
 				try {
 					$result = $ability->{$method}( array( 'prompt' => $prompt, 'dry_run_output' => $dry_run_output, 'format' => 'html' ) );
-					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $dry_run_output );
+					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $dry_run_output, $tolerant );
 					if ( ! is_wp_error( $candidate ) ) {
 						$candidate['quality_notes'][] = __( 'Articolo generato tramite WordPress Abilities API sicura.', 'wp-ai-publisher' );
 						return $candidate;
@@ -1253,9 +1253,11 @@ class AI_Provider_Adapter {
 	 * @param mixed                   $candidate Candidate output.
 	 * @param string                  $source Source label.
 	 * @param Classic_Content_Builder $builder Builder/validator.
+	 * @param array<string,mixed>     $dry_run_output Normalization context.
+	 * @param bool                    $tolerant When true, accept any non-empty article and treat failed publishability checks as quality notes instead of blocking.
 	 * @return array<string,mixed>|WP_Error
 	 */
-	private function normalize_full_article_candidate( $candidate, $source, Classic_Content_Builder $builder, $dry_run_output = array() ) {
+	private function normalize_full_article_candidate( $candidate, $source, Classic_Content_Builder $builder, $dry_run_output = array(), $tolerant = false ) {
 		$html = '';
 		if ( is_array( $candidate ) ) {
 			$html = (string) ( $candidate['html'] ?? $candidate['content'] ?? $candidate['post_content'] ?? '' );
@@ -1273,6 +1275,19 @@ class AI_Provider_Adapter {
 		$html = $builder->normalize_full_article_html( $html, $normalization_context );
 		$validation = $builder->validate_publishable_article_html( $html );
 		if ( empty( $validation['valid'] ) ) {
+			// Tolerant mode (single-call idea -> draft): the article type prompt only
+			// guides writing quality; it must never block draft creation. Any
+			// non-empty, sanitized article is accepted and the failed checks become
+			// quality notes the editor can review on the created draft.
+			if ( $tolerant && '' !== trim( wp_strip_all_tags( $html ) ) ) {
+				return array(
+					'html'               => $html,
+					'plain_text_summary' => wp_trim_words( wp_strip_all_tags( $html ), 55, '…' ),
+					'source'             => $source,
+					'validation_notes'   => $validation['notes'],
+					'quality_notes'      => $validation['notes'],
+				);
+			}
 			return new WP_Error( 'wpai_full_article_invalid', __( 'Output articolo completo non pubblicabile.', 'wp-ai-publisher' ), $validation );
 		}
 		return array(

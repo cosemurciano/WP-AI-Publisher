@@ -127,18 +127,18 @@ class Draft_Creator {
 		$dry_run['full_article']['html'] = $builder->normalize_full_article_html( $original_full_article_html, $dry_run );
 		$this->logger->info( __( 'Validazione bozza avviata.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_validation_started', 'selected_source' => 'full_article', 'full_article_present' => 'yes', 'preview_present' => ! empty( $dry_run['classic_editor_preview']['html'] ) ? 'yes' : 'no', 'preview_rejected_as_placeholder' => ! empty( $dry_run['classic_editor_preview']['html'] ) && $builder->contains_placeholder_text( (string) $dry_run['classic_editor_preview']['html'] ) ? 'yes' : 'no', 'normalization_status' => '' !== trim( (string) $dry_run['full_article']['html'] ) ? 'success' : 'failure' ) );
 		$validation = $builder->validate_publishable_article_html( (string) $dry_run['full_article']['html'] );
-		if ( ! empty( $validation['valid'] ) && $original_full_article_html !== (string) $dry_run['full_article']['html'] && ! empty( $args['content_ideas'] ) && is_object( $args['content_ideas'] ) && method_exists( $args['content_ideas'], 'save_dry_run_output' ) ) {
+		// Publishability checks (length, H2 count, placeholder/required-section
+		// signals) are NON-blocking: the article type prompt only guides writing
+		// quality and must never prevent the draft from being created. Any
+		// non-empty, sanitized article becomes a draft; failed checks are recorded
+		// as quality notes for editorial review.
+		if ( $original_full_article_html !== (string) $dry_run['full_article']['html'] && ! empty( $args['content_ideas'] ) && is_object( $args['content_ideas'] ) && method_exists( $args['content_ideas'], 'save_dry_run_output' ) ) {
 			$dry_run['full_article']['validation_notes'] = $validation['notes'];
 			$args['content_ideas']->save_dry_run_output( (int) $idea->id, $dry_run, isset( $dry_run['validation_notes'] ) && is_array( $dry_run['validation_notes'] ) ? $dry_run['validation_notes'] : array() );
 		}
 		if ( empty( $validation['valid'] ) ) {
 			$diagnostics = $builder->get_full_article_validation_diagnostics( $original_full_article_html, (string) $dry_run['full_article']['html'], $dry_run, $validation );
-			$validation['diagnostics'] = $diagnostics;
-			$error_message = $this->format_validation_diagnostic_message( $diagnostics );
-			$error = new WP_Error( 'wpai_draft_creator_full_article_not_publishable', $error_message, $validation );
-			$this->logger->warning( $error->get_error_message(), array_merge( array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_validation_failed', 'error_code' => $error->get_error_code(), 'message' => $error->get_error_message(), 'word_count' => (int) ( $validation['word_count'] ?? 0 ), 'h2_count' => (int) ( $validation['h2_count'] ?? 0 ) ), $diagnostics ) );
-			$this->update_idea_after_draft_failed( (int) $idea->id, $error->get_error_message() );
-			return $error;
+			$this->logger->info( __( 'Bozza creata con note di qualità da revisionare.', 'wp-ai-publisher' ), array_merge( array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_quality_notes', 'word_count' => (int) ( $validation['word_count'] ?? 0 ), 'h2_count' => (int) ( $validation['h2_count'] ?? 0 ) ), $diagnostics ) );
 		}
 
 		$post_data = $this->prepare_post_data( $idea, $dry_run );
@@ -232,10 +232,13 @@ class Draft_Creator {
 	 * @return string|WP_Error Sanitized HTML or error.
 	 */
 	public function sanitize_post_content( $html, $article_type = array() ) {
+		unset( $article_type );
 		$html = (string) $html;
-		if ( $this->contains_gutenberg_blocks( $html ) ) {
-			return new WP_Error( 'wpai_draft_creator_gutenberg_blocks', __( 'Il contenuto contiene blocchi Gutenberg non consentiti.', 'wp-ai-publisher' ) );
-		}
+		// Defensively strip Gutenberg block comments; any remaining disallowed
+		// markup (block markup, scripts, classes) is removed by the wp_kses
+		// allowlist below, so unsafe content is neutralized rather than blocking
+		// the draft.
+		$html = (string) preg_replace( '/<!--\s*\/?wp:.*?-->/is', '', $html );
 
 		$allowed_html = array(
 			'p'          => array(),
@@ -260,11 +263,6 @@ class Draft_Creator {
 		);
 
 		$sanitized = wp_kses( $html, $allowed_html );
-		$builder = new Classic_Content_Builder( null, is_array( $article_type ) ? $article_type : array() );
-		$validation = $builder->validate_publishable_article_html( $sanitized );
-		if ( empty( $validation['valid'] ) ) {
-			return new WP_Error( 'wpai_draft_creator_unpublishable_content', __( 'Il contenuto completo non è pubblicabile come bozza Classic Editor.', 'wp-ai-publisher' ), $validation );
-		}
 		if ( '' === trim( wp_strip_all_tags( $sanitized ) ) ) {
 			return new WP_Error( 'wpai_draft_creator_empty_content', __( 'Il contenuto è vuoto dopo la sanitizzazione.', 'wp-ai-publisher' ) );
 		}
