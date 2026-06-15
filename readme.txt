@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.14
+Stable tag: 0.5.15
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.15 =
+* La creazione bozza non viene più bloccata dalla qualità dell’articolo: i prompt della Tipologia articolo guidano la scrittura ma non impediscono la bozza. Lunghezza minima, numero di H2, sezioni obbligatorie e frasi segnaposto sono ora note di qualità non bloccanti, visibili sull’idea/bozza.
+* Restano bloccanti solo i controlli di sicurezza, già garantiti dalla sanitizzazione (allowlist wp_kses, rimozione di blocchi Gutenberg/script/iframe/style). Un articolo viene scartato solo se, dopo la sanitizzazione, è completamente vuoto.
+* L’errore "Il sistema AI non ha restituito un articolo pubblicabile" ora compare solo quando l’AI non restituisce contenuto reale, non quando l’articolo è semplicemente breve o non rispetta una checklist editoriale.
 
 = 0.5.14 =
 * Semplificato il flusso di creazione bozza: una sola chiamata AI (idea + prompt Tipologia articolo) produce l’articolo completo, poi il plugin crea la bozza. Rimosso il passaggio intermedio di dry-run JSON dal percorso "Crea bozza".

@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.14**
+Versione corrente: **0.5.15**
+
+## Validazione non bloccante 0.5.15
+
+Dalla versione **0.5.15** la qualità dell’articolo non blocca più la creazione della bozza. I prompt e le istruzioni della Tipologia articolo (tono, lunghezza, sezioni obbligatorie, checklist, livello lettore) **guidano** la scrittura ma non impediscono la bozza: lunghezza minima, numero di H2, sezioni obbligatorie e frasi segnaposto diventano **note di qualità non bloccanti**, salvate sull’idea e visibili per la revisione editoriale. Restano bloccanti solo i controlli di **sicurezza**, già garantiti dalla sanitizzazione (allowlist `wp_kses`, rimozione di blocchi Gutenberg, script, iframe e style inline). Un articolo viene scartato solo se, dopo la sanitizzazione, risulta completamente vuoto. Di conseguenza l’errore “Il sistema AI non ha restituito un articolo pubblicabile” compare ora soltanto quando l’AI non produce contenuto reale.
 
 ## Creazione bozza semplificata 0.5.14
 
