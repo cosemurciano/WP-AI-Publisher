@@ -1,6 +1,14 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.19**
+Versione corrente: **0.5.20**
+
+## Fix timeout generazione 0.5.20
+
+La generazione via PHP AI Client raggiungeva OpenAI ma falliva con `cURL error 28: Operation timed out after 5000 milliseconds`: il timeout HTTP predefinito di WordPress (5s) è troppo breve per generare un articolo. Dalla **0.5.20** il timeout viene esteso a **90 secondi** (filtrabile con `wpai_publisher_ai_http_timeout`) **solo per la durata della richiesta di generazione**, poi ripristinato. Esempio per personalizzarlo:
+
+```php
+add_filter( 'wpai_publisher_ai_http_timeout', function () { return 120; } );
+```
 
 ## Integrazione AI (generazione articolo)
 
