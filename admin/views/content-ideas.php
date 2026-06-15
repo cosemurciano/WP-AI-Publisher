@@ -147,7 +147,7 @@ $render_list = static function ( $items ) {
 								<select id="wpai-content-article-type" name="article_type_id" required>
 									<option value=""><?php echo esc_html__( 'Seleziona una tipologia', 'wp-ai-publisher' ); ?></option>
 									<?php foreach ( $active_article_types as $article_type ) : ?>
-										<option value="<?php echo esc_attr( (string) $article_type->ID ); ?>"><?php echo esc_html( get_the_title( $article_type ) ); ?></option>
+										<option value="<?php echo esc_attr( (string) $article_type['id'] ); ?>"><?php echo esc_html( $article_type['name'] ); ?></option>
 									<?php endforeach; ?>
 								</select>
 							</td>
@@ -205,7 +205,7 @@ $render_list = static function ( $items ) {
 							<?php $atype_id = absint( $idea->article_type_id ?? 0 ); ?>
 							<?php $atype_valid = wpai_publisher_is_active_article_type_safe( $atype_id ); ?>
 							<?php if ( $atype_valid ) : ?>
-								<?php echo esc_html( get_the_title( $atype_id ) ); ?>
+								<?php $atype = wpai_publisher_get_article_type_config_safe( $atype_id ); echo esc_html( $atype['name'] ); ?>
 							<?php else : ?>
 								<p class="description"><?php echo esc_html( $atype_id > 0 ? __( 'Tipologia non valida/inattiva', 'wp-ai-publisher' ) : __( 'Non assegnata', 'wp-ai-publisher' ) ); ?></p>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -215,7 +215,7 @@ $render_list = static function ( $items ) {
 									<select name="article_type_id" required>
 										<option value=""><?php echo esc_html__( 'Tipologia articolo', 'wp-ai-publisher' ); ?></option>
 										<?php foreach ( $active_article_types as $article_type ) : ?>
-											<option value="<?php echo esc_attr( (string) $article_type->ID ); ?>"><?php echo esc_html( get_the_title( $article_type ) ); ?></option>
+											<option value="<?php echo esc_attr( (string) $article_type['id'] ); ?>"><?php echo esc_html( $article_type['name'] ); ?></option>
 										<?php endforeach; ?>
 									</select>
 									<?php submit_button( __( 'Assegna', 'wp-ai-publisher' ), 'secondary small', 'submit', false, array( 'disabled' => empty( $active_article_types ) ) ); ?>

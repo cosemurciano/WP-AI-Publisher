@@ -79,8 +79,38 @@ class System_Status {
 			$this->knowledge_index_item(),
 			$this->github_updater_item(),
 			$this->database_schema_item(),
+			$this->article_types_table_item(),
+			$this->active_article_types_item(),
+			$this->ideas_without_article_type_item(),
+			$this->article_types_cpt_item(),
+			$this->article_types_map_meta_cap_item(),
 			$this->recent_critical_errors_item(),
 		);
+	}
+
+
+	private function article_types_table_item() {
+		$tables = $this->db->check_tables();
+		return $this->row( 'article_types_table', __( 'Tabella article_types', 'wp-ai-publisher' ), ! empty( $tables['article_types'] ) ? 'ok' : 'warning', ! empty( $tables['article_types'] ) ? __( 'OK', 'wp-ai-publisher' ) : __( 'Mancante', 'wp-ai-publisher' ), '' );
+	}
+
+	private function active_article_types_item() {
+		$count = count( wpai_publisher_get_active_article_types_safe() );
+		return $this->row( 'active_article_types', __( 'Tipologie attive', 'wp-ai-publisher' ), $count > 0 ? 'ok' : 'warning', (string) $count, '' );
+	}
+
+	private function ideas_without_article_type_item() {
+		$count = method_exists( $this->db, 'count_content_ideas_without_article_type' ) ? $this->db->count_content_ideas_without_article_type() : 0;
+		return $this->row( 'ideas_without_article_type', __( 'Idee senza tipologia', 'wp-ai-publisher' ), $count > 0 ? 'warning' : 'ok', (string) $count, '' );
+	}
+
+	private function article_types_cpt_item() {
+		$used = function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' );
+		return $this->row( 'article_types_cpt', __( 'CPT Tipologie Articolo', 'wp-ai-publisher' ), $used ? 'warning' : 'ok', $used ? __( 'Registrato', 'wp-ai-publisher' ) : __( 'Disabilitato/non usato', 'wp-ai-publisher' ), '' );
+	}
+
+	private function article_types_map_meta_cap_item() {
+		return $this->row( 'article_types_map_meta_cap', __( 'map_meta_cap Tipologie', 'wp-ai-publisher' ), 'ok', __( 'Non usato dal modulo tipologie', 'wp-ai-publisher' ), '' );
 	}
 
 	/**

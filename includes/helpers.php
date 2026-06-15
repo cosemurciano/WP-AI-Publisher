@@ -299,102 +299,46 @@ if ( ! function_exists( 'wpai_publisher_badge_class' ) ) {
 }
 
 
+
 if ( ! function_exists( 'wpai_publisher_article_types_enabled' ) ) {
-	/**
-	 * Determine whether the Article Types recovery feature flag is enabled.
-	 *
-	 * @return bool
-	 */
 	function wpai_publisher_article_types_enabled() {
-		return defined( 'WPAIP_ENABLE_ARTICLE_TYPES' ) && true === WPAIP_ENABLE_ARTICLE_TYPES;
+		return defined( 'WPAIP_ENABLE_ARTICLE_TYPE_REPOSITORY' ) ? true === WPAIP_ENABLE_ARTICLE_TYPE_REPOSITORY : true;
 	}
 }
 
 if ( ! function_exists( 'wpai_publisher_article_types_available' ) ) {
-	/**
-	 * Determine whether the Article_Types class and its safe methods are available.
-	 *
-	 * @return bool
-	 */
 	function wpai_publisher_article_types_available() {
-		if ( ! wpai_publisher_article_types_enabled() ) {
-			return false;
-		}
+		return wpai_publisher_article_types_enabled() && class_exists( '\WPAIPublisher\Article_Type_Repository' );
+	}
+}
 
-		$class = '\\WPAIPublisher\\Article_Types';
-		if ( ! class_exists( $class ) ) {
-			return false;
-		}
-
-		if ( ! method_exists( $class, 'get_active_article_types' ) || ! method_exists( $class, 'is_active_article_type' ) || ! method_exists( $class, 'get_article_type_config' ) ) {
-			return false;
-		}
-
-		if ( function_exists( 'post_type_exists' ) && did_action( 'init' ) && defined( $class . '::POST_TYPE' ) && ! post_type_exists( constant( $class . '::POST_TYPE' ) ) ) {
-			return false;
-		}
-
-		return true;
+if ( ! function_exists( 'wpai_publisher_article_type_repository' ) ) {
+	function wpai_publisher_article_type_repository() {
+		if ( ! wpai_publisher_article_types_available() ) { return null; }
+		return new \WPAIPublisher\Article_Type_Repository();
 	}
 }
 
 if ( ! function_exists( 'wpai_publisher_get_active_article_types_safe' ) ) {
-	/**
-	 * Return active article types without throwing fatals when CPT/class is unavailable.
-	 *
-	 * @return array<int,WP_Post>
-	 */
 	function wpai_publisher_get_active_article_types_safe() {
-		$class = '\\WPAIPublisher\\Article_Types';
-		if ( ! wpai_publisher_article_types_available() || ! function_exists( 'post_type_exists' ) ) {
-			return array();
-		}
-		if ( did_action( 'init' ) && defined( $class . '::POST_TYPE' ) && ! post_type_exists( constant( $class . '::POST_TYPE' ) ) ) {
-			return array();
-		}
-
-		$types = call_user_func( array( $class, 'get_active_article_types' ) );
-		return is_array( $types ) ? $types : array();
+		$repo = wpai_publisher_article_type_repository();
+		return $repo ? $repo->get_active_article_types() : array();
 	}
 }
 
 if ( ! function_exists( 'wpai_publisher_is_active_article_type_safe' ) ) {
-	/**
-	 * Check if an article type ID exists, belongs to the CPT and is active.
-	 *
-	 * @param int $post_id Article type post ID.
-	 * @return bool
-	 */
-	function wpai_publisher_is_active_article_type_safe( $post_id ) {
-		$class   = '\\WPAIPublisher\\Article_Types';
-		$post_id = absint( $post_id );
-		if ( 0 === $post_id || ! wpai_publisher_article_types_available() ) {
-			return false;
-		}
-		if ( function_exists( 'post_type_exists' ) && did_action( 'init' ) && defined( $class . '::POST_TYPE' ) && ! post_type_exists( constant( $class . '::POST_TYPE' ) ) ) {
-			return false;
-		}
-
-		return true === (bool) call_user_func( array( $class, 'is_active_article_type' ), $post_id );
+	function wpai_publisher_is_active_article_type_safe( $id ) {
+		$repo = wpai_publisher_article_type_repository();
+		return $repo ? $repo->is_active_article_type( absint( $id ) ) : false;
 	}
 }
 
 if ( ! function_exists( 'wpai_publisher_get_article_type_config_safe' ) ) {
-	/**
-	 * Return an article type configuration or a safe empty fallback.
-	 *
-	 * @param int $post_id Article type post ID.
-	 * @return array<string,mixed>
-	 */
-	function wpai_publisher_get_article_type_config_safe( $post_id ) {
-		$class   = '\\WPAIPublisher\\Article_Types';
-		$post_id = absint( $post_id );
-		$fallback = array( 'id' => 0, 'title' => '', 'allowed_category_ids' => array(), 'active' => false );
-		if ( 0 === $post_id || ! wpai_publisher_article_types_available() || ! wpai_publisher_is_active_article_type_safe( $post_id ) ) {
-			return $fallback;
-		}
-
-		$config = call_user_func( array( $class, 'get_article_type_config' ), $post_id );
+	function wpai_publisher_get_article_type_config_safe( $id ) {
+		$fallback = array( 'id' => 0, 'ID' => 0, 'name' => '', 'title' => '', 'allowed_category_ids' => array(), 'active' => false, 'is_active' => false );
+		$repo = wpai_publisher_article_type_repository();
+		if ( ! $repo || ! $repo->is_active_article_type( absint( $id ) ) ) { return $fallback; }
+		$config = $repo->get_article_type( absint( $id ) );
 		return is_array( $config ) ? wp_parse_args( $config, $fallback ) : $fallback;
 	}
 }

@@ -10,21 +10,15 @@ La versione **0.5.5** aggiunge una pagina admin **Stato sistema** stabile e di s
 
 ## Recovery mode 0.5.4
 
-La versione **0.5.4** è una release di recovery orientata alla stabilità del menu admin WordPress. Il modulo **Tipologie Articolo** è temporaneamente disabilitato di default tramite feature flag, quindi il plugin non registra il CPT `wpai_article_type`, non crea tipologie default e non aggiunge il relativo submenu CPT durante il caricamento standard.
+La versione **0.5.5** reintroduce le **Tipologie articolo** come entità interne del plugin basate sulla tabella custom `wpai_publisher_article_types`, senza registrare Custom Post Type, metabox, capability post custom o `map_meta_cap`.
 
-In recovery mode, **Idee contenuto** torna a usare il contesto editoriale generale del sito: `article_type_id` resta nello schema database 5, ma non è obbligatorio per salvare un’idea o avviare il workflow verso una bozza. Questa scelta riduce il rischio di notice ripetuti `map_meta_cap` legati a capability meta del CPT durante il caricamento dell’admin.
+Il workflow **Idee contenuto** usa `article_type_id` come riferimento alla tabella custom: è facoltativo per “Salva solo idea”, ma obbligatorio e validato come tipologia attiva per generare bozze. Questa scelta riduce il rischio di notice ripetuti `map_meta_cap` legati a capability meta del CPT durante il caricamento dell’admin.
 
-La feature Tipologie Articolo verrà reintrodotta dopo stabilizzazione e test specifici sulle capability del CPT. Per riattivarla manualmente solo in ambiente di test, definire prima del caricamento del plugin:
-
-```php
-define( 'WPAIP_ENABLE_ARTICLE_TYPES', true );
-```
-
-Non riattivare il flag su siti di produzione finché la stabilizzazione non è completata.
+La feature legacy basata su `WPAIP_ENABLE_ARTICLE_TYPES` resta disabilitata e non deve essere riattivata: il flusso 0.5.5 usa il nuovo flag `WPAIP_ENABLE_ARTICLE_TYPE_REPOSITORY`, attivo di default, e la tabella custom.
 
 ## Hotfix 0.5.3 e recovery
 
-La versione **0.5.3** è una hotfix di recupero per siti che possono mostrare “Si è verificato un errore critico in questo sito” dopo un aggiornamento 0.5.x incompleto. La causa più probabile è l’esecuzione troppo precoce della creazione delle Tipologie articolo default durante il bootstrap, prima che classe, CPT o migrazione `article_type_id` siano disponibili in modo sicuro.
+La versione **0.5.3** è una hotfix di recupero per siti che possono mostrare “Si è verificato un errore critico in questo sito” dopo un aggiornamento 0.5.x incompleto. La causa più probabile è l’esecuzione troppo precoce della creazione delle Tipologie articolo default durante il bootstrap, prima che classe repository o migrazione `article_type_id` siano disponibili in modo sicuro.
 
 ### Recupero sito dopo fatal error
 
@@ -32,13 +26,13 @@ La versione **0.5.3** è una hotfix di recupero per siti che possono mostrare �
 2. Accedere a `wp-admin` e verificare che il sito torni operativo.
 3. Installare la hotfix 0.5.3 caricando la nuova cartella/ZIP del plugin.
 4. Riattivare WP AI Publisher.
-5. Aprire **WP AI Publisher > Stato sistema** e controllare classe `Article_Types`, CPT, colonna `article_type_id`, tipologie attive e idee da riassegnare.
+5. Aprire **WP AI Publisher > Stato sistema** e controllare tabella article_types, colonna `article_type_id`, tipologie attive e idee da riassegnare.
 6. Aprire **Idee contenuto** e assegnare una Tipologia articolo attiva alle idee migrate, senza cancellare `dry_run_output` e senza cambiare stato idea.
 
 ### Cosa controllare dopo update
 
-- Lo schema database deve restare alla versione `5`.
-- Le Tipologie articolo default vengono create solo in admin sicuro, dopo registrazione CPT, e mai durante bootstrap DB.
+- Lo schema database deve aggiornarsi alla versione `6`.
+- Le Tipologie articolo default vengono create una sola volta in admin sicuro tramite repository custom, mai tramite CPT.
 - Idee con tipologia cancellata, cestinata, inattiva o inesistente mostrano il form **Assegna tipologia**.
 - Se una Tipologia articolo non contiene categorie consentite, WP AI Publisher non assegna categorie suggerite dall’AI e lascia a WordPress l’eventuale categoria predefinita.
 
@@ -98,7 +92,7 @@ WP AI Publisher 0.5.0 continua a creare solo bozze o contenuti pending autorizza
 
 ## Tipologie di Articolo
 
-Dalla versione **0.5.0** WP AI Publisher introduce le **Tipologie di Articolo**, un Custom Post Type interno (`wpai_article_type`) gestibile dal pannello WordPress in **WP AI Publisher → Tipologie articolo**.
+Dalla versione **0.5.5** WP AI Publisher gestisce le **Tipologie articolo** come entità interne in tabella custom (`wpai_publisher_article_types`), gestibili da **WP AI Publisher → Tipologie articolo**, senza Custom Post Type.
 
 Le Tipologie di Articolo definiscono struttura, prompt specifico, sezioni obbligatorie, pattern vietati, tono, lunghezza, intento di ricerca, livello lettore, categorie WordPress esistenti consentite, tag consigliati, regole SEO, regole di linking interno e checklist qualità.
 
@@ -396,7 +390,7 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 
 ### 0.5.0
 
-- Aggiunte Tipologie di Articolo e CPT `wpai_article_type`.
+- Aggiunte Tipologie di Articolo come tabella custom, senza CPT `wpai_article_type`.
 - Semplificato il form Idee contenuto con selezione obbligatoria della Tipologia.
 - Aggiunto `article_type_id` alle idee e aggiornato schema database a 5.
 - Bloccata la creazione di nuove categorie da output AI: sono assegnate solo categorie esistenti consentite.
@@ -562,3 +556,15 @@ La modalità **advanced** resta disponibile dalle impostazioni per debug e contr
 ## Fallback locale e contenuto pubblicabile
 
 Il fallback locale non copia istruzioni redazionali nel contenuto finale. Le summary dell’outline vengono riscritte in testo rivolto al lettore prima della validazione, evitando frasi operative come “Spiegare”, “Mostrare”, “Descrivere” o “Indicare”. Se dopo la riscrittura l’articolo contiene ancora placeholder, blocchi Gutenberg, script, iframe, style inline, JSON grezzo o note interne, la bozza non viene creata.
+
+
+## Changelog 0.5.5
+
+* Reintrodotte Tipologie articolo come entità interne del plugin.
+* Rimossa dipendenza dal Custom Post Type per le Tipologie articolo.
+* Aggiunta tabella wpai_publisher_article_types.
+* Aggiunta gestione admin interna per creare, modificare, eliminare e attivare tipologie.
+* Le Tipologie articolo guidano prompt, struttura, tono, intento, lunghezza e categorie consentite.
+* Il workflow Idee contenuto usa le tipologie dalla tabella custom.
+* Evitato uso di map_meta_cap e capability post custom.
+* Mantenuta stabilità admin della recovery 0.5.4.

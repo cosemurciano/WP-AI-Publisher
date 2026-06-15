@@ -48,6 +48,11 @@ class DB {
 		return $wpdb->prefix . 'wpai_publisher_content_ideas';
 	}
 
+	public function get_article_types_table_name() {
+		global $wpdb;
+		return $wpdb->prefix . 'wpai_publisher_article_types';
+	}
+
 	/**
 	 * Create or update plugin tables.
 	 *
@@ -61,6 +66,7 @@ class DB {
 		$logs_table_name          = $this->get_logs_table_name();
 		$jobs_table_name          = $this->get_jobs_table_name();
 		$content_ideas_table_name = $this->get_content_ideas_table_name();
+		$article_types_table_name = $this->get_article_types_table_name();
 		$charset_collate          = $wpdb->get_charset_collate();
 
 		$logs_sql = "CREATE TABLE {$logs_table_name} (
@@ -131,9 +137,34 @@ class DB {
 			KEY created_at (created_at)
 		) {$charset_collate};";
 
+		$article_types_sql = "CREATE TABLE {$article_types_table_name} (
+			id BIGINT unsigned NOT NULL AUTO_INCREMENT,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NULL,
+			is_active TINYINT(1) NOT NULL DEFAULT 1,
+			name VARCHAR(190) NOT NULL,
+			description TEXT NULL,
+			prompt LONGTEXT NULL,
+			structure LONGTEXT NULL,
+			required_sections LONGTEXT NULL,
+			forbidden_patterns LONGTEXT NULL,
+			tone VARCHAR(80) NULL,
+			length VARCHAR(50) NULL,
+			search_intent VARCHAR(80) NULL,
+			reader_level VARCHAR(80) NULL,
+			allowed_category_ids LONGTEXT NULL,
+			preferred_tags LONGTEXT NULL,
+			quality_checklist LONGTEXT NULL,
+			PRIMARY KEY  (id),
+			KEY is_active (is_active),
+			KEY name (name),
+			KEY created_at (created_at)
+		) {$charset_collate};";
+
 		dbDelta( $logs_sql );
 		dbDelta( $jobs_sql );
 		dbDelta( $content_ideas_sql );
+		dbDelta( $article_types_sql );
 		$this->ensure_content_ideas_draft_columns();
 		$this->ensure_content_ideas_article_type_column();
 	}
@@ -244,14 +275,17 @@ class DB {
 		$logs_table_name          = $this->get_logs_table_name();
 		$jobs_table_name          = $this->get_jobs_table_name();
 		$content_ideas_table_name = $this->get_content_ideas_table_name();
+		$article_types_table_name = $this->get_article_types_table_name();
 		$logs_found               = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $logs_table_name ) );
 		$jobs_found               = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $jobs_table_name ) );
 		$content_ideas_found      = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $content_ideas_table_name ) );
+		$article_types_found      = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $article_types_table_name ) );
 
 		return array(
 			'logs'          => $logs_found === $logs_table_name,
 			'jobs'          => $jobs_found === $jobs_table_name,
 			'content_ideas' => $content_ideas_found === $content_ideas_table_name,
+			'article_types' => $article_types_found === $article_types_table_name,
 		);
 	}
 }

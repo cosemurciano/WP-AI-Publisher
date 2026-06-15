@@ -33,11 +33,14 @@ if ( ! defined( 'WPAIP_MIN_PHP_VERSION' ) ) {
 if ( ! defined( 'WPAIP_ENABLE_ARTICLE_TYPES' ) ) {
 	define( 'WPAIP_ENABLE_ARTICLE_TYPES', false );
 }
+if ( ! defined( 'WPAIP_ENABLE_ARTICLE_TYPE_REPOSITORY' ) ) {
+	define( 'WPAIP_ENABLE_ARTICLE_TYPE_REPOSITORY', true );
+}
 define( 'WPAIP_PLUGIN_FILE', __FILE__ );
 define( 'WPAIP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPAIP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'WPAIP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
-define( 'WPAIP_DB_SCHEMA_VERSION', '5' );
+define( 'WPAIP_DB_SCHEMA_VERSION', '6' );
 
 require_once WPAIP_PLUGIN_DIR . 'includes/helpers.php';
 

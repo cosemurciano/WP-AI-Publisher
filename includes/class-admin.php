@@ -82,6 +82,9 @@ class Admin {
 		add_action( 'admin_post_wpai_publisher_create_draft_from_idea', array( $this, 'handle_create_draft_from_idea' ) );
 		add_action( 'admin_post_wpai_publisher_generate_full_article', array( $this, 'handle_generate_full_article' ) );
 		add_action( 'admin_post_wpai_publisher_assign_article_type_to_idea', array( $this, 'handle_assign_article_type_to_idea' ) );
+		add_action( 'admin_post_wpai_publisher_save_article_type', array( $this, 'handle_save_article_type' ) );
+		add_action( 'admin_post_wpai_publisher_delete_article_type', array( $this, 'handle_delete_article_type' ) );
+		add_action( 'admin_post_wpai_publisher_toggle_article_type', array( $this, 'handle_toggle_article_type' ) );
 	}
 
 	/**
@@ -118,15 +121,14 @@ class Admin {
 			array( $this, 'render_content_ideas' )
 		);
 
-		if ( wpai_publisher_article_types_enabled() && wpai_publisher_article_types_available() && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' ) ) {
-			add_submenu_page(
-				'wp-ai-publisher',
-				esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
-				esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
-				'manage_options',
-				'edit.php?post_type=wpai_article_type'
-			);
-		}
+		add_submenu_page(
+			'wp-ai-publisher',
+			esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
+			esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
+			'manage_options',
+			'wp-ai-publisher-article-types',
+			array( $this, 'render_article_types' )
+		);
 
 		add_submenu_page(
 			'wp-ai-publisher',
@@ -201,6 +203,9 @@ class Admin {
 
 		$creation_mode = sanitize_key( wp_unslash( $_POST['wpai_creation_mode'] ?? '' ) );
 		$settings      = wpai_publisher_get_settings();
+		if ( 'create_draft' === $creation_mode && ! wpai_publisher_is_active_article_type_safe( absint( $_POST['article_type_id'] ?? 0 ) ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'missing_article_type', 'idea_id' => absint( $idea_id ) ) );
+		}
 		if ( 'create_draft' === $creation_mode || ( 'save_only' !== $creation_mode && ! empty( $settings['auto_create_draft_from_idea'] ) ) ) {
 			$this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => absint( $idea_id ), 'mode' => 'auto_draft' ), 5 );
 			$result = $this->content_ideas->process_idea_to_draft( absint( $idea_id ) );
@@ -438,7 +443,7 @@ class Admin {
 		$content_ideas = $this->content_ideas;
 		$article_types_enabled = wpai_publisher_article_types_enabled();
 		$active_article_types = $article_types_enabled ? wpai_publisher_get_active_article_types_safe() : array();
-		$article_types_url = $article_types_enabled && wpai_publisher_article_types_available() && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' ) ? admin_url( 'edit.php?post_type=wpai_article_type' ) : admin_url( 'admin.php?page=wp-ai-publisher-system-status' );
+		$article_types_url = admin_url( 'admin.php?page=wp-ai-publisher-article-types' );
 		$ideas         = $content_ideas->get_recent_ideas( 20 );
 		$selected_idea = null;
 		$dry_run_data  = array();
@@ -486,6 +491,48 @@ class Admin {
 	 *
 	 * @return void
 	 */
+	public function handle_save_article_type() {
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
+		$id = absint( $_POST['id'] ?? 0 );
+		check_admin_referer( 'wpai_publisher_save_article_type_' . $id );
+		$repo = new Article_Type_Repository();
+		$data = wp_unslash( $_POST );
+		$result = $id > 0 ? $repo->update_article_type( $id, $data ) : $repo->create_article_type( $data );
+		wp_safe_redirect( add_query_arg( 'wpai_notice', $result ? 'article_type_saved' : 'article_type_save_failed', admin_url( 'admin.php?page=wp-ai-publisher-article-types' ) ) );
+		exit;
+	}
+
+	public function handle_delete_article_type() {
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
+		$id = absint( $_POST['id'] ?? 0 );
+		check_admin_referer( 'wpai_publisher_delete_article_type_' . $id );
+		$repo = new Article_Type_Repository();
+		$deleted = $repo->delete_article_type( $id );
+		wp_safe_redirect( add_query_arg( 'wpai_notice', $deleted ? 'article_type_deleted' : 'article_type_delete_failed', admin_url( 'admin.php?page=wp-ai-publisher-article-types' ) ) );
+		exit;
+	}
+
+	public function handle_toggle_article_type() {
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
+		$id = absint( $_POST['id'] ?? 0 );
+		check_admin_referer( 'wpai_publisher_toggle_article_type_' . $id );
+		$repo = new Article_Type_Repository();
+		$type = $repo->get_article_type( $id );
+		$updated = $type ? $repo->update_article_type( $id, array_merge( $type, array( 'is_active' => empty( $type['is_active'] ) ? 1 : 0 ) ) ) : false;
+		wp_safe_redirect( add_query_arg( 'wpai_notice', $updated ? 'article_type_toggled' : 'article_type_toggle_failed', admin_url( 'admin.php?page=wp-ai-publisher-article-types' ) ) );
+		exit;
+	}
+
+	public function render_article_types() {
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) ); }
+		$repo = new Article_Type_Repository();
+		$article_type_id = absint( $_GET['article_type_id'] ?? 0 );
+		$article_type = $article_type_id > 0 ? $repo->get_article_type( $article_type_id ) : null;
+		if ( 'new' === sanitize_key( $_GET['action'] ?? '' ) || $article_type ) { include WPAIP_PLUGIN_DIR . 'admin/views/article-type-edit.php'; return; }
+		$article_types = $repo->get_all_article_types();
+		include WPAIP_PLUGIN_DIR . 'admin/views/article-types.php';
+	}
+
 	public function render_article_types_unavailable() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
@@ -548,7 +595,7 @@ class Admin {
 		$ai_status           = $this->ai_provider->get_status();
 		$db_status           = $this->db->check_tables();
 		$content_idea_counts = $this->content_ideas->count_by_status();
-		$active_article_types_count = ( wpai_publisher_article_types_enabled() && class_exists( __NAMESPACE__ . '\\Article_Types' ) && method_exists( __NAMESPACE__ . '\\Article_Types', 'get_active_article_types' ) ) ? count( wpai_publisher_get_active_article_types_safe() ) : 0;
+		$active_article_types_count = count( wpai_publisher_get_active_article_types_safe() );
 		$third_party_plugins = array();
 
 		if ( class_exists( __NAMESPACE__ . '\\Third_Party_Plugins' ) ) {

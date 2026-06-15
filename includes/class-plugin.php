@@ -57,12 +57,6 @@ final class Plugin {
 	 */
 	private $content_ideas;
 
-	/**
-	 * Article types service.
-	 *
-	 * @var Article_Types
-	 */
-	private $article_types;
 
 	/**
 	 * Admin service.
@@ -100,21 +94,14 @@ final class Plugin {
 
 		$this->logger      = new Logger( $this->db );
 		$this->settings      = new Settings();
-		if ( wpai_publisher_article_types_enabled() && class_exists( __NAMESPACE__ . '\Article_Types' ) ) {
-			$this->article_types = new Article_Types();
-		} else {
-			$this->article_types = null;
-		}
 		$this->job_queue     = new Job_Queue( $this->db );
 		$this->ai_provider   = new AI_Provider_Adapter();
 		$this->content_ideas = new Content_Ideas( $this->db, $this->ai_provider, $this->logger );
 		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas );
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );
-		if ( wpai_publisher_article_types_enabled() && $this->article_types && method_exists( $this->article_types, 'hooks' ) ) {
-			$this->article_types->hooks();
-		}
 		add_action( 'admin_init', array( $this->settings, 'register' ) );
+		add_action( 'admin_init', array( $this, 'maybe_create_default_article_types' ) );
 		add_action( 'admin_menu', array( $this->admin, 'register_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 	}
@@ -153,6 +140,13 @@ final class Plugin {
 	 * @param string $hook_suffix Current admin page hook suffix.
 	 * @return void
 	 */
+	public function maybe_create_default_article_types() {
+		if ( wpai_publisher_article_types_enabled() && class_exists( __NAMESPACE__ . '\Article_Type_Repository' ) ) {
+			$repository = new Article_Type_Repository();
+			$repository->maybe_create_default_article_types();
+		}
+	}
+
 	public function enqueue_admin_assets( $hook_suffix ) {
 		if ( false === strpos( (string) $hook_suffix, 'wp-ai-publisher' ) ) {
 			return;
