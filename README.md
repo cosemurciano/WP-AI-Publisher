@@ -1,8 +1,12 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.4**
+Versione corrente: **0.5.5**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
+
+## System Status 0.5.5
+
+La versione **0.5.5** aggiunge una pagina admin **Stato sistema** stabile e di sola lettura per controllare ambiente, integrazioni e configurazione tecnica senza chiamate esterne, generazione contenuti o azioni distruttive.
 
 ## Recovery mode 0.5.4
 
@@ -465,6 +469,11 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - Aggiunta sezione bridge manuale per collegare il connector AI reale.
 - Nessuna chiave API viene mostrata o salvata.
 - Nessuna chiamata OpenAI diretta.
+
+### 0.5.5
+- Aggiunta pagina admin Stato sistema di sola lettura con tabella Controllo/Stato/Valore/Suggerimento.
+- Aggiunti controlli diagnostici difensivi per versioni, WP-Cron, uploads, AIOSEO, WordPress AI, updater GitHub, schema database e log interni.
+- Nessuna chiamata OpenAI/GitHub, nessuna migrazione database e nessuna modifica al workflow di generazione.
 
 ### 0.5.4
 - Recovery release per stabilizzare admin menu.

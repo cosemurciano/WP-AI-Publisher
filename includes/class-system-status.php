@@ -55,138 +55,32 @@ class System_Status {
 	 * @return array<int,array<string,string>>
 	 */
 	public function get_checks() {
-		global $wp_version;
-
-		$db_tables        = $this->db->check_tables();
-		$upload_dir       = wp_upload_dir();
-		$uploads_writable = ! empty( $upload_dir['basedir'] ) && wp_is_writable( $upload_dir['basedir'] );
-		$ai_status        = $this->ai_provider->get_status();
-		$site_context     = wpai_publisher_get_site_context();
-		$models_count        = (int) $ai_status['available_text_models_count'];
-		$abilities_count     = (int) $ai_status['available_abilities_count'];
-		$wp_ai_available     = $this->ai_provider->is_wordpress_ai_client_available();
-		$validator_available       = class_exists( __NAMESPACE__ . '\Structured_Output_Validator' );
-		$classic_builder_available = class_exists( __NAMESPACE__ . '\Classic_Content_Builder' );
-		$ai_diagnostics_available  = class_exists( __NAMESPACE__ . '\AI_Diagnostics' );
-		$draft_creator_available  = class_exists( __NAMESPACE__ . '\Draft_Creator' );
-		$article_types_enabled = wpai_publisher_article_types_enabled();
-		$article_types_available = $article_types_enabled && wpai_publisher_article_types_available();
-		$article_type_cpt_registered = $article_types_available && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' );
-		$active_article_types = $article_types_enabled ? wpai_publisher_get_active_article_types_safe() : array();
-		$active_article_type_ids = array_map( 'absint', wp_list_pluck( $active_article_types, 'ID' ) );
-		$article_types_with_categories = 0;
-		foreach ( $active_article_types as $article_type_post ) { if ( ! empty( wpai_publisher_get_article_type_config_safe( $article_type_post->ID )['allowed_category_ids'] ) ) { $article_types_with_categories++; } }
-		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) { $this->db->ensure_content_ideas_article_type_column(); }
-		$article_type_column = method_exists( $this->db, 'has_content_ideas_article_type_column' ) && $this->db->has_content_ideas_article_type_column();
-		$ideas_without_article_type = $article_types_enabled && method_exists( $this->db, 'count_content_ideas_without_article_type' ) ? $this->db->count_content_ideas_without_article_type() : 0;
-		$ideas_with_invalid_article_type = $article_types_enabled ? $this->count_ideas_with_invalid_article_type( $active_article_type_ids, $article_type_column ) : 0;
-		$defaults_created = $article_types_enabled && class_exists( __NAMESPACE__ . '\\Article_Types' ) && defined( __NAMESPACE__ . '\\Article_Types::DEFAULTS_OPTION' ) && get_option( constant( __NAMESPACE__ . '\\Article_Types::DEFAULTS_OPTION' ) );
-		$ai_diagnostics_paths      = array();
-		$ai_diagnostics_routes     = array();
-
-		if ( $ai_diagnostics_available ) {
-			$ai_diagnostics        = new AI_Diagnostics( $this->ai_provider, $this->logger );
-			$ai_diagnostics_paths  = $ai_diagnostics->get_possible_generation_paths();
-			$ai_diagnostics_routes = $ai_diagnostics->get_detected_rest_routes();
-		}
-
-		$available_generation_paths = array_filter(
-			$ai_diagnostics_paths,
-			static function ( $path ) {
-				return 'available' === ( $path['status'] ?? '' ) && false === stripos( $path['label'] ?? '', 'fallback' );
-			}
-		);
-		$maybe_generation_paths = array_filter(
-			$ai_diagnostics_paths,
-			static function ( $path ) {
-				return 'maybe' === ( $path['status'] ?? '' );
-			}
-		);
-		$generation_paths_status = ! empty( $available_generation_paths ) ? 'ok' : ( ! empty( $maybe_generation_paths ) ? 'warning' : 'warning' );
-		$generation_paths_label  = ! empty( $available_generation_paths )
-			? sprintf( __( '%d percorso/i available rilevati', 'wp-ai-publisher' ), count( $available_generation_paths ) )
-			: ( ! empty( $maybe_generation_paths ) ? sprintf( __( '%d percorso/i maybe rilevati; serve bridge o verifica manuale', 'wp-ai-publisher' ), count( $maybe_generation_paths ) ) : __( 'Solo fallback locale disponibile', 'wp-ai-publisher' ) );
-		$context_configured     = wpai_publisher_is_site_context_configured( $site_context );
-		$settings               = wpai_publisher_get_settings();
-		$workflow_mode          = sanitize_key( (string) ( $settings['workflow_mode'] ?? 'simple' ) );
-		$checks                    = array(
-			$this->row( __( 'Versione plugin', 'wp-ai-publisher' ), WPAIP_VERSION, 'ok' ),
-			$this->row( __( 'Versione WordPress', 'wp-ai-publisher' ), (string) $wp_version, version_compare( $wp_version, '7.0', '>=' ) ? 'ok' : 'error' ),
-			$this->row( __( 'Versione PHP', 'wp-ai-publisher' ), PHP_VERSION, version_compare( PHP_VERSION, '8.1', '>=' ) ? 'ok' : 'error' ),
-			$this->row( __( 'Provider AI operativo', 'wp-ai-publisher' ), __( 'Solo sistema AI di WordPress', 'wp-ai-publisher' ), 'ok' ),
-			$this->row( __( 'Target editoriale', 'wp-ai-publisher' ), __( 'Editor Classico', 'wp-ai-publisher' ), 'ok' ),
-			$this->row( __( 'Contesto editoriale', 'wp-ai-publisher' ), $context_configured ? __( 'Descrizione o nicchia contenuti configurata', 'wp-ai-publisher' ) : __( 'Descrizione sito e nicchia contenuti assenti', 'wp-ai-publisher' ), $context_configured ? 'ok' : 'warning' ),
-			$this->row( __( 'Editor target', 'wp-ai-publisher' ), wpai_publisher_site_context_label( 'default_editor', $site_context['default_editor'] ), 'classic' === $site_context['default_editor'] ? 'ok' : 'warning' ),
-			$this->row( __( 'Stato post futuro', 'wp-ai-publisher' ), wpai_publisher_site_context_label( 'default_post_status_after_generation', $site_context['default_post_status_after_generation'] ), 'publish' === $site_context['default_post_status_after_generation'] ? 'warning' : 'ok' ),
-			$this->row( __( 'Stato sistema AI WordPress', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' ), $this->ai_provider->is_wordpress_ai_client_available() ? 'ok' : 'not-verified' ),
-			$this->row( __( 'Modelli AI disponibili', 'wp-ai-publisher' ), sprintf( __( '%d modelli rilevati', 'wp-ai-publisher' ), $models_count ), $models_count > 0 ? 'ok' : 'not-verified' ),
-			$this->row( __( 'Abilità AI WordPress', 'wp-ai-publisher' ), sprintf( __( '%d abilità rilevate', 'wp-ai-publisher' ), $abilities_count ), $abilities_count > 0 ? 'ok' : 'not-verified' ),
-			$this->row( __( 'Dry-run AI', 'wp-ai-publisher' ), $wp_ai_available ? __( 'WordPress AI disponibile per tentativi reali; fallback locale solo se l’output non è utilizzabile', 'wp-ai-publisher' ) : __( 'Solo fallback locale disponibile: WordPress AI non rilevato', 'wp-ai-publisher' ), $wp_ai_available ? 'ok' : 'warning' ),
-			$this->row( __( 'Validatore output strutturato', 'wp-ai-publisher' ), $validator_available ? __( 'Classe Structured_Output_Validator disponibile', 'wp-ai-publisher' ) : __( 'Validazione interna basilare', 'wp-ai-publisher' ), $validator_available ? 'ok' : 'warning' ),
-			$this->row( __( 'Classic Content Builder', 'wp-ai-publisher' ), $classic_builder_available ? __( 'Classe Classic_Content_Builder disponibile', 'wp-ai-publisher' ) : __( 'Classe Classic_Content_Builder non disponibile', 'wp-ai-publisher' ), $classic_builder_available ? 'ok' : 'error' ),
-			$this->row( __( 'Draft Creator', 'wp-ai-publisher' ), $draft_creator_available ? __( 'Classe Draft_Creator disponibile', 'wp-ai-publisher' ) : __( 'Classe Draft_Creator non disponibile', 'wp-ai-publisher' ), $draft_creator_available ? 'ok' : 'error' ),
-			$this->row( __( 'Tipologie articolo', 'wp-ai-publisher' ), $article_types_enabled ? __( 'Attive tramite feature flag', 'wp-ai-publisher' ) : __( 'Disabilitate temporaneamente in recovery mode', 'wp-ai-publisher' ), $article_types_enabled ? 'warning' : 'ok' ),
-			$this->row( __( 'Capability CPT', 'wp-ai-publisher' ), $article_types_enabled ? __( 'Capabilities standard post', 'wp-ai-publisher' ) : __( 'Non attive', 'wp-ai-publisher' ), $article_types_enabled ? 'warning' : 'ok' ),
-			$this->row( __( 'Notice map_meta_cap', 'wp-ai-publisher' ), __( 'La recovery disabilita il CPT per evitare notice admin', 'wp-ai-publisher' ), 'ok' ),
-			$this->row( __( 'Classe Article_Types disponibile', 'wp-ai-publisher' ), $article_types_available ? __( 'OK', 'wp-ai-publisher' ) : ( $article_types_enabled ? __( 'Classe o metodi non disponibili', 'wp-ai-publisher' ) : __( 'Non caricata in recovery mode', 'wp-ai-publisher' ) ), $article_types_available || ! $article_types_enabled ? 'ok' : 'warning' ),
-			$this->row( __( 'CPT Tipologie articolo registrato', 'wp-ai-publisher' ), $article_type_cpt_registered ? __( 'CPT wpai_article_type registrato', 'wp-ai-publisher' ) : __( 'CPT non registrato', 'wp-ai-publisher' ), $article_type_cpt_registered ? 'ok' : ( $article_types_enabled ? 'warning' : 'ok' ) ),
-			$this->row( __( 'Colonna article_type_id', 'wp-ai-publisher' ), $article_type_column ? __( 'Presente nella tabella idee', 'wp-ai-publisher' ) : __( 'Mancante: riattiva il plugin o controlla permessi database', 'wp-ai-publisher' ), $article_type_column ? 'ok' : 'error' ),
-			$this->row( __( 'Tipologie attive', 'wp-ai-publisher' ), sprintf( __( '%d tipologie attive', 'wp-ai-publisher' ), count( $active_article_types ) ), count( $active_article_types ) > 0 ? 'ok' : 'warning' ),
-			$this->row( __( 'Idee senza tipologia', 'wp-ai-publisher' ), sprintf( __( '%d idee da assegnare', 'wp-ai-publisher' ), $ideas_without_article_type ), $ideas_without_article_type > 0 ? 'warning' : 'ok' ),
-			$this->row( __( 'Idee con tipologia inattiva/cancellata', 'wp-ai-publisher' ), sprintf( __( '%d idee da riassegnare', 'wp-ai-publisher' ), $ideas_with_invalid_article_type ), $ideas_with_invalid_article_type > 0 ? 'warning' : 'ok' ),
-			$this->row( __( 'Creazione default tipologie', 'wp-ai-publisher' ), $defaults_created ? __( 'Eseguita', 'wp-ai-publisher' ) : __( 'Non eseguita', 'wp-ai-publisher' ), $defaults_created ? 'ok' : 'warning' ),
-			$this->row( __( 'Categorie tipologie', 'wp-ai-publisher' ), $article_types_with_categories > 0 ? __( 'Almeno una tipologia ha categorie associate', 'wp-ai-publisher' ) : __( 'Nessuna tipologia ha categorie associate', 'wp-ai-publisher' ), $article_types_with_categories > 0 ? 'ok' : 'warning' ),
-			$this->row( __( 'Workflow contenuto', 'wp-ai-publisher' ), $article_types_enabled ? __( 'Contesto sito + Tipologia articolo + Idea → Bozza', 'wp-ai-publisher' ) : __( 'Recovery: Contesto sito + Idea → Bozza', 'wp-ai-publisher' ), 'ok' ),
-			$this->row( __( 'Modalità workflow', 'wp-ai-publisher' ), 'advanced' === $workflow_mode ? __( 'Avanzato', 'wp-ai-publisher' ) : __( 'Semplificato', 'wp-ai-publisher' ), 'ok' ),
-			$this->row( __( 'Creazione automatica bozza', 'wp-ai-publisher' ), ! empty( $settings['auto_create_draft_from_idea'] ) ? __( 'Attiva', 'wp-ai-publisher' ) : __( 'Disattiva', 'wp-ai-publisher' ), ! empty( $settings['auto_create_draft_from_idea'] ) ? 'ok' : 'warning' ),
-			$this->row( __( 'Full Article Generator', 'wp-ai-publisher' ), method_exists( $this->ai_provider, 'generate_full_classic_article' ) ? __( 'OK', 'wp-ai-publisher' ) : __( 'Non disponibile', 'wp-ai-publisher' ), method_exists( $this->ai_provider, 'generate_full_classic_article' ) ? 'ok' : 'error' ),
-			$this->row( __( 'Creazione bozze', 'wp-ai-publisher' ), function_exists( 'wp_insert_post' ) && 'classic' === $site_context['default_editor'] ? __( 'wp_insert_post disponibile; target Editor Classico', 'wp-ai-publisher' ) : __( 'Requisiti creazione bozza non completi', 'wp-ai-publisher' ), function_exists( 'wp_insert_post' ) && 'classic' === $site_context['default_editor'] ? 'ok' : 'error' ),
-			$this->row( __( 'Pubblicazione automatica', 'wp-ai-publisher' ), 'publish' === $site_context['default_post_status_after_generation'] ? __( 'Disabilitata in 0.5.0; setting publish verrà convertito in draft', 'wp-ai-publisher' ) : __( 'Disabilitata in 0.5.0', 'wp-ai-publisher' ), 'publish' === $site_context['default_post_status_after_generation'] ? 'warning' : 'ok' ),
-			$this->row( __( 'OpenAI diretto', 'wp-ai-publisher' ), __( 'Disabilitato: il plugin non usa un client custom', 'wp-ai-publisher' ), 'not-configured' ),
-			$this->row( __( 'Diagnostica AI', 'wp-ai-publisher' ), $ai_diagnostics_available ? __( 'Classe AI_Diagnostics disponibile', 'wp-ai-publisher' ) : __( 'Classe AI_Diagnostics non disponibile', 'wp-ai-publisher' ), $ai_diagnostics_available ? 'ok' : 'error' ),
-			$this->row( __( 'Percorsi generazione AI', 'wp-ai-publisher' ), $generation_paths_label, $generation_paths_status ),
-			$this->row( __( 'REST route AI', 'wp-ai-publisher' ), ! empty( $ai_diagnostics_routes ) ? sprintf( __( '%d route AI rilevate', 'wp-ai-publisher' ), count( $ai_diagnostics_routes ) ) : __( 'Nessuna route AI rilevata', 'wp-ai-publisher' ), ! empty( $ai_diagnostics_routes ) ? 'ok' : 'warning' ),
-		);
-
-		$checks = array_merge( $checks, $this->get_third_party_checks() );
-
-		return array_merge(
-			$checks,
-			array(
-				$this->row( __( 'Database principale', 'wp-ai-publisher' ), ! empty( $db_tables['logs'] ) ? __( 'Tabella log disponibile', 'wp-ai-publisher' ) : __( 'Tabella log mancante', 'wp-ai-publisher' ), ! empty( $db_tables['logs'] ) ? 'ok' : 'error' ),
-				$this->row( __( 'Database secondario', 'wp-ai-publisher' ), __( 'Opzionale / non configurato', 'wp-ai-publisher' ), 'not-configured' ),
-				$this->row( __( 'Cron / coda job', 'wp-ai-publisher' ), ! empty( $db_tables['jobs'] ) ? __( 'Tabella job disponibile; processor cron non ancora implementato', 'wp-ai-publisher' ) : __( 'Tabella job mancante', 'wp-ai-publisher' ), ! empty( $db_tables['jobs'] ) ? 'ok' : 'error' ),
-				$this->row( __( 'Idee contenuto', 'wp-ai-publisher' ), ! empty( $db_tables['content_ideas'] ) ? __( 'Tabella disponibile', 'wp-ai-publisher' ) : __( 'Tabella mancante', 'wp-ai-publisher' ), ! empty( $db_tables['content_ideas'] ) ? 'ok' : 'error' ),
-				$this->row( __( 'Permessi file', 'wp-ai-publisher' ), $uploads_writable ? __( 'Cartella uploads scrivibile', 'wp-ai-publisher' ) : __( 'Cartella uploads non scrivibile', 'wp-ai-publisher' ), $uploads_writable ? 'ok' : 'error' ),
-				$this->row( __( 'Media Library', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? __( 'Disponibile', 'wp-ai-publisher' ) : __( 'Non disponibile', 'wp-ai-publisher' ), function_exists( 'media_handle_sideload' ) || function_exists( 'wp_insert_attachment' ) ? 'ok' : 'warning' ),
-				$this->row( __( 'Knowledge Index', 'wp-ai-publisher' ), __( 'Non ancora implementato', 'wp-ai-publisher' ), 'not-implemented' ),
-				$this->row( __( 'Aggiornamenti GitHub', 'wp-ai-publisher' ), __( 'Configurati tramite header plugin / Git Updater.', 'wp-ai-publisher' ), 'not-configured' ),
-				$this->row( __( 'Versione schema database', 'wp-ai-publisher' ), $this->db->get_schema_version(), $this->db->get_schema_version() === WPAIP_DB_SCHEMA_VERSION ? 'ok' : 'warning' ),
-				$this->row( __( 'Migrazione schema 5', 'wp-ai-publisher' ), $this->db->get_schema_version() === WPAIP_DB_SCHEMA_VERSION && $article_type_column ? __( 'Schema 5 coerente', 'wp-ai-publisher' ) : __( 'Schema 5 incompleto: verificare article_type_id', 'wp-ai-publisher' ), $this->db->get_schema_version() === WPAIP_DB_SCHEMA_VERSION && $article_type_column ? 'ok' : 'error' ),
-			)
-		);
+		return $this->get_status_items();
 	}
 
-
 	/**
-	 * Count ideas whose stored article type is no longer active/available.
+	 * Return status checks in the stable diagnostic shape.
 	 *
-	 * @param array<int,int> $active_article_type_ids Active IDs.
-	 * @param bool           $article_type_column Whether article_type_id exists.
-	 * @return int
+	 * @return array<int,array<string,string>>
 	 */
-	private function count_ideas_with_invalid_article_type( $active_article_type_ids, $article_type_column ) {
-		global $wpdb;
-		if ( ! $article_type_column ) { return 0; }
-		$table = $this->db->get_content_ideas_table_name();
-		$table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
-		if ( $table_exists !== $table ) { return 0; }
-		$active_article_type_ids = array_values( array_filter( array_map( 'absint', (array) $active_article_type_ids ) ) );
-		if ( empty( $active_article_type_ids ) ) {
-			return absint( $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE article_type_id IS NOT NULL AND article_type_id > 0" ) );
-		}
-		$placeholders = implode( ',', array_fill( 0, count( $active_article_type_ids ), '%d' ) );
-		return absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE article_type_id IS NOT NULL AND article_type_id > 0 AND article_type_id NOT IN ($placeholders)", $active_article_type_ids ) ) );
+	public function get_status_items() {
+		return array(
+			$this->plugin_version_item(),
+			$this->row( 'wordpress_version', __( 'Versione WordPress', 'wp-ai-publisher' ), 'ok', (string) get_bloginfo( 'version' ), '' ),
+			$this->row( 'php_version', __( 'Versione PHP', 'wp-ai-publisher' ), version_compare( PHP_VERSION, '8.0', '>=' ) ? 'ok' : 'warning', PHP_VERSION, version_compare( PHP_VERSION, '8.0', '>=' ) ? '' : __( 'Aggiorna PHP alla versione 8.0 o superiore.', 'wp-ai-publisher' ) ),
+			$this->openai_settings_item(),
+			$this->wordpress_ai_item(),
+			$this->aioseo_item(),
+			$this->main_database_item(),
+			$this->secondary_database_item(),
+			$this->wp_cron_item(),
+			$this->file_permissions_item(),
+			$this->media_library_item(),
+			$this->knowledge_index_item(),
+			$this->github_updater_item(),
+			$this->database_schema_item(),
+			$this->recent_critical_errors_item(),
+		);
 	}
 
 	/**
@@ -199,119 +93,197 @@ class System_Status {
 	}
 
 	/**
-	 * Return diagnostics for third-party plugins and integrations.
+	 * Build plugin version row.
 	 *
-	 * @return array<int,array<string,string>>
+	 * @return array<string,string>
 	 */
-	private function get_third_party_checks() {
-		if ( ! class_exists( __NAMESPACE__ . '\Third_Party_Plugins' ) ) {
-			return array(
-				$this->row( __( 'Plugin terzi e integrazioni', 'wp-ai-publisher' ), __( 'Diagnostica non disponibile', 'wp-ai-publisher' ), 'not-verified' ),
-			);
-		}
-
-		$third_party = new Third_Party_Plugins();
-		$plugins     = $third_party->get_plugins();
-		$rows        = array();
-		$labels      = array(
-			'git_updater'            => __( 'Git Updater', 'wp-ai-publisher' ),
-			'git_remote_updater'     => __( 'Git Remote Updater', 'wp-ai-publisher' ),
-			'wordpress_ai'           => __( 'WordPress AI', 'wp-ai-publisher' ),
-			'ai_request_logging'     => __( 'AI Request Logging', 'wp-ai-publisher' ),
-			'connector_approval'     => __( 'Connector Approval', 'wp-ai-publisher' ),
-			'abilities_explorer'     => __( 'Abilities Explorer', 'wp-ai-publisher' ),
-			'aioseo'                 => __( 'AIOSEO', 'wp-ai-publisher' ),
-		);
-
-		foreach ( $labels as $plugin_key => $label ) {
-			if ( empty( $plugins[ $plugin_key ] ) || ! is_array( $plugins[ $plugin_key ] ) ) {
-				continue;
+	private function plugin_version_item() {
+		$version = defined( 'WPAIP_VERSION' ) ? (string) WPAIP_VERSION : '';
+		if ( '' === $version && defined( 'WPAIP_PLUGIN_FILE' ) ) {
+			if ( ! function_exists( 'get_file_data' ) && defined( 'ABSPATH' ) && is_readable( ABSPATH . 'wp-admin/includes/plugin.php' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/plugin.php';
 			}
-
-			$plugin = $plugins[ $plugin_key ];
-			$status = isset( $plugin['status'] ) ? sanitize_key( (string) $plugin['status'] ) : 'not_detected';
-			$rows[] = $this->row( $label, $this->get_third_party_status_value( $plugin_key, $status ), $this->get_third_party_row_status( $plugin_key, $plugin, $status ) );
+			if ( function_exists( 'get_file_data' ) ) {
+				$data    = get_file_data( WPAIP_PLUGIN_FILE, array( 'Version' => 'Version' ), 'plugin' );
+				$version = isset( $data['Version'] ) ? (string) $data['Version'] : '';
+			}
 		}
 
-		return $rows;
+		return $this->row( 'plugin_version', __( 'Versione plugin', 'wp-ai-publisher' ), '' !== $version ? 'ok' : 'warning', '' !== $version ? $version : __( 'Mancante', 'wp-ai-publisher' ), '' !== $version ? '' : __( 'Verifica l’header Version del file principale del plugin.', 'wp-ai-publisher' ) );
 	}
 
 	/**
-	 * Convert a third-party integration status to a diagnostic value.
+	 * Check OpenAI setting presence without exposing secrets or making calls.
 	 *
-	 * @param string $plugin_key Plugin key.
-	 * @param string $status Plugin status.
-	 * @return string
+	 * @return array<string,string>
 	 */
-	private function get_third_party_status_value( $plugin_key, $status ) {
-		$status_labels = array(
-			'active'       => __( 'Attivo', 'wp-ai-publisher' ),
-			'inactive'     => __( 'Installato ma non attivo', 'wp-ai-publisher' ),
-			'missing'      => __( 'Non installato', 'wp-ai-publisher' ),
-			'detected'     => __( 'Rilevato', 'wp-ai-publisher' ),
-			'not_detected' => __( 'Non rilevato', 'wp-ai-publisher' ),
-		);
-
-		$value = $status_labels[ $status ] ?? $status;
-
-		if ( 'git_updater' === $plugin_key && ! in_array( $status, array( 'active', 'detected' ), true ) ) {
-			return $value . ' — ' . __( 'necessario solo per aggiornamenti da GitHub.', 'wp-ai-publisher' );
+	private function openai_settings_item() {
+		$settings = get_option( Settings::OPTION_NAME, null );
+		if ( ! is_array( $settings ) ) {
+			return $this->row( 'openai_settings', __( 'Impostazioni OpenAI', 'wp-ai-publisher' ), 'unknown', __( 'Sconosciuto', 'wp-ai-publisher' ), __( 'Nessuna opzione OpenAI diretta evidente; il plugin usa il client AI di WordPress.', 'wp-ai-publisher' ) );
 		}
 
-		if ( 'git_remote_updater' === $plugin_key ) {
-			return $value . ' — ' . __( 'la chiave REST resta gestita da Git Updater / Git Remote Updater; WP AI Publisher non la salva né la replica.', 'wp-ai-publisher' );
+		$key_fields = array( 'openai_api_key', 'api_key', 'openai_key' );
+		foreach ( $key_fields as $field ) {
+			if ( isset( $settings[ $field ] ) && '' !== trim( (string) $settings[ $field ] ) ) {
+				return $this->row( 'openai_settings', __( 'Impostazioni OpenAI', 'wp-ai-publisher' ), 'ok', __( 'Configurato', 'wp-ai-publisher' ), '' );
+			}
 		}
 
-		if ( 'wordpress_ai' === $plugin_key && ! in_array( $status, array( 'active', 'detected' ), true ) ) {
-			return $value . ' — ' . __( 'il layer AI di WordPress è centrale per le funzioni future del plugin.', 'wp-ai-publisher' );
-		}
-
-		return $value;
+		return $this->row( 'openai_settings', __( 'Impostazioni OpenAI', 'wp-ai-publisher' ), 'info', __( 'Non configurato', 'wp-ai-publisher' ), __( 'Nessuna chiave OpenAI diretta rilevata; non è necessaria per questa pagina.', 'wp-ai-publisher' ) );
 	}
 
 	/**
-	 * Convert a third-party integration status to a system status severity.
+	 * Check local WordPress AI/API availability without invoking generation.
 	 *
-	 * @param string              $plugin_key Plugin key.
-	 * @param array<string,mixed> $plugin Plugin data.
-	 * @param string              $status Plugin status.
-	 * @return string
+	 * @return array<string,string>
 	 */
-	private function get_third_party_row_status( $plugin_key, $plugin, $status ) {
-		if ( in_array( $status, array( 'active', 'detected' ), true ) ) {
-			return 'ok';
-		}
+	private function wordpress_ai_item() {
+		$available = $this->ai_provider->is_wordpress_ai_client_available();
+		return $this->row( 'wordpress_ai_api', __( 'WordPress AI Client / API', 'wp-ai-publisher' ), $available ? 'ok' : 'info', $available ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' ), $available ? '' : __( 'Installa o attiva il layer AI di WordPress se vuoi usare funzioni AI.', 'wp-ai-publisher' ) );
+	}
 
-		if ( 'wordpress_ai' === $plugin_key ) {
-			return 'error';
+	/**
+	 * Check AIOSEO availability defensively.
+	 *
+	 * @return array<string,string>
+	 */
+	private function aioseo_item() {
+		$active = false;
+		if ( ! function_exists( 'is_plugin_active' ) && defined( 'ABSPATH' ) && is_readable( ABSPATH . 'wp-admin/includes/plugin.php' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
-
-		if ( 'git_remote_updater' === $plugin_key ) {
-			return 'not-configured';
+		if ( function_exists( 'is_plugin_active' ) ) {
+			$active = is_plugin_active( 'all-in-one-seo-pack/all_in_one_seo_pack.php' ) || is_plugin_active( 'all-in-one-seo-pack-pro/all_in_one_seo_pack.php' );
 		}
+		$active = $active || defined( 'AIOSEO_VERSION' ) || class_exists( '\AIOSEO\Plugin\AIOSEO' ) || function_exists( 'aioseo' );
 
-		if ( ! empty( $plugin['required'] ) || ! empty( $plugin['recommended'] ) ) {
-			return 'warning';
+		return $this->row( 'aioseo', __( 'AIOSEO', 'wp-ai-publisher' ), $active ? 'ok' : 'info', $active ? __( 'Attivo', 'wp-ai-publisher' ) : __( 'Non attivo', 'wp-ai-publisher' ), $active ? '' : __( 'Attivalo solo se ti serve l’integrazione SEO futura.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Check main WordPress database object and posts table name.
+	 *
+	 * @return array<string,string>
+	 */
+	private function main_database_item() {
+		global $wpdb;
+		$ok = is_object( $wpdb ) && ! empty( $wpdb->posts );
+		return $this->row( 'main_database', __( 'Database WordPress principale', 'wp-ai-publisher' ), $ok ? 'ok' : 'error', $ok ? __( 'OK', 'wp-ai-publisher' ) . ' — ' . (string) $wpdb->posts : __( 'Errore', 'wp-ai-publisher' ), $ok ? '' : __( 'Verifica la connessione database di WordPress.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Check secondary DB configuration presence only.
+	 *
+	 * @return array<string,string>
+	 */
+	private function secondary_database_item() {
+		$configured = defined( 'WPAIP_SECONDARY_DB_HOST' ) || false !== get_option( 'wpai_publisher_secondary_db', false );
+		return $this->row( 'secondary_database', __( 'Database secondario', 'wp-ai-publisher' ), $configured ? 'ok' : 'info', $configured ? __( 'Configurato', 'wp-ai-publisher' ) : __( 'Non configurato', 'wp-ai-publisher' ), $configured ? '' : __( 'Nessun database secondario richiesto in questa fase.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Check WP-Cron status.
+	 *
+	 * @return array<string,string>
+	 */
+	private function wp_cron_item() {
+		$disabled = defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON;
+		return $this->row( 'wp_cron', __( 'WP-Cron', 'wp-ai-publisher' ), $disabled ? 'warning' : 'ok', $disabled ? __( 'Disabilitato', 'wp-ai-publisher' ) : __( 'Abilitato', 'wp-ai-publisher' ), $disabled ? __( 'Configura un cron reale del server per eseguire wp-cron.php.', 'wp-ai-publisher' ) : '' );
+	}
+
+	/**
+	 * Check upload directory writability.
+	 *
+	 * @return array<string,string>
+	 */
+	private function file_permissions_item() {
+		$upload_dir = wp_upload_dir();
+		if ( ! empty( $upload_dir['error'] ) ) {
+			return $this->row( 'file_permissions', __( 'Permessi file', 'wp-ai-publisher' ), 'error', (string) $upload_dir['error'], __( 'Verifica la configurazione della cartella uploads.', 'wp-ai-publisher' ) );
 		}
+		$basedir  = isset( $upload_dir['basedir'] ) ? (string) $upload_dir['basedir'] : '';
+		$exists   = '' !== $basedir && file_exists( $basedir );
+		$writable = $exists && wp_is_writable( $basedir );
+		$status   = $writable ? 'ok' : ( $exists ? 'warning' : 'error' );
+		$value    = $writable ? __( 'OK', 'wp-ai-publisher' ) : ( $exists ? __( 'Non scrivibile', 'wp-ai-publisher' ) : __( 'Cartella mancante', 'wp-ai-publisher' ) );
 
-		return 'not-configured';
+		return $this->row( 'file_permissions', __( 'Permessi file', 'wp-ai-publisher' ), $status, $value, $writable ? '' : __( 'Verifica permessi e proprietà della cartella uploads.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Check Media Library upload directory availability.
+	 *
+	 * @return array<string,string>
+	 */
+	private function media_library_item() {
+		$upload_dir = wp_upload_dir();
+		$ok         = empty( $upload_dir['error'] ) && ! empty( $upload_dir['basedir'] );
+		return $this->row( 'media_library', __( 'Media Library', 'wp-ai-publisher' ), $ok ? 'ok' : 'warning', $ok ? __( 'OK', 'wp-ai-publisher' ) : __( 'Avviso', 'wp-ai-publisher' ), $ok ? '' : __( 'La cartella uploads non è disponibile.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Detect Knowledge Index presence without creating anything.
+	 *
+	 * @return array<string,string>
+	 */
+	private function knowledge_index_item() {
+		$detected = class_exists( __NAMESPACE__ . '\Knowledge_Index' ) || ( function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_knowledge' ) ) || false !== get_option( 'wpai_publisher_knowledge_index_version', false );
+		return $this->row( 'knowledge_index', __( 'Knowledge Index', 'wp-ai-publisher' ), $detected ? 'ok' : 'info', $detected ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' ), $detected ? '' : __( 'Il Knowledge Index non è ancora attivo in questa installazione.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Detect GitHub updater configuration without changing updater behavior.
+	 *
+	 * @return array<string,string>
+	 */
+	private function github_updater_item() {
+		$detected = defined( 'WPAIP_PLUGIN_FILE' ) && is_readable( WPAIP_PLUGIN_FILE ) && false !== strpos( (string) file_get_contents( WPAIP_PLUGIN_FILE ), 'GitHub Plugin URI:' );
+		$detected = $detected || defined( 'GIT_UPDATER_VERSION' ) || class_exists( 'Fragen\Git_Updater\Bootstrap' );
+		return $this->row( 'github_updater', __( 'GitHub updater', 'wp-ai-publisher' ), $detected ? 'ok' : 'unknown', $detected ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Sconosciuto', 'wp-ai-publisher' ), $detected ? '' : __( 'Nessuna configurazione updater GitHub rilevata.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Display stored schema version only.
+	 *
+	 * @return array<string,string>
+	 */
+	private function database_schema_item() {
+		$version = (string) get_option( 'wpai_publisher_db_schema_version', '' );
+		return $this->row( 'database_schema_version', __( 'Versione schema database', 'wp-ai-publisher' ), '' !== $version ? 'ok' : 'info', '' !== $version ? $version : __( 'Non disponibile', 'wp-ai-publisher' ), '' !== $version ? '' : __( 'Nessuna versione schema salvata.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Check recent internal critical logs.
+	 *
+	 * @return array<string,string>
+	 */
+	private function recent_critical_errors_item() {
+		if ( ! method_exists( $this->logger, 'get_last_critical_errors' ) ) {
+			return $this->row( 'recent_critical_errors', __( 'Errori critici recenti', 'wp-ai-publisher' ), 'info', __( 'Log interno plugin non ancora disponibile', 'wp-ai-publisher' ), '' );
+		}
+		$errors = $this->logger->get_last_critical_errors( 5 );
+		$count  = is_array( $errors ) ? count( $errors ) : 0;
+		return $this->row( 'recent_critical_errors', __( 'Errori critici recenti', 'wp-ai-publisher' ), $count > 0 ? 'warning' : 'ok', $count > 0 ? sprintf( _n( '%d errore recente', '%d errori recenti', $count, 'wp-ai-publisher' ), $count ) : __( 'Nessun errore critico recente', 'wp-ai-publisher' ), $count > 0 ? __( 'Controlla il log interno del plugin.', 'wp-ai-publisher' ) : '' );
 	}
 
 	/**
 	 * Build a status row.
 	 *
+	 * @param string $key Item key.
 	 * @param string $label Label.
-	 * @param string $value Value.
 	 * @param string $status Status key.
+	 * @param string $value Value.
+	 * @param string $suggestion Suggestion.
 	 * @return array<string,string>
 	 */
-	private function row( $label, $value, $status ) {
+	private function row( $key, $label, $status, $value, $suggestion ) {
 		return array(
-			'label'  => $label,
-			'value'  => $value,
-			'status' => $status,
+			'key'        => sanitize_key( $key ),
+			'label'      => $label,
+			'status'     => sanitize_key( $status ),
+			'value'      => $value,
+			'suggestion' => $suggestion,
 		);
 	}
-
-
 }
