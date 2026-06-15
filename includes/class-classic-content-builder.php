@@ -454,13 +454,14 @@ class Classic_Content_Builder {
 	 * @param string $plain_text Full plain text candidate.
 	 * @return bool
 	 */
+
 	private function matches_required_section_flexibly( $required_section, $heading, $plain_text = '' ) {
 		$required_key = $this->normalize_required_section_match_key( $required_section );
 		$heading_key  = $this->normalize_required_section_match_key( $heading );
 		if ( '' === $required_key || '' === $heading_key ) {
 			return false;
 		}
-		if ( $heading_key === $required_key || false !== strpos( $heading_key, $required_key ) ) {
+		if ( $heading_key === $required_key || $this->contains_normalized_complete_phrase( $heading_key, $required_key ) ) {
 			return true;
 		}
 		if ( '' !== (string) $plain_text && $this->plain_text_contains_required_section( $plain_text, $required_section ) ) {
@@ -473,10 +474,20 @@ class Classic_Content_Builder {
 			return false;
 		}
 
+		if ( 1 === count( $required_tokens ) ) {
+			$required_token = $required_tokens[0];
+			foreach ( $heading_tokens as $heading_token ) {
+				if ( $this->tokens_are_exact_or_safe_variant( $required_token, $heading_token ) ) {
+					return true;
+				}
+			}
+			return false;
+		}
+
 		$matched = 0;
 		foreach ( $required_tokens as $required_token ) {
 			foreach ( $heading_tokens as $heading_token ) {
-				if ( $required_token === $heading_token || $this->tokens_share_safe_stem( $required_token, $heading_token ) ) {
+				if ( $this->tokens_are_exact_or_safe_variant( $required_token, $heading_token ) || $this->tokens_share_safe_stem( $required_token, $heading_token ) ) {
 					$matched++;
 					break;
 				}
@@ -487,7 +498,7 @@ class Classic_Content_Builder {
 		if ( $matched === $total ) {
 			return true;
 		}
-		if ( $total > 1 && $matched >= 2 && ( $matched / $total ) >= 0.8 ) {
+		if ( $total >= 3 && $matched >= 2 && ( $matched / $total ) >= 0.8 ) {
 			return true;
 		}
 		return false;
@@ -496,7 +507,13 @@ class Classic_Content_Builder {
 	private function plain_text_contains_required_section( $plain_text, $required_section ) {
 		$plain_key = $this->normalize_required_section_match_key( $plain_text );
 		$required_key = $this->normalize_required_section_match_key( $required_section );
-		return '' !== $required_key && false !== strpos( $plain_key, $required_key );
+		return '' !== $required_key && $this->contains_normalized_complete_phrase( $plain_key, $required_key );
+	}
+
+	private function contains_normalized_complete_phrase( $haystack_key, $needle_key ) {
+		$haystack_key = trim( (string) $haystack_key );
+		$needle_key = trim( (string) $needle_key );
+		return '' !== $needle_key && false !== strpos( ' ' . $haystack_key . ' ', ' ' . $needle_key . ' ' );
 	}
 
 	private function normalize_required_section_match_key( $text ) {
@@ -519,13 +536,54 @@ class Classic_Content_Builder {
 		return array_values( array_unique( $meaningful ) );
 	}
 
+	private function tokens_are_exact_or_safe_variant( $left, $right ) {
+		$left = (string) $left;
+		$right = (string) $right;
+		if ( $left === $right ) {
+			return true;
+		}
+		$left_variants = $this->safe_required_section_token_variants( $left );
+		return in_array( $right, $left_variants, true );
+	}
+
+	private function safe_required_section_token_variants( $token ) {
+		$token = (string) $token;
+		$variants = array( $token );
+		$length = strlen( $token );
+		if ( $length < 4 ) {
+			return $variants;
+		}
+
+		$last = substr( $token, -1 );
+		$base = substr( $token, 0, -1 );
+		if ( 'o' === $last ) {
+			$variants[] = $base . 'i';
+		} elseif ( 'i' === $last ) {
+			$variants[] = $base . 'o';
+			$variants[] = $base . 'e';
+		} elseif ( 'a' === $last ) {
+			$variants[] = $base . 'e';
+		} elseif ( 'e' === $last ) {
+			$variants[] = $base . 'a';
+			$variants[] = $base . 'i';
+		}
+
+		if ( $length >= 5 && 'e' === $last ) {
+			$variants[] = $base . 'ono';
+		} elseif ( $length >= 7 && 'ono' === substr( $token, -3 ) ) {
+			$variants[] = substr( $token, 0, -3 ) . 'e';
+		}
+
+		return array_values( array_unique( $variants ) );
+	}
+
 	private function tokens_share_safe_stem( $left, $right ) {
 		$left = (string) $left;
 		$right = (string) $right;
-		if ( strlen( $left ) < 5 || strlen( $right ) < 5 ) {
+		if ( strlen( $left ) < 6 || strlen( $right ) < 6 ) {
 			return false;
 		}
-		$prefix = min( strlen( $left ), strlen( $right ), 4 );
+		$prefix = min( strlen( $left ), strlen( $right ), 5 );
 		return substr( $left, 0, $prefix ) === substr( $right, 0, $prefix );
 	}
 
@@ -575,7 +633,10 @@ class Classic_Content_Builder {
 
 		$failed_rule = 'unknown';
 		$failed_message = '';
-		if ( ! empty( $missing_required ) ) {
+		if ( '' === trim( $normalized_html ) ) {
+			$failed_rule = 'normalized_full_article_empty';
+			$failed_message = __( 'HTML normalizzato vuoto.', 'wp-ai-publisher' );
+		} elseif ( ! empty( $missing_required ) ) {
 			$failed_rule = 'missing_required_sections';
 			$failed_message = sprintf( __( 'Sezioni mancanti: %s.', 'wp-ai-publisher' ), implode( ', ', $missing_required ) );
 		} elseif ( ! empty( $placeholder_found ) ) {
@@ -610,36 +671,6 @@ class Classic_Content_Builder {
 			'classic_editor_preview_available' => '' !== trim( $preview_html ),
 			'classic_editor_preview_rejected_as_placeholder' => '' !== trim( $preview_html ) && $this->contains_placeholder_text( $preview_html ),
 		);
-	}
-
-
-	private function extract_html_headings_text( $html ) {
-		$headings = array();
-		if ( preg_match_all( '/<h[2-4]\b[^>]*>(.*?)<\/h[2-4]>/is', (string) $html, $matches ) ) {
-			foreach ( (array) $matches[1] as $heading ) {
-				$heading = trim( wp_strip_all_tags( (string) $heading ) );
-				if ( '' !== $heading ) { $headings[] = $heading; }
-			}
-		}
-		return $headings;
-	}
-
-	private function matches_required_section_flexibly( $required_section, $plain, $headings ) {
-		$required_key = $this->normalize_heading_key( $required_section );
-		if ( '' === $required_key ) { return true; }
-		$plain_key = $this->normalize_heading_key( $plain );
-		if ( false !== strpos( $plain_key, $required_key ) ) { return true; }
-		$required_tokens = array_values( array_filter( preg_split( '/\s+/', $required_key ) ) );
-		foreach ( (array) $headings as $heading ) {
-			$heading_key = $this->normalize_heading_key( $heading );
-			if ( $heading_key === $required_key || false !== strpos( $heading_key, $required_key ) || false !== strpos( $required_key, $heading_key ) ) { return true; }
-			$matched = 0;
-			foreach ( $required_tokens as $token ) {
-				if ( strlen( $token ) >= 3 && false !== strpos( $heading_key, $token ) ) { $matched++; }
-			}
-			if ( $matched >= max( 1, min( count( $required_tokens ), 2 ) ) ) { return true; }
-		}
-		return false;
 	}
 
 	/**

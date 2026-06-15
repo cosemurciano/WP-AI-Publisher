@@ -149,8 +149,21 @@ class Draft_Creator {
 
 		$post_id = wp_insert_post( $post_data, true );
 		if ( is_wp_error( $post_id ) ) {
-			$this->update_idea_after_draft_failed( (int) $idea->id, $post_id->get_error_message() );
-			return $post_id;
+			$insert_diagnostics = array(
+				'validation_failed_rule' => 'wp_insert_post_failed',
+				'selected_source' => sanitize_key( (string) ( $dry_run['_draft_candidate_source'] ?? 'full_article' ) ),
+				'normalized_html_length' => strlen( (string) ( $dry_run['full_article']['html'] ?? '' ) ),
+				'heading_count' => (int) ( $validation['h2_count'] ?? 0 ),
+				'headings_detected' => array(),
+				'required_sections_missing' => array(),
+				'forbidden_patterns_found' => array(),
+				'placeholder_patterns_found' => array(),
+				'validation_failed_message' => $post_id->get_error_message(),
+			);
+			$error_message = $this->format_validation_diagnostic_message( $insert_diagnostics );
+			$post_id->add_data( $insert_diagnostics );
+			$this->update_idea_after_draft_failed( (int) $idea->id, $error_message );
+			return new WP_Error( $post_id->get_error_code(), $error_message, $insert_diagnostics );
 		}
 
 		$post_id = absint( $post_id );
