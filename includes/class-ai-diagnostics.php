@@ -570,6 +570,55 @@ class AI_Diagnostics {
 	 *
 	 * @return array<string,mixed>
 	 */
+	/**
+	 * Check whether the WordPress server can reach the OpenAI API endpoint.
+	 *
+	 * Performs a lightweight unauthenticated GET: any HTTP status (e.g. 401)
+	 * proves outbound connectivity works, while a cURL/timeout error proves the
+	 * host blocks outbound HTTPS to api.openai.com. Helps distinguish a plugin
+	 * issue from a hosting/firewall issue when generation times out.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function run_openai_connectivity_test() {
+		$url   = 'https://api.openai.com/v1/models';
+		$start = microtime( true );
+		$response = wp_remote_get(
+			$url,
+			array(
+				'timeout' => 10,
+				'headers' => array( 'Accept' => 'application/json' ),
+			)
+		);
+		$elapsed = (int) round( ( microtime( true ) - $start ) * 1000 );
+
+		if ( is_wp_error( $response ) ) {
+			return array(
+				'reachable'  => false,
+				'status'     => 'error',
+				'http_code'  => 0,
+				'elapsed_ms' => $elapsed,
+				'message'    => $this->sanitize_message( $response->get_error_message() ),
+				'hint'       => __( 'Il server WordPress non riesce a contattare api.openai.com: probabile blocco delle connessioni in uscita (firewall hosting), proxy necessario o DNS. Contatta l’hosting per abilitare HTTPS in uscita verso api.openai.com.', 'wp-ai-publisher' ),
+			);
+		}
+
+		$code      = (int) wp_remote_retrieve_response_code( $response );
+		$reachable = $code > 0;
+		return array(
+			'reachable'  => $reachable,
+			'status'     => $reachable ? 'ok' : 'warning',
+			'http_code'  => $code,
+			'elapsed_ms' => $elapsed,
+			'message'    => $reachable
+				? sprintf( __( 'Raggiunto api.openai.com (HTTP %1$d) in %2$d ms: la connettività in uscita funziona. Un HTTP 401 è normale senza autenticazione.', 'wp-ai-publisher' ), $code, $elapsed )
+				: __( 'Risposta inattesa dal server remoto.', 'wp-ai-publisher' ),
+			'hint'       => $reachable
+				? __( 'Connettività OK. Se la generazione va comunque in timeout, il modello potrebbe essere lento: aumenta il filtro wpai_publisher_ai_http_timeout.', 'wp-ai-publisher' )
+				: '',
+		);
+	}
+
 	public function run_safe_generation_test() {
 		$prompt  = 'Rispondi solo con JSON valido: {"ok":true,"message":"test"}';
 		$payload = array(
