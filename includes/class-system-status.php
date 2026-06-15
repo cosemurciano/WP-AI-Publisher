@@ -74,6 +74,7 @@ class System_Status {
 			$this->main_database_item(),
 			$this->secondary_database_item(),
 			$this->wp_cron_item(),
+			$this->job_queue_item(),
 			$this->file_permissions_item(),
 			$this->media_library_item(),
 			$this->knowledge_index_item(),
@@ -387,8 +388,29 @@ class System_Status {
 	 */
 	private function wp_cron_item() {
 		$disabled = defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON;
-		return $this->row( 'wp_cron', __( 'WP-Cron', 'wp-ai-publisher' ), $disabled ? 'warning' : 'ok', $disabled ? __( 'Disabilitato', 'wp-ai-publisher' ) : __( 'Abilitato', 'wp-ai-publisher' ), $disabled ? __( 'Configura un cron reale del server per eseguire wp-cron.php.', 'wp-ai-publisher' ) : '' );
+		return $this->row( 'wp_cron', __( 'WP-Cron', 'wp-ai-publisher' ), $disabled ? 'warning' : 'ok', $disabled ? __( 'Disabilitato', 'wp-ai-publisher' ) : __( 'Abilitato', 'wp-ai-publisher' ), $disabled ? __( 'WP-Cron è disattivato. Configura un cron reale sul server o usa il pulsante manuale per processare i job.', 'wp-ai-publisher' ) : '' );
 	}
+
+	private function job_queue_item() {
+		if ( ! method_exists( $this->db, 'get_jobs_table_name' ) ) {
+			return $this->row( 'job_queue', __( 'Coda WP AI Publisher', 'wp-ai-publisher' ), 'info', __( 'Non disponibile', 'wp-ai-publisher' ), '' );
+		}
+		$queue = new Job_Queue( $this->db );
+		$diagnostics = $queue->get_queue_diagnostics();
+		$value = sprintf(
+			__( 'In coda: %1$d; in lavorazione: %2$d; falliti: %3$d; scaduti: %4$d; stale: %5$d; ultimo completato: %6$s', 'wp-ai-publisher' ),
+			(int) $diagnostics['pending'],
+			(int) $diagnostics['running'],
+			(int) $diagnostics['failed'],
+			(int) $diagnostics['timeout'],
+			(int) $diagnostics['stale'],
+			'' !== (string) $diagnostics['last_finished_at'] ? (string) $diagnostics['last_finished_at'] : __( 'mai', 'wp-ai-publisher' )
+		);
+		$status = (int) $diagnostics['stale'] > 0 ? 'warning' : 'ok';
+		$suggestion = (int) $diagnostics['stale'] > 0 ? __( 'Ci sono job rimasti in lavorazione oltre il tempo previsto.', 'wp-ai-publisher' ) : '';
+		return $this->row( 'job_queue', __( 'Coda WP AI Publisher', 'wp-ai-publisher' ), $status, $value, $suggestion );
+	}
+
 
 	/**
 	 * Check upload directory writability.

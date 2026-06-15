@@ -104,6 +104,7 @@ final class Plugin {
 		add_action( 'admin_init', array( $this, 'maybe_create_default_article_types' ) );
 		add_action( 'admin_menu', array( $this->admin, 'register_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+		add_action( 'wpai_publisher_process_jobs', array( $this->admin, 'process_next_job' ) );
 	}
 
 	/**

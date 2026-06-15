@@ -107,6 +107,102 @@ class Job_Queue {
 		return (int) $wpdb->insert_id;
 	}
 
+	public function get_job( $job_id ) {
+		global $wpdb;
+		$job_id = absint( $job_id );
+		if ( 0 === $job_id ) {
+			return null;
+		}
+		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$this->db->get_jobs_table_name()} WHERE id = %d", $job_id ) );
+	}
+
+	public function get_active_draft_job_for_idea( $idea_id ) {
+		global $wpdb;
+		$idea_id = absint( $idea_id );
+		if ( 0 === $idea_id ) {
+			return null;
+		}
+		$like = '%' . $wpdb->esc_like( '"idea_id":' . $idea_id ) . '%';
+		return $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$this->db->get_jobs_table_name()} WHERE job_type = %s AND status IN ('pending','running') AND payload LIKE %s ORDER BY id DESC LIMIT 1",
+				'generate_draft_from_idea',
+				$like
+			)
+		);
+	}
+
+	public function get_next_pending_job() {
+		global $wpdb;
+		return $wpdb->get_row( "SELECT * FROM {$this->db->get_jobs_table_name()} WHERE status = 'pending' ORDER BY priority ASC, created_at ASC, id ASC LIMIT 1" );
+	}
+
+	public function claim_job( $job_id, $timeout_minutes = 15 ) {
+		global $wpdb;
+		$job = $this->get_job( $job_id );
+		if ( ! $job ) {
+			return false;
+		}
+		$status = sanitize_key( (string) $job->status );
+		if ( 'completed' === $status || 'failed' === $status || 'cancelled' === $status || 'timeout' === $status ) {
+			return false;
+		}
+		if ( 'running' === $status && ! $this->is_job_stale( $job, $timeout_minutes ) ) {
+			return false;
+		}
+		$attempts = absint( $job->attempts ) + 1;
+		if ( $attempts > max( 1, absint( $job->max_attempts ) ) ) {
+			$this->fail_job( $job_id, __( 'Numero massimo di tentativi superato.', 'wp-ai-publisher' ), array( 'error_code' => 'max_attempts_exceeded', 'step_failed' => 'queue' ) );
+			return false;
+		}
+		return false !== $wpdb->update(
+			$this->db->get_jobs_table_name(),
+			array( 'status' => 'running', 'attempts' => $attempts, 'started_at' => current_time( 'mysql' ), 'finished_at' => null, 'error_message' => null ),
+			array( 'id' => absint( $job_id ) ),
+			array( '%s', '%d', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	public function complete_job( $job_id, $output = array(), $post_id = 0 ) {
+		global $wpdb;
+		$output_json = wp_json_encode( is_array( $output ) ? $output : array() );
+		return false !== $wpdb->update(
+			$this->db->get_jobs_table_name(),
+			array( 'status' => 'completed', 'finished_at' => current_time( 'mysql' ), 'output' => false === $output_json ? null : $output_json, 'post_id' => absint( $post_id ), 'error_message' => null ),
+			array( 'id' => absint( $job_id ) ),
+			array( '%s', '%s', '%s', '%d', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	public function fail_job( $job_id, $message, $output = array(), $status = 'failed' ) {
+		global $wpdb;
+		$output_json = wp_json_encode( is_array( $output ) ? $output : array() );
+		$status = in_array( sanitize_key( $status ), array( 'failed', 'timeout' ), true ) ? sanitize_key( $status ) : 'failed';
+		return false !== $wpdb->update(
+			$this->db->get_jobs_table_name(),
+			array( 'status' => $status, 'finished_at' => current_time( 'mysql' ), 'error_message' => sanitize_text_field( (string) $message ), 'output' => false === $output_json ? null : $output_json ),
+			array( 'id' => absint( $job_id ) ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	public function is_job_stale( $job, $timeout_minutes = 15 ) {
+		$started = ! empty( $job->started_at ) ? strtotime( (string) $job->started_at ) : 0;
+		return $started > 0 && ( time() - $started ) > max( 60, absint( $timeout_minutes ) * MINUTE_IN_SECONDS );
+	}
+
+	public function get_queue_diagnostics() {
+		global $wpdb;
+		$table = $this->db->get_jobs_table_name();
+		$counts = $this->count_by_status();
+		$stale = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = 'running' AND started_at < %s", gmdate( 'Y-m-d H:i:s', time() - 15 * MINUTE_IN_SECONDS ) ) );
+		$last = (string) $wpdb->get_var( "SELECT finished_at FROM {$table} WHERE finished_at IS NOT NULL ORDER BY finished_at DESC LIMIT 1" );
+		return array( 'pending' => (int) ( $counts['pending'] ?? 0 ), 'running' => (int) ( $counts['running'] ?? 0 ), 'failed' => (int) ( $counts['failed'] ?? 0 ), 'timeout' => (int) ( $counts['timeout'] ?? 0 ), 'stale' => $stale, 'last_finished_at' => $last );
+	}
+
 	/**
 	 * Return most recently created jobs.
 	 *
@@ -134,7 +230,7 @@ class Job_Queue {
 	public function count_by_status() {
 		global $wpdb;
 
-		$counts = array_fill_keys( array( 'pending', 'running', 'completed', 'failed', 'cancelled' ), 0 );
+		$counts = array_fill_keys( array( 'pending', 'running', 'completed', 'failed', 'cancelled', 'timeout' ), 0 );
 		$rows   = $wpdb->get_results( "SELECT status, COUNT(*) AS total FROM {$this->db->get_jobs_table_name()} GROUP BY status" );
 
 		foreach ( $rows as $row ) {
@@ -160,6 +256,7 @@ class Job_Queue {
 			'completed' => __( 'Completato', 'wp-ai-publisher' ),
 			'failed'    => __( 'Fallito', 'wp-ai-publisher' ),
 			'cancelled' => __( 'Annullato', 'wp-ai-publisher' ),
+			'timeout'   => __( 'Scaduto', 'wp-ai-publisher' ),
 		);
 
 		$status = sanitize_key( (string) $status );
