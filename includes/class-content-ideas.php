@@ -85,13 +85,14 @@ class Content_Ideas {
 
 		$language       = sanitize_key( (string) ( $data['language'] ?? 'it' ) );
 		$allowed_langs  = array( 'it', 'en', 'fr', 'es', 'de' );
-		$article_type_id = absint( $data['article_type_id'] ?? 0 );
+		$article_types_enabled = wpai_publisher_article_types_enabled();
+		$article_type_id      = $article_types_enabled ? absint( $data['article_type_id'] ?? 0 ) : 0;
 
 		if ( ! in_array( $language, $allowed_langs, true ) ) {
 			return new WP_Error( 'wpai_content_idea_invalid_language', __( 'Lingua non valida.', 'wp-ai-publisher' ) );
 		}
 
-		if ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
+		if ( $article_types_enabled && ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) ) {
 			return new WP_Error( 'wpai_content_idea_invalid_article_type', __( 'Seleziona una Tipologia articolo attiva.', 'wp-ai-publisher' ) );
 		}
 		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) {
@@ -362,11 +363,12 @@ class Content_Ideas {
 		$target_audience  = sanitize_text_field( (string) ( $site_context['default_audience'] ?? '' ) );
 		$legacy_audience  = sanitize_text_field( (string) ( $idea->target_audience ?? '' ) );
 		$target_audience  = '' !== $target_audience ? $target_audience : $legacy_audience;
-		$article_type_id = absint( $idea->article_type_id ?? 0 );
-		if ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
+		$article_types_enabled = wpai_publisher_article_types_enabled();
+		$article_type_id      = $article_types_enabled ? absint( $idea->article_type_id ?? 0 ) : 0;
+		if ( $article_types_enabled && ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) ) {
 			return new WP_Error( 'wpai_content_idea_missing_article_type', __( 'Assegna una Tipologia articolo attiva prima di generare la bozza.', 'wp-ai-publisher' ) );
 		}
-		$article_type = wpai_publisher_get_article_type_config_safe( $article_type_id );
+		$article_type = $article_types_enabled ? wpai_publisher_get_article_type_config_safe( $article_type_id ) : array();
 
 		$payload = array(
 			'task'                 => 'structured_content_dry_run',
@@ -489,9 +491,10 @@ class Content_Ideas {
 	public function process_idea_to_draft( $idea_id ) {
 		$idea_id = absint( $idea_id );
 		$idea = $this->get_idea( $idea_id );
-		$article_type_id = $idea ? absint( $idea->article_type_id ?? 0 ) : 0;
-		if ( ! $idea || 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
-			return array( 'success' => false, 'idea_id' => $idea_id, 'post_id' => 0, 'status' => $idea ? sanitize_key( (string) ( $idea->status ?? 'new' ) ) : 'new', 'step_failed' => 'article_type', 'message' => __( 'Assegna una Tipologia articolo prima di generare la bozza.', 'wp-ai-publisher' ) );
+		$article_types_enabled = wpai_publisher_article_types_enabled();
+		$article_type_id      = $idea && $article_types_enabled ? absint( $idea->article_type_id ?? 0 ) : 0;
+		if ( ! $idea || ( $article_types_enabled && ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) ) ) {
+			return array( 'success' => false, 'idea_id' => $idea_id, 'post_id' => 0, 'status' => $idea ? sanitize_key( (string) ( $idea->status ?? 'new' ) ) : 'new', 'step_failed' => $article_types_enabled ? 'article_type' : 'idea', 'message' => $article_types_enabled ? __( 'Assegna una Tipologia articolo prima di generare la bozza.', 'wp-ai-publisher' ) : __( 'Idea non valida.', 'wp-ai-publisher' ) );
 		}
 		$this->update_idea_status( $idea_id, 'processing' );
 

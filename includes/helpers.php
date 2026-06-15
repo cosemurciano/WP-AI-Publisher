@@ -298,6 +298,18 @@ if ( ! function_exists( 'wpai_publisher_badge_class' ) ) {
 	}
 }
 
+
+if ( ! function_exists( 'wpai_publisher_article_types_enabled' ) ) {
+	/**
+	 * Determine whether the Article Types recovery feature flag is enabled.
+	 *
+	 * @return bool
+	 */
+	function wpai_publisher_article_types_enabled() {
+		return defined( 'WPAIP_ENABLE_ARTICLE_TYPES' ) && true === WPAIP_ENABLE_ARTICLE_TYPES;
+	}
+}
+
 if ( ! function_exists( 'wpai_publisher_article_types_available' ) ) {
 	/**
 	 * Determine whether the Article_Types class and its safe methods are available.
@@ -305,6 +317,10 @@ if ( ! function_exists( 'wpai_publisher_article_types_available' ) ) {
 	 * @return bool
 	 */
 	function wpai_publisher_article_types_available() {
+		if ( ! wpai_publisher_article_types_enabled() ) {
+			return false;
+		}
+
 		$class = '\\WPAIPublisher\\Article_Types';
 		if ( ! class_exists( $class ) ) {
 			return false;

@@ -1,8 +1,22 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.3**
+Versione corrente: **0.5.4**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
+
+## Recovery mode 0.5.4
+
+La versione **0.5.4** è una release di recovery orientata alla stabilità del menu admin WordPress. Il modulo **Tipologie Articolo** è temporaneamente disabilitato di default tramite feature flag, quindi il plugin non registra il CPT `wpai_article_type`, non crea tipologie default e non aggiunge il relativo submenu CPT durante il caricamento standard.
+
+In recovery mode, **Idee contenuto** torna a usare il contesto editoriale generale del sito: `article_type_id` resta nello schema database 5, ma non è obbligatorio per salvare un’idea o avviare il workflow verso una bozza. Questa scelta riduce il rischio di notice ripetuti `map_meta_cap` legati a capability meta del CPT durante il caricamento dell’admin.
+
+La feature Tipologie Articolo verrà reintrodotta dopo stabilizzazione e test specifici sulle capability del CPT. Per riattivarla manualmente solo in ambiente di test, definire prima del caricamento del plugin:
+
+```php
+define( 'WPAIP_ENABLE_ARTICLE_TYPES', true );
+```
+
+Non riattivare il flag su siti di produzione finché la stabilizzazione non è completata.
 
 ## Hotfix 0.5.3 e recovery
 
@@ -451,6 +465,14 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - Aggiunta sezione bridge manuale per collegare il connector AI reale.
 - Nessuna chiave API viene mostrata o salvata.
 - Nessuna chiamata OpenAI diretta.
+
+### 0.5.4
+- Recovery release per stabilizzare admin menu.
+- Disabilitato temporaneamente il modulo Tipologie Articolo tramite feature flag.
+- Rimossa registrazione CPT Tipologie Articolo dal caricamento predefinito.
+- Ridotto rischio di notice map_meta_cap su delete_post.
+- Ripristinato workflow Idee contenuto senza obbligo di Tipologia Articolo in recovery mode.
+- Migliorata compatibilità admin WordPress.
 
 ### 0.3.3
 - Ripristinata compatibilità con il filtro legacy `wpai_publisher_structured_content_dry_run`.

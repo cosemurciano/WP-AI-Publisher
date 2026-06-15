@@ -118,22 +118,13 @@ class Admin {
 			array( $this, 'render_content_ideas' )
 		);
 
-		if ( wpai_publisher_article_types_available() && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' ) ) {
+		if ( wpai_publisher_article_types_enabled() && wpai_publisher_article_types_available() && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' ) ) {
 			add_submenu_page(
 				'wp-ai-publisher',
 				esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
 				esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
 				'manage_options',
 				'edit.php?post_type=wpai_article_type'
-			);
-		} else {
-			add_submenu_page(
-				'wp-ai-publisher',
-				esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
-				esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
-				'manage_options',
-				'wp-ai-publisher-article-types-unavailable',
-				array( $this, 'render_article_types_unavailable' )
 			);
 		}
 
@@ -272,6 +263,9 @@ class Admin {
 	public function handle_assign_article_type_to_idea() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+		if ( ! wpai_publisher_article_types_enabled() ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'article_type_assign_failed' ) );
 		}
 		$idea_id = absint( $_POST['idea_id'] ?? 0 );
 		check_admin_referer( 'wpai_publisher_assign_article_type_to_idea_' . $idea_id );
@@ -442,8 +436,9 @@ class Admin {
 		}
 
 		$content_ideas = $this->content_ideas;
-		$active_article_types = wpai_publisher_get_active_article_types_safe();
-		$article_types_url = wpai_publisher_article_types_available() && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' ) ? admin_url( 'edit.php?post_type=wpai_article_type' ) : admin_url( 'admin.php?page=wp-ai-publisher-system-status' );
+		$article_types_enabled = wpai_publisher_article_types_enabled();
+		$active_article_types = $article_types_enabled ? wpai_publisher_get_active_article_types_safe() : array();
+		$article_types_url = $article_types_enabled && wpai_publisher_article_types_available() && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' ) ? admin_url( 'edit.php?post_type=wpai_article_type' ) : admin_url( 'admin.php?page=wp-ai-publisher-system-status' );
 		$ideas         = $content_ideas->get_recent_ideas( 20 );
 		$selected_idea = null;
 		$dry_run_data  = array();
@@ -495,7 +490,7 @@ class Admin {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
-		echo '<div class="wrap wpai-admin"><h1>' . esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ) . '</h1><div class="notice notice-warning inline"><p>' . esc_html__( 'Tipologie articolo non disponibili. Controlla Stato sistema.', 'wp-ai-publisher' ) . '</p></div></div>';
+		echo '<div class="wrap wpai-admin"><h1>' . esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ) . '</h1><div class="notice notice-warning inline"><p>' . esc_html__( 'Il modulo Tipologie articolo è temporaneamente disabilitato in questa versione di recovery.', 'wp-ai-publisher' ) . '</p></div></div>';
 	}
 
 	/**
@@ -553,7 +548,7 @@ class Admin {
 		$ai_status           = $this->ai_provider->get_status();
 		$db_status           = $this->db->check_tables();
 		$content_idea_counts = $this->content_ideas->count_by_status();
-		$active_article_types_count = count( wpai_publisher_get_active_article_types_safe() );
+		$active_article_types_count = ( wpai_publisher_article_types_enabled() && class_exists( __NAMESPACE__ . '\\Article_Types' ) && method_exists( __NAMESPACE__ . '\\Article_Types', 'get_active_article_types' ) ) ? count( wpai_publisher_get_active_article_types_safe() ) : 0;
 		$third_party_plugins = array();
 
 		if ( class_exists( __NAMESPACE__ . '\\Third_Party_Plugins' ) ) {

@@ -69,17 +69,18 @@ class System_Status {
 		$classic_builder_available = class_exists( __NAMESPACE__ . '\Classic_Content_Builder' );
 		$ai_diagnostics_available  = class_exists( __NAMESPACE__ . '\AI_Diagnostics' );
 		$draft_creator_available  = class_exists( __NAMESPACE__ . '\Draft_Creator' );
-		$article_types_available = wpai_publisher_article_types_available();
+		$article_types_enabled = wpai_publisher_article_types_enabled();
+		$article_types_available = $article_types_enabled && wpai_publisher_article_types_available();
 		$article_type_cpt_registered = $article_types_available && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' );
-		$active_article_types = wpai_publisher_get_active_article_types_safe();
+		$active_article_types = $article_types_enabled ? wpai_publisher_get_active_article_types_safe() : array();
 		$active_article_type_ids = array_map( 'absint', wp_list_pluck( $active_article_types, 'ID' ) );
 		$article_types_with_categories = 0;
 		foreach ( $active_article_types as $article_type_post ) { if ( ! empty( wpai_publisher_get_article_type_config_safe( $article_type_post->ID )['allowed_category_ids'] ) ) { $article_types_with_categories++; } }
 		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) { $this->db->ensure_content_ideas_article_type_column(); }
 		$article_type_column = method_exists( $this->db, 'has_content_ideas_article_type_column' ) && $this->db->has_content_ideas_article_type_column();
-		$ideas_without_article_type = method_exists( $this->db, 'count_content_ideas_without_article_type' ) ? $this->db->count_content_ideas_without_article_type() : 0;
-		$ideas_with_invalid_article_type = $this->count_ideas_with_invalid_article_type( $active_article_type_ids, $article_type_column );
-		$defaults_created = class_exists( __NAMESPACE__ . '\\Article_Types' ) && defined( __NAMESPACE__ . '\\Article_Types::DEFAULTS_OPTION' ) && get_option( constant( __NAMESPACE__ . '\\Article_Types::DEFAULTS_OPTION' ) );
+		$ideas_without_article_type = $article_types_enabled && method_exists( $this->db, 'count_content_ideas_without_article_type' ) ? $this->db->count_content_ideas_without_article_type() : 0;
+		$ideas_with_invalid_article_type = $article_types_enabled ? $this->count_ideas_with_invalid_article_type( $active_article_type_ids, $article_type_column ) : 0;
+		$defaults_created = $article_types_enabled && class_exists( __NAMESPACE__ . '\\Article_Types' ) && defined( __NAMESPACE__ . '\\Article_Types::DEFAULTS_OPTION' ) && get_option( constant( __NAMESPACE__ . '\\Article_Types::DEFAULTS_OPTION' ) );
 		$ai_diagnostics_paths      = array();
 		$ai_diagnostics_routes     = array();
 
@@ -124,15 +125,18 @@ class System_Status {
 			$this->row( __( 'Validatore output strutturato', 'wp-ai-publisher' ), $validator_available ? __( 'Classe Structured_Output_Validator disponibile', 'wp-ai-publisher' ) : __( 'Validazione interna basilare', 'wp-ai-publisher' ), $validator_available ? 'ok' : 'warning' ),
 			$this->row( __( 'Classic Content Builder', 'wp-ai-publisher' ), $classic_builder_available ? __( 'Classe Classic_Content_Builder disponibile', 'wp-ai-publisher' ) : __( 'Classe Classic_Content_Builder non disponibile', 'wp-ai-publisher' ), $classic_builder_available ? 'ok' : 'error' ),
 			$this->row( __( 'Draft Creator', 'wp-ai-publisher' ), $draft_creator_available ? __( 'Classe Draft_Creator disponibile', 'wp-ai-publisher' ) : __( 'Classe Draft_Creator non disponibile', 'wp-ai-publisher' ), $draft_creator_available ? 'ok' : 'error' ),
-			$this->row( __( 'Classe Article_Types disponibile', 'wp-ai-publisher' ), $article_types_available ? __( 'OK', 'wp-ai-publisher' ) : __( 'Classe o metodi non disponibili', 'wp-ai-publisher' ), $article_types_available ? 'ok' : 'warning' ),
-			$this->row( __( 'CPT Tipologie articolo registrato', 'wp-ai-publisher' ), $article_type_cpt_registered ? __( 'CPT wpai_article_type registrato', 'wp-ai-publisher' ) : __( 'CPT non registrato', 'wp-ai-publisher' ), $article_type_cpt_registered ? 'ok' : 'warning' ),
+			$this->row( __( 'Tipologie articolo', 'wp-ai-publisher' ), $article_types_enabled ? __( 'Attive tramite feature flag', 'wp-ai-publisher' ) : __( 'Disabilitate temporaneamente in recovery mode', 'wp-ai-publisher' ), $article_types_enabled ? 'warning' : 'ok' ),
+			$this->row( __( 'Capability CPT', 'wp-ai-publisher' ), $article_types_enabled ? __( 'Capabilities standard post', 'wp-ai-publisher' ) : __( 'Non attive', 'wp-ai-publisher' ), $article_types_enabled ? 'warning' : 'ok' ),
+			$this->row( __( 'Notice map_meta_cap', 'wp-ai-publisher' ), __( 'La recovery disabilita il CPT per evitare notice admin', 'wp-ai-publisher' ), 'ok' ),
+			$this->row( __( 'Classe Article_Types disponibile', 'wp-ai-publisher' ), $article_types_available ? __( 'OK', 'wp-ai-publisher' ) : ( $article_types_enabled ? __( 'Classe o metodi non disponibili', 'wp-ai-publisher' ) : __( 'Non caricata in recovery mode', 'wp-ai-publisher' ) ), $article_types_available || ! $article_types_enabled ? 'ok' : 'warning' ),
+			$this->row( __( 'CPT Tipologie articolo registrato', 'wp-ai-publisher' ), $article_type_cpt_registered ? __( 'CPT wpai_article_type registrato', 'wp-ai-publisher' ) : __( 'CPT non registrato', 'wp-ai-publisher' ), $article_type_cpt_registered ? 'ok' : ( $article_types_enabled ? 'warning' : 'ok' ) ),
 			$this->row( __( 'Colonna article_type_id', 'wp-ai-publisher' ), $article_type_column ? __( 'Presente nella tabella idee', 'wp-ai-publisher' ) : __( 'Mancante: riattiva il plugin o controlla permessi database', 'wp-ai-publisher' ), $article_type_column ? 'ok' : 'error' ),
 			$this->row( __( 'Tipologie attive', 'wp-ai-publisher' ), sprintf( __( '%d tipologie attive', 'wp-ai-publisher' ), count( $active_article_types ) ), count( $active_article_types ) > 0 ? 'ok' : 'warning' ),
 			$this->row( __( 'Idee senza tipologia', 'wp-ai-publisher' ), sprintf( __( '%d idee da assegnare', 'wp-ai-publisher' ), $ideas_without_article_type ), $ideas_without_article_type > 0 ? 'warning' : 'ok' ),
 			$this->row( __( 'Idee con tipologia inattiva/cancellata', 'wp-ai-publisher' ), sprintf( __( '%d idee da riassegnare', 'wp-ai-publisher' ), $ideas_with_invalid_article_type ), $ideas_with_invalid_article_type > 0 ? 'warning' : 'ok' ),
 			$this->row( __( 'Creazione default tipologie', 'wp-ai-publisher' ), $defaults_created ? __( 'Eseguita', 'wp-ai-publisher' ) : __( 'Non eseguita', 'wp-ai-publisher' ), $defaults_created ? 'ok' : 'warning' ),
 			$this->row( __( 'Categorie tipologie', 'wp-ai-publisher' ), $article_types_with_categories > 0 ? __( 'Almeno una tipologia ha categorie associate', 'wp-ai-publisher' ) : __( 'Nessuna tipologia ha categorie associate', 'wp-ai-publisher' ), $article_types_with_categories > 0 ? 'ok' : 'warning' ),
-			$this->row( __( 'Workflow contenuto', 'wp-ai-publisher' ), __( 'Contesto sito + Tipologia articolo + Idea → Bozza', 'wp-ai-publisher' ), 'ok' ),
+			$this->row( __( 'Workflow contenuto', 'wp-ai-publisher' ), $article_types_enabled ? __( 'Contesto sito + Tipologia articolo + Idea → Bozza', 'wp-ai-publisher' ) : __( 'Recovery: Contesto sito + Idea → Bozza', 'wp-ai-publisher' ), 'ok' ),
 			$this->row( __( 'Modalità workflow', 'wp-ai-publisher' ), 'advanced' === $workflow_mode ? __( 'Avanzato', 'wp-ai-publisher' ) : __( 'Semplificato', 'wp-ai-publisher' ), 'ok' ),
 			$this->row( __( 'Creazione automatica bozza', 'wp-ai-publisher' ), ! empty( $settings['auto_create_draft_from_idea'] ) ? __( 'Attiva', 'wp-ai-publisher' ) : __( 'Disattiva', 'wp-ai-publisher' ), ! empty( $settings['auto_create_draft_from_idea'] ) ? 'ok' : 'warning' ),
 			$this->row( __( 'Full Article Generator', 'wp-ai-publisher' ), method_exists( $this->ai_provider, 'generate_full_classic_article' ) ? __( 'OK', 'wp-ai-publisher' ) : __( 'Non disponibile', 'wp-ai-publisher' ), method_exists( $this->ai_provider, 'generate_full_classic_article' ) ? 'ok' : 'error' ),
