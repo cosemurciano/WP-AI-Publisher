@@ -1,10 +1,12 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.5**
+Versione corrente: **0.5.6**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 
-## System Status 0.5.5
+## System Status 0.5.6
+
+La versione **0.5.6** corregge la gestione delle Tipologie articolo in tabella custom, preserva i campi editoriali multilinea come testo libero e mantiene il fallback quando il repository è disabilitato.
 
 La versione **0.5.5** aggiunge una pagina admin **Stato sistema** stabile e di sola lettura per controllare ambiente, integrazioni e configurazione tecnica senza chiamate esterne, generazione contenuti o azioni distruttive.
 
@@ -31,7 +33,7 @@ La versione **0.5.3** è una hotfix di recupero per siti che possono mostrare �
 
 ### Cosa controllare dopo update
 
-- Lo schema database deve aggiornarsi alla versione `6`.
+- Lo schema database deve aggiornarsi alla versione `7`.
 - Le Tipologie articolo default vengono create una sola volta in admin sicuro tramite repository custom, mai tramite CPT.
 - Idee con tipologia cancellata, cestinata, inattiva o inesistente mostrano il form **Assegna tipologia**.
 - Se una Tipologia articolo non contiene categorie consentite, WP AI Publisher non assegna categorie suggerite dall’AI e lascia a WordPress l’eventuale categoria predefinita.
@@ -92,7 +94,7 @@ WP AI Publisher 0.5.0 continua a creare solo bozze o contenuti pending autorizza
 
 ## Tipologie di Articolo
 
-Dalla versione **0.5.5** WP AI Publisher gestisce le **Tipologie articolo** come entità interne in tabella custom (`wpai_publisher_article_types`), gestibili da **WP AI Publisher → Tipologie articolo**, senza Custom Post Type.
+Dalla versione **0.5.6** WP AI Publisher gestisce le **Tipologie articolo** come entità interne in tabella custom (`wpai_publisher_article_types`), gestibili da **WP AI Publisher → Tipologie articolo**, senza Custom Post Type.
 
 Le Tipologie di Articolo definiscono struttura, prompt specifico, sezioni obbligatorie, pattern vietati, tono, lunghezza, intento di ricerca, livello lettore, categorie WordPress esistenti consentite, tag consigliati, regole SEO, regole di linking interno e checklist qualità.
 
@@ -370,6 +372,13 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.6
+
+- Corretta la normalizzazione delle Tipologie articolo per mantenere i campi editoriali multilinea come testo libero.
+- Allineati i formati SQL ai dati salvati e ampliati i campi editoriali brevi a `TEXT`.
+- Reso il form Tipologie articolo completamente libero per istruzioni editoriali e aggiunti testi di aiuto.
+- Mantenuto il fallback di creazione bozze quando il repository Tipologie articolo è disabilitato.
 
 ### 0.5.3
 

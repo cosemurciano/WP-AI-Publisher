@@ -21,7 +21,7 @@ class Article_Type_Repository {
 		if ( '' === $data['name'] ) { return false; }
 		$data['created_at'] = current_time( 'mysql' );
 		$data['updated_at'] = null;
-		$ok = $wpdb->insert( $this->get_table_name(), $data, $this->formats() );
+		$ok = $wpdb->insert( $this->get_table_name(), $data, $this->formats_for_data( $data ) );
 		return false === $ok ? false : absint( $wpdb->insert_id );
 	}
 
@@ -34,7 +34,7 @@ class Article_Type_Repository {
 		if ( '' === $data['name'] ) { return false; }
 		$data['updated_at'] = current_time( 'mysql' );
 		unset( $data['created_at'] );
-		return false !== $wpdb->update( $this->get_table_name(), $data, array( 'id' => $id ), $this->formats( false ), array( '%d' ) );
+		return false !== $wpdb->update( $this->get_table_name(), $data, array( 'id' => $id ), $this->formats_for_data( $data ), array( '%d' ) );
 	}
 
 	public function delete_article_type( $id ) {
@@ -68,15 +68,10 @@ class Article_Type_Repository {
 
 	public function normalize_article_type( $row ) {
 		$row = (array) $row;
-		$list_fields = array( 'allowed_category_ids', 'preferred_tags', 'required_sections', 'forbidden_patterns', 'quality_checklist' );
-		foreach ( $list_fields as $field ) {
-			$value = $row[ $field ] ?? '';
-			if ( 'allowed_category_ids' === $field ) {
-				$decoded = json_decode( (string) $value, true );
-				$row[ $field ] = array_values( array_filter( array_map( 'absint', is_array( $decoded ) ? $decoded : preg_split( '/[\r\n,]+/', (string) $value ) ) ) );
-			} else {
-				$row[ $field ] = wpai_publisher_split_context_list( (string) $value );
-			}
+		$decoded = json_decode( (string) ( $row['allowed_category_ids'] ?? '' ), true );
+		$row['allowed_category_ids'] = array_values( array_filter( array_map( 'absint', is_array( $decoded ) ? $decoded : preg_split( '/[\r\n,]+/', (string) ( $row['allowed_category_ids'] ?? '' ) ) ) ) );
+		foreach ( array( 'description', 'tone', 'length', 'search_intent', 'reader_level', 'prompt', 'structure', 'required_sections', 'forbidden_patterns', 'preferred_tags', 'quality_checklist' ) as $field ) {
+			$row[ $field ] = (string) ( $row[ $field ] ?? '' );
 		}
 		$row['id'] = absint( $row['id'] ?? 0 );
 		$row['ID'] = $row['id'];
@@ -98,10 +93,10 @@ class Article_Type_Repository {
 			'structure' => sanitize_textarea_field( (string) ( $data['structure'] ?? '' ) ),
 			'required_sections' => sanitize_textarea_field( (string) ( $data['required_sections'] ?? '' ) ),
 			'forbidden_patterns' => sanitize_textarea_field( (string) ( $data['forbidden_patterns'] ?? '' ) ),
-			'tone' => sanitize_key( (string) ( $data['tone'] ?? '' ) ),
-			'length' => sanitize_key( (string) ( $data['length'] ?? '' ) ),
-			'search_intent' => sanitize_key( (string) ( $data['search_intent'] ?? '' ) ),
-			'reader_level' => sanitize_key( (string) ( $data['reader_level'] ?? '' ) ),
+			'tone' => sanitize_textarea_field( (string) ( $data['tone'] ?? '' ) ),
+			'length' => sanitize_textarea_field( (string) ( $data['length'] ?? '' ) ),
+			'search_intent' => sanitize_textarea_field( (string) ( $data['search_intent'] ?? '' ) ),
+			'reader_level' => sanitize_textarea_field( (string) ( $data['reader_level'] ?? '' ) ),
 			'allowed_category_ids' => wp_json_encode( $allowed_ids ),
 			'preferred_tags' => sanitize_textarea_field( (string) ( $data['preferred_tags'] ?? '' ) ),
 			'quality_checklist' => sanitize_textarea_field( (string) ( $data['quality_checklist'] ?? '' ) ),
@@ -123,8 +118,31 @@ class Article_Type_Repository {
 		update_option( self::DEFAULTS_OPTION, current_time( 'mysql' ), false );
 	}
 
-	private function formats( $include_created = true ) {
-		$formats = array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' );
-		return $include_created ? array_merge( array( '%s','%s' ), $formats ) : array_merge( $formats, array( '%s' ) );
+	private function formats_for_data( $data ) {
+		$format_map = array(
+			'id' => '%d',
+			'is_active' => '%d',
+			'name' => '%s',
+			'description' => '%s',
+			'tone' => '%s',
+			'length' => '%s',
+			'search_intent' => '%s',
+			'reader_level' => '%s',
+			'prompt' => '%s',
+			'structure' => '%s',
+			'required_sections' => '%s',
+			'forbidden_patterns' => '%s',
+			'preferred_tags' => '%s',
+			'quality_checklist' => '%s',
+			'allowed_category_ids' => '%s',
+			'created_at' => '%s',
+			'updated_at' => '%s',
+		);
+
+		$formats = array();
+		foreach ( array_keys( $data ) as $key ) {
+			$formats[] = $format_map[ $key ] ?? '%s';
+		}
+		return $formats;
 	}
 }

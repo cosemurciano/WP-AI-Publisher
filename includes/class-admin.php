@@ -203,7 +203,7 @@ class Admin {
 
 		$creation_mode = sanitize_key( wp_unslash( $_POST['wpai_creation_mode'] ?? '' ) );
 		$settings      = wpai_publisher_get_settings();
-		if ( 'create_draft' === $creation_mode && ! wpai_publisher_is_active_article_type_safe( absint( $_POST['article_type_id'] ?? 0 ) ) ) {
+		if ( 'create_draft' === $creation_mode && wpai_publisher_article_types_enabled() && ! wpai_publisher_is_active_article_type_safe( absint( $_POST['article_type_id'] ?? 0 ) ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'missing_article_type', 'idea_id' => absint( $idea_id ) ) );
 		}
 		if ( 'create_draft' === $creation_mode || ( 'save_only' !== $creation_mode && ! empty( $settings['auto_create_draft_from_idea'] ) ) ) {
