@@ -169,7 +169,7 @@ class System_Status {
 	 * @return array<int,object>
 	 */
 	public function get_last_critical_errors() {
-		return $this->logger->get_last_critical_errors( 5 );
+		return $this->logger->get_last_critical_errors( 15 );
 	}
 
 	/**
@@ -275,8 +275,28 @@ class System_Status {
 	 * @return array<string,string>
 	 */
 	private function wordpress_ai_item() {
-		$available = $this->ai_provider->is_wordpress_ai_client_available();
-		return $this->row( 'wordpress_ai_api', __( 'WordPress AI Client / API', 'wp-ai-publisher' ), $available ? 'ok' : 'info', $available ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' ), $available ? '' : __( 'Installa o attiva il layer AI di WordPress se vuoi usare funzioni AI.', 'wp-ai-publisher' ) );
+		$diag      = method_exists( $this->ai_provider, 'get_ai_generation_diagnostics' ) ? $this->ai_provider->get_ai_generation_diagnostics() : array();
+		$available = ! empty( $diag['ai_available'] ) || $this->ai_provider->is_wordpress_ai_client_available();
+
+		$channels = array();
+		if ( ! empty( $diag['channel_filter'] ) ) { $channels[] = 'filter'; }
+		if ( ! empty( $diag['channel_abilities_api'] ) ) { $channels[] = 'abilities_api'; }
+		if ( ! empty( $diag['channel_ai_services'] ) ) { $channels[] = 'ai_services'; }
+		if ( ! empty( $diag['channel_wp_ai_generate_text'] ) ) { $channels[] = 'wp_ai_generate_text'; }
+
+		$detected = array_slice( array_merge( (array) ( $diag['present_classes'] ?? array() ), (array) ( $diag['present_functions'] ?? array() ) ), 0, 5 );
+		$value    = $available ? __( 'Rilevato', 'wp-ai-publisher' ) : __( 'Non rilevato', 'wp-ai-publisher' );
+		if ( ! empty( $detected ) ) {
+			$value .= ' (' . implode( ', ', array_map( 'sanitize_text_field', $detected ) ) . ')';
+		}
+
+		if ( ! $available ) {
+			return $this->row( 'wordpress_ai_api', __( 'WordPress AI Client / API', 'wp-ai-publisher' ), 'info', $value, __( 'Installa o attiva un sistema AI di WordPress (es. il plugin AI Services) per usare la generazione.', 'wp-ai-publisher' ) );
+		}
+		if ( empty( $channels ) ) {
+			return $this->row( 'wordpress_ai_api', __( 'WordPress AI Client / API', 'wp-ai-publisher' ), 'warning', $value, __( 'Integrazione rilevata ma nessun canale di generazione compatibile: la creazione bozza non può produrre contenuto. Verifica il plugin AI oppure registra il filtro wpai_publisher_generate_article_from_idea.', 'wp-ai-publisher' ) );
+		}
+		return $this->row( 'wordpress_ai_api', __( 'WordPress AI Client / API', 'wp-ai-publisher' ), 'ok', $value, sprintf( __( 'Canali di generazione disponibili: %s.', 'wp-ai-publisher' ), implode( ', ', $channels ) ) );
 	}
 
 	/**

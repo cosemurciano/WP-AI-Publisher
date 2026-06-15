@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.15**
+Versione corrente: **0.5.16**
+
+## Diagnostica generazione AI 0.5.16
+
+La versione **0.5.16** rende trasparente *dove* si interrompe la creazione bozza. Ogni tentativo registra nei log interni quale integrazione AI è rilevata (classi e funzioni presenti) e l’esito di **ciascun canale di generazione**: filtro `wpai_publisher_generate_article_from_idea`, WordPress Abilities API, plugin **AI Services** (`felix-arntz/ai-services`) e `wp_ai_generate_text`. È stato aggiunto un canale che invoca direttamente AI Services in modo sicuro (qualsiasi incompatibilità dell’API viene catturata e diagnosticata, non blocca). In **Stato sistema** la riga “WordPress AI Client / API” indica cosa è rilevato e se esiste un canale di generazione compatibile, e la sezione “Dettaglio log critici interni” mostra una colonna **Dettaglio** con canale usato, integrazioni rilevate ed esiti per canale. Se un’AI risulta rilevata ma nessun canale produce contenuto, l’errore lo dice chiaramente e rimanda a Stato sistema.
 
 ## Validazione non bloccante 0.5.15
 

@@ -1042,7 +1042,8 @@ class AI_Provider_Adapter {
 
 		$prompt  = $this->build_article_from_idea_prompt( $generation_context, $site_context, $article_type );
 		$builder = new Classic_Content_Builder( $site_context, $article_type );
-		$errors  = array();
+		$diagnostics = $this->get_ai_generation_diagnostics();
+		$diagnostics['channel_attempts'] = array();
 
 		/**
 		 * Allows a WordPress AI integration to provide the full article HTML.
@@ -1059,16 +1060,27 @@ class AI_Provider_Adapter {
 		if ( null !== $filtered ) {
 			$candidate = $this->normalize_full_article_candidate( $filtered, 'wordpress_ai', $builder, $generation_context, true );
 			if ( ! is_wp_error( $candidate ) ) {
+				$candidate['channel'] = 'filter';
 				return $candidate;
 			}
-			$errors[] = $candidate->get_error_message();
+			$diagnostics['channel_attempts']['filter'] = $candidate->get_error_message();
+		} else {
+			$diagnostics['channel_attempts']['filter'] = $diagnostics['channel_filter'] ? 'filtro registrato ma ha restituito null' : 'nessun filtro registrato';
 		}
 
 		$ability_candidate = $this->try_generate_full_article_with_wp_abilities( $generation_context, $site_context, $prompt, $builder, true );
 		if ( ! is_wp_error( $ability_candidate ) ) {
+			$ability_candidate['channel'] = 'abilities_api';
 			return $ability_candidate;
 		}
-		$errors[] = $ability_candidate->get_error_message();
+		$diagnostics['channel_attempts']['abilities_api'] = $ability_candidate->get_error_message();
+
+		$ai_services_candidate = $this->try_generate_with_ai_services( $prompt, $generation_context, $builder, true );
+		if ( ! is_wp_error( $ai_services_candidate ) ) {
+			$ai_services_candidate['channel'] = 'ai_services';
+			return $ai_services_candidate;
+		}
+		$diagnostics['channel_attempts']['ai_services'] = $ai_services_candidate->get_error_message();
 
 		if ( function_exists( 'wp_ai_generate_text' ) ) {
 			foreach ( array( array( 'prompt' => $prompt, 'temperature' => 0.4, 'format' => 'html' ), $prompt ) as $args ) {
@@ -1076,28 +1088,185 @@ class AI_Provider_Adapter {
 					$result    = call_user_func( 'wp_ai_generate_text', $args );
 					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $generation_context, true );
 					if ( ! is_wp_error( $candidate ) ) {
+						$candidate['channel'] = 'wp_ai_generate_text';
 						return $candidate;
 					}
-					$errors[] = $candidate->get_error_message();
+					$diagnostics['channel_attempts']['wp_ai_generate_text'] = $candidate->get_error_message();
 				} catch ( Throwable $error ) {
-					unset( $error );
+					$diagnostics['channel_attempts']['wp_ai_generate_text'] = $error->getMessage();
 				}
 			}
+		} else {
+			$diagnostics['channel_attempts']['wp_ai_generate_text'] = 'funzione wp_ai_generate_text assente';
 		}
 
 		// No usable AI output: never fabricate a local filler draft.
-		if ( ! $this->is_wordpress_ai_client_available() ) {
+		if ( ! $diagnostics['ai_available'] ) {
 			return new WP_Error(
 				'wpai_article_no_ai',
-				__( 'Nessun sistema AI di WordPress attivo. Configura un sistema AI di WordPress (o un filtro di integrazione) e riprova: la creazione bozza richiede una generazione AI reale.', 'wp-ai-publisher' )
+				__( 'Nessun sistema AI di WordPress attivo. Configura un sistema AI di WordPress (o un filtro di integrazione) e riprova: la creazione bozza richiede una generazione AI reale.', 'wp-ai-publisher' ),
+				$diagnostics
 			);
 		}
 
 		return new WP_Error(
 			'wpai_article_no_ai_output',
-			__( 'Il sistema AI di WordPress non ha restituito un articolo pubblicabile. Riprova o rivedi le istruzioni della Tipologia articolo.', 'wp-ai-publisher' ),
-			array( 'attempts' => array_slice( array_values( array_filter( $errors ) ), 0, 3 ) )
+			__( 'Un sistema AI risulta rilevato ma nessun canale di generazione ha prodotto contenuto. Apri Stato sistema → Dettaglio log critici interni per vedere quale integrazione è presente e quale canale ha fallito.', 'wp-ai-publisher' ),
+			$diagnostics
 		);
+	}
+
+	/**
+	 * Report which AI integrations and generation channels are detected.
+	 *
+	 * Read-only diagnostics used for logging and the System Status page so the
+	 * exact reason a generation produced no content can be identified (e.g. an
+	 * integration is detected by class name but no callable invocation channel
+	 * matches its real API).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function get_ai_generation_diagnostics() {
+		$present_classes = array();
+		foreach ( $this->get_ai_indicator_classes() as $class_name ) {
+			if ( class_exists( $class_name ) ) {
+				$present_classes[] = $class_name;
+			}
+		}
+		$present_functions = array();
+		foreach ( array_merge( $this->get_ai_indicator_functions(), array( 'ai_services' ) ) as $function_name ) {
+			if ( function_exists( $function_name ) ) {
+				$present_functions[] = $function_name;
+			}
+		}
+
+		return array(
+			'ai_available'                => $this->is_wordpress_ai_client_available(),
+			'present_classes'             => array_values( array_unique( $present_classes ) ),
+			'present_functions'           => array_values( array_unique( $present_functions ) ),
+			'channel_filter'              => (bool) ( function_exists( 'has_filter' ) ? has_filter( 'wpai_publisher_generate_article_from_idea' ) : false ),
+			'channel_abilities_api'       => function_exists( 'wp_get_abilities' ) && function_exists( 'wp_get_ability' ),
+			'channel_ai_services'         => function_exists( 'ai_services' ),
+			'channel_wp_ai_generate_text' => function_exists( 'wp_ai_generate_text' ),
+		);
+	}
+
+	/**
+	 * Try generating with the "AI Services" plugin (felix-arntz/ai-services).
+	 *
+	 * Fully guarded: any incompatible API shape is caught and reported instead of
+	 * fataling, so the caller falls back to a clear diagnostic error.
+	 *
+	 * @param string                  $prompt Prompt.
+	 * @param array<string,mixed>     $generation_context Generation context.
+	 * @param Classic_Content_Builder $builder Builder/validator.
+	 * @param bool                    $tolerant Tolerant acceptance mode.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private function try_generate_with_ai_services( $prompt, $generation_context, Classic_Content_Builder $builder, $tolerant = true ) {
+		if ( ! function_exists( 'ai_services' ) ) {
+			return new WP_Error( 'wpai_ai_services_unavailable', __( 'Plugin AI Services non disponibile.', 'wp-ai-publisher' ) );
+		}
+		try {
+			$services = ai_services();
+			if ( is_object( $services ) && method_exists( $services, 'has_available_services' ) && ! $services->has_available_services() ) {
+				return new WP_Error( 'wpai_ai_services_no_service', __( 'AI Services è installato ma nessun servizio/modello è configurato.', 'wp-ai-publisher' ) );
+			}
+			$service = is_object( $services ) && method_exists( $services, 'get_available_service' ) ? $services->get_available_service() : null;
+			if ( ! is_object( $service ) ) {
+				return new WP_Error( 'wpai_ai_services_no_service', __( 'Nessun servizio AI disponibile da AI Services.', 'wp-ai-publisher' ) );
+			}
+			$text = $this->extract_ai_services_text( $service, $prompt );
+			if ( '' === trim( (string) $text ) ) {
+				return new WP_Error( 'wpai_ai_services_empty', __( 'AI Services non ha restituito testo utilizzabile.', 'wp-ai-publisher' ) );
+			}
+			return $this->normalize_full_article_candidate( $text, 'wordpress_ai', $builder, $generation_context, $tolerant );
+		} catch ( Throwable $error ) {
+			return new WP_Error( 'wpai_ai_services_exception', $error->getMessage() );
+		}
+	}
+
+	/**
+	 * Best-effort text extraction from the AI Services API across versions.
+	 *
+	 * @param object $service AI Services service object.
+	 * @param string $prompt Prompt.
+	 * @return string
+	 */
+	private function extract_ai_services_text( $service, $prompt ) {
+		if ( method_exists( $service, 'generate_text' ) ) {
+			try {
+				$text = $this->stringify_ai_result( $service->generate_text( $prompt ) );
+				if ( '' !== trim( $text ) ) {
+					return $text;
+				}
+			} catch ( Throwable $error ) {
+				unset( $error );
+			}
+		}
+		if ( method_exists( $service, 'get_model' ) ) {
+			foreach ( array( array( 'feature' => 'wp-ai-publisher' ), array() ) as $model_args ) {
+				try {
+					$model = $service->get_model( $model_args );
+					if ( is_object( $model ) && method_exists( $model, 'generate_text' ) ) {
+						$text = $this->stringify_ai_result( $model->generate_text( $prompt ) );
+						if ( '' !== trim( $text ) ) {
+							return $text;
+						}
+					}
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Reduce a heterogeneous AI result (string/array/object/candidates) to text.
+	 *
+	 * @param mixed $result AI result.
+	 * @return string
+	 */
+	private function stringify_ai_result( $result ) {
+		if ( is_string( $result ) ) {
+			return $result;
+		}
+		if ( is_array( $result ) ) {
+			return (string) ( $result['text'] ?? $result['content'] ?? $result['html'] ?? '' );
+		}
+		if ( is_object( $result ) ) {
+			foreach ( array( 'get_text', 'to_text', '__toString' ) as $method ) {
+				if ( method_exists( $result, $method ) ) {
+					try {
+						$text = $result->{$method}();
+						if ( is_string( $text ) && '' !== trim( $text ) ) {
+							return $text;
+						}
+					} catch ( Throwable $error ) {
+						unset( $error );
+					}
+				}
+			}
+			if ( method_exists( $result, 'get_candidates' ) ) {
+				try {
+					foreach ( (array) $result->get_candidates() as $candidate ) {
+						$text = $this->stringify_ai_result( $candidate );
+						if ( '' !== trim( $text ) ) {
+							return $text;
+						}
+					}
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+			foreach ( array( 'text', 'content', 'html' ) as $property ) {
+				if ( isset( $result->$property ) && is_string( $result->$property ) ) {
+					return $result->$property;
+				}
+			}
+		}
+		return '';
 	}
 
 	/**
