@@ -66,8 +66,6 @@ class Settings {
 		$raw_temperature                         = isset( $input['ai_temperature'] ) ? trim( (string) $input['ai_temperature'] ) : '';
 		$output['ai_temperature']                = ( '' === $raw_temperature ) ? '' : (string) max( 0, min( 2, (float) $raw_temperature ) );
 		$output['generate_featured_image']       = ! empty( $input['generate_featured_image'] );
-		$workflow_mode                           = sanitize_key( (string) ( $input['workflow_mode'] ?? $defaults['workflow_mode'] ) );
-		$output['workflow_mode']                 = in_array( $workflow_mode, array( 'simple', 'advanced' ), true ) ? $workflow_mode : 'simple';
 		$output['site_context']                  = $this->sanitize_site_context( $input['site_context'] ?? array() );
 
 		return $output;

@@ -43,12 +43,8 @@ $language_options = array(
 					<th colspan="2"><h2><?php echo esc_html__( 'Workflow editoriale', 'wp-ai-publisher' ); ?></h2></th>
 				</tr>
 				<tr>
-					<th scope="row"><label for="wpai-workflow-mode"><?php echo esc_html__( 'Modalità workflow', 'wp-ai-publisher' ); ?></label></th>
-					<td><select id="wpai-workflow-mode" name="wpai_publisher_settings[workflow_mode]"><option value="simple" <?php selected( $settings['workflow_mode'] ?? 'simple', 'simple' ); ?>><?php echo esc_html__( 'Semplificato', 'wp-ai-publisher' ); ?></option><option value="advanced" <?php selected( $settings['workflow_mode'] ?? 'simple', 'advanced' ); ?>><?php echo esc_html__( 'Avanzato', 'wp-ai-publisher' ); ?></option></select><p class="description"><?php echo esc_html__( 'Semplificato privilegia il flusso idea → dry-run → articolo completo → bozza. Avanzato mostra i passaggi manuali.', 'wp-ai-publisher' ); ?></p></td>
-				</tr>
-				<tr>
 					<th scope="row"><?php echo esc_html__( 'Crea automaticamente la bozza quando salvo un’idea', 'wp-ai-publisher' ); ?></th>
-					<td><label><input type="checkbox" name="wpai_publisher_settings[auto_create_draft_from_idea]" value="1" <?php checked( ! empty( $settings['auto_create_draft_from_idea'] ) ); ?>> <?php echo esc_html__( 'Quando attivo, il plugin usa il workflow completo: idea → dry-run → articolo completo → bozza WordPress.', 'wp-ai-publisher' ); ?></label></td>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[auto_create_draft_from_idea]" value="1" <?php checked( ! empty( $settings['auto_create_draft_from_idea'] ) ); ?>> <?php echo esc_html__( 'Quando attivo, salvando un’idea il plugin genera subito l’articolo e crea la bozza WordPress.', 'wp-ai-publisher' ); ?></label></td>
 				</tr>
 
 				<tr>

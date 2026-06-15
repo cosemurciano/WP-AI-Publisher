@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.27**
+Versione corrente: **0.5.28**
+
+## Snellimento workflow 0.5.28
+
+Rimossa la **modalità avanzata** e il vecchio flusso **dry-run** dall'interfaccia: eliminati l'impostazione `workflow_mode`, i pulsanti *Esegui dry-run* / *Genera articolo completo*, i relativi handler e i metodi `run_dry_run` / `generate_full_article` / `save_full_article_output` (non più usati dal flusso a chiamata singola), più dead code in `Draft_Creator`. La creazione bozza resta interamente sul flusso single-call. L'escissione profonda del probing speculativo nell'adapter è rinviata a un passo dedicato e testabile (ancora intrecciata con Diagnostica AI e filtri pubblici legacy).
 
 ## Tipologie a prompt unico 0.5.27
 

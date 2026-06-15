@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.27
+Stable tag: 0.5.28
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.28 =
+* Snellimento (fase 1): rimossa la "modalità avanzata" e il vecchio flusso dry-run dall'interfaccia. Eliminati l'impostazione workflow_mode, i pulsanti Esegui dry-run / Genera articolo completo, i relativi handler e i metodi run_dry_run / generate_full_article / save_full_article_output in Content_Ideas (non più usati dal flusso single-call). Rimosso dead code in Draft_Creator.
+* La creazione bozza resta interamente sul flusso a chiamata singola; la vista "Risultato generazione" è invariata.
+* Nota: l'escissione profonda del probing speculativo nell'adapter è rinviata a un passo dedicato e testabile (ancora intrecciata con Diagnostica AI e filtri pubblici legacy).
 
 = 0.5.27 =
 * Tipologie articolo: la generazione è ora guidata dal solo "Prompt principale". I campi legacy (tono, lunghezza, intento, livello, sezioni, pattern, checklist) restano usati solo come fallback per le tipologie create prima del prompt unico (retrocompatibilità, nessuna migrazione distruttiva).
