@@ -1129,7 +1129,7 @@ class AI_Provider_Adapter {
 			if ( false !== strpos( $network_haystack, $needle ) ) {
 				return new WP_Error(
 					'wpai_article_network_error',
-					__( 'Il server WordPress ha raggiunto il provider AI ma la richiesta è andata in timeout / non ha ricevuto risposta. È quasi certamente un blocco delle connessioni in uscita verso api.openai.com (firewall hosting, proxy o DNS), non un problema del plugin. Esegui "Verifica connettività OpenAI" in Diagnostica AI e, se necessario, chiedi all’hosting di abilitare HTTPS in uscita. Se invece la connessione funziona ma il modello è lento, aumenta il filtro wpai_publisher_ai_http_timeout.', 'wp-ai-publisher' ),
+					__( 'Il provider AI è stato raggiunto ma non ha risposto entro il timeout. Se "Verifica connettività OpenAI" (in Diagnostica AI) risulta Raggiungibile, la causa è una generazione troppo lenta (modello lento o output troppo lungo): aumenta il filtro wpai_publisher_ai_http_timeout, scegli un modello più veloce nel plugin AI, oppure riduci wpai_publisher_ai_max_output_tokens. Se invece la connettività risulta bloccata, chiedi all’hosting di abilitare le connessioni HTTPS in uscita verso api.openai.com.', 'wp-ai-publisher' ),
 					$diagnostics
 				);
 			}
@@ -1210,13 +1210,29 @@ class AI_Provider_Adapter {
 					unset( $error );
 				}
 			}
+			// Bound the output to keep generation within the request timeout.
+			$max_tokens = max( 256, (int) apply_filters( 'wpai_publisher_ai_max_output_tokens', 4000 ) );
+			if ( method_exists( $request, 'usingMaxTokens' ) ) {
+				try {
+					$request = $request->usingMaxTokens( $max_tokens );
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+			if ( method_exists( $request, 'usingTemperature' ) ) {
+				try {
+					$request = $request->usingTemperature( (float) apply_filters( 'wpai_publisher_ai_temperature', 0.7 ) );
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
 			if ( ! method_exists( $request, 'generateText' ) ) {
 				return new WP_Error( 'wpai_php_ai_client_no_method', __( 'Il metodo generateText() non è disponibile nel PHP AI Client installato.', 'wp-ai-publisher' ) );
 			}
 
 			// AI text generation can take far longer than the 5s WordPress HTTP
 			// default; raise the timeout only for the duration of this request.
-			$timeout       = max( 15, (int) apply_filters( 'wpai_publisher_ai_http_timeout', 90 ) );
+			$timeout       = max( 15, (int) apply_filters( 'wpai_publisher_ai_http_timeout', 180 ) );
 			$raise_timeout = static function ( $value ) use ( $timeout ) {
 				return max( (float) $value, (float) $timeout );
 			};
