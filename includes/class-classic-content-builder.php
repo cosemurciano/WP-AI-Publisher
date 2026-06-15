@@ -232,14 +232,15 @@ class Classic_Content_Builder {
 			return $normalized;
 		}
 
-		return $this->rebuild_plain_text_with_outline( $plain, $outline_headings, $dry_run_output );
+		$rebuilt = $this->rebuild_plain_text_with_outline( $plain, $outline_headings, $dry_run_output );
+		return '' !== trim( $rebuilt ) ? $rebuilt : $normalized;
 	}
 
 	/**
 	 * Extract normalized outline headings and preserve canonical labels.
 	 *
 	 * @param array<string,mixed> $dry_run_output Dry-run data.
-	 * @return array<int,array{heading:string,key:string}>
+	 * @return array<int,array{heading:string,key:string,level:int}>
 	 */
 	private function extract_outline_headings_for_normalization( $dry_run_output ) {
 		$headings = array();
@@ -249,7 +250,8 @@ class Classic_Content_Builder {
 		foreach ( $dry_run_output['content_outline'] as $section ) {
 			$heading = sanitize_text_field( (string) ( is_array( $section ) ? ( $section['heading'] ?? '' ) : $section ) );
 			if ( '' !== $heading ) {
-				$headings[] = array( 'heading' => $heading, 'key' => $this->normalize_heading_key( $heading ) );
+				$level = is_array( $section ) ? absint( $section['level'] ?? 2 ) : 2;
+				$headings[] = array( 'heading' => $heading, 'key' => $this->normalize_heading_key( $heading ), 'level' => min( 4, max( 2, $level ) ) );
 			}
 		}
 		return $headings;
@@ -280,20 +282,74 @@ class Classic_Content_Builder {
 	}
 
 	private function rebuild_plain_text_with_outline( $plain, $outline_headings, $dry_run_output ) {
-		$paragraphs = $this->split_long_plain_paragraph( $plain );
-		if ( empty( $paragraphs ) ) {
-			$paragraphs = array( $this->clean_reader_excerpt( (string) ( $dry_run_output['excerpt'] ?? '' ), (string) ( $dry_run_output['title'] ?? '' ), $dry_run_output ) );
+		$plain = trim( preg_replace( '/\s+/', ' ', (string) $plain ) );
+		if ( '' === $plain || empty( $outline_headings ) ) {
+			return '';
 		}
+
+		$matches = array();
+		$cursor = 0;
+		foreach ( $outline_headings as $heading ) {
+			$label = (string) $heading['heading'];
+			$pos = stripos( $plain, $label, $cursor );
+			if ( false === $pos ) {
+				$pos = stripos( $plain, rtrim( $label, ':.' ), $cursor );
+			}
+			if ( false === $pos ) {
+				continue;
+			}
+			$matches[] = array(
+				'heading' => $label,
+				'level'   => min( 4, max( 2, (int) ( $heading['level'] ?? 2 ) ) ),
+				'start'   => (int) $pos,
+				'end'     => (int) $pos + strlen( $label ),
+			);
+			$cursor = (int) $pos + max( 1, strlen( $label ) );
+		}
+
+		if ( empty( $matches ) ) {
+			return $this->rebuild_plain_text_by_chunking_outline( $plain, $outline_headings, $dry_run_output );
+		}
+
+		$parts = array();
+		$intro = trim( substr( $plain, 0, (int) $matches[0]['start'] ) );
+		if ( '' !== $intro ) {
+			foreach ( $this->split_long_plain_paragraph( $intro ) as $paragraph ) {
+				$parts[] = '<p>' . esc_html( $paragraph ) . '</p>';
+			}
+		}
+
+		$count = count( $matches );
+		for ( $i = 0; $i < $count; $i++ ) {
+			$match = $matches[ $i ];
+			$next_start = $matches[ $i + 1 ]['start'] ?? strlen( $plain );
+			$body = trim( substr( $plain, (int) $match['end'], (int) $next_start - (int) $match['end'] ) );
+			$tag = 'h' . min( 4, max( 2, (int) $match['level'] ) );
+			$parts[] = '<' . $tag . '>' . esc_html( $match['heading'] ) . '</' . $tag . '>';
+			if ( '' === $body || $this->contains_placeholder_text( $body ) ) {
+				continue;
+			}
+			foreach ( $this->split_long_plain_paragraph( $body ) as $paragraph ) {
+				if ( '' !== trim( $paragraph ) && ! $this->contains_placeholder_text( $paragraph ) ) {
+					$parts[] = '<p>' . esc_html( $paragraph ) . '</p>';
+				}
+			}
+		}
+		return $this->sanitize_classic_html( implode( "\n", $parts ) );
+	}
+
+	private function rebuild_plain_text_by_chunking_outline( $plain, $outline_headings, $dry_run_output ) {
+		$paragraphs = $this->split_long_plain_paragraph( $plain );
 		$chunks = array_chunk( $paragraphs, max( 1, (int) ceil( count( $paragraphs ) / max( 1, count( $outline_headings ) ) ) ) );
 		$parts = array();
 		foreach ( $outline_headings as $index => $heading ) {
-			$parts[] = '<h2>' . esc_html( $heading['heading'] ) . '</h2>';
+			$tag = 'h' . min( 4, max( 2, (int) ( $heading['level'] ?? 2 ) ) );
+			$parts[] = '<' . $tag . '>' . esc_html( $heading['heading'] ) . '</' . $tag . '>';
 			$section_paragraphs = $chunks[ $index ] ?? array();
-			if ( empty( $section_paragraphs ) ) {
-				$section_paragraphs = $this->expand_summary_to_reader_paragraphs( $heading['heading'], '', $dry_run_output );
-			}
 			foreach ( $section_paragraphs as $paragraph ) {
-				$parts[] = '<p>' . esc_html( $paragraph ) . '</p>';
+				if ( ! $this->contains_placeholder_text( $paragraph ) ) {
+					$parts[] = '<p>' . esc_html( $paragraph ) . '</p>';
+				}
 			}
 		}
 		return $this->sanitize_classic_html( implode( "\n", $parts ) );
@@ -327,6 +383,63 @@ class Classic_Content_Builder {
 		return $chunks;
 	}
 
+	private function contains_placeholder_text( $text ) {
+		$lower = strtolower( remove_accents( wp_strip_all_tags( (string) $text ) ) );
+		foreach ( array( 'la sezione “', 'la sezione "', 'introduce gli aspetti pratici piu importanti', 'indica cosa controllare', 'aiuta a mantenere il risultato coerente', 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'articolo da completare', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare' ) as $needle ) {
+			if ( false !== strpos( $lower, $needle ) ) {
+				return true;
+			}
+		}
+		return 1 === preg_match( '/<(p|li)>\s*(spiegare|indicare|descrivere|mostrare|illustrare|suggerire|riassumere|chiudere|elencare|presentare|approfondire)\b/iu', (string) $text );
+	}
+
+	/**
+	 * Build non-sensitive diagnostics for full_article publishability validation.
+	 *
+	 * @param string              $raw_html Raw full_article.html.
+	 * @param string              $normalized_html Normalized HTML.
+	 * @param array<string,mixed> $dry_run_output Dry-run data.
+	 * @param array<string,mixed> $validation Validation result.
+	 * @return array<string,mixed>
+	 */
+	public function get_full_article_validation_diagnostics( $raw_html, $normalized_html, $dry_run_output = array(), $validation = array() ) {
+		$raw_html = (string) $raw_html;
+		$normalized_html = (string) $normalized_html;
+		$dry_run_output = is_array( $dry_run_output ) ? $dry_run_output : array();
+		$validation = is_array( $validation ) ? $validation : $this->validate_publishable_article_html( $normalized_html );
+		$preview_html = '';
+		if ( isset( $dry_run_output['classic_editor_preview']['html'] ) ) {
+			$preview_html = (string) $dry_run_output['classic_editor_preview']['html'];
+		}
+		$plain = wp_strip_all_tags( $normalized_html );
+		$required = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['required_sections'] ?? '' ) ) ) );
+		$required_detected = array();
+		foreach ( $required as $section ) {
+			$required_detected[ $section ] = ( false !== stripos( $plain, $section ) );
+		}
+		$forbidden = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['forbidden_patterns'] ?? '' ) ) ) );
+		$forbidden_detected = array();
+		foreach ( $forbidden as $pattern ) {
+			if ( false !== stripos( $plain, $pattern ) ) {
+				$forbidden_detected[] = $pattern;
+			}
+		}
+
+		return array(
+			'full_article_html_exists' => '' !== trim( $raw_html ),
+			'full_article_html_length' => strlen( $raw_html ),
+			'full_article_contains_html_tags' => 1 === preg_match( '/<[a-z][\s\S]*>/i', $raw_html ),
+			'normalized_html_length' => strlen( $normalized_html ),
+			'normalized_h2_count' => (int) ( $validation['h2_count'] ?? 0 ),
+			'required_sections_detected' => $required_detected,
+			'forbidden_patterns_detected' => $forbidden_detected,
+			'placeholder_text_detected' => $this->contains_placeholder_text( $normalized_html ),
+			'failed_validation_rules' => array_values( (array) ( $validation['notes'] ?? array() ) ),
+			'classic_editor_preview_available' => '' !== trim( $preview_html ),
+			'classic_editor_preview_rejected_as_placeholder' => '' !== trim( $preview_html ) && $this->contains_placeholder_text( $preview_html ),
+		);
+	}
+
 	/**
 	 * Validate final Classic Editor article HTML before draft creation.
 	 *
@@ -347,8 +460,7 @@ class Classic_Content_Builder {
 		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['required_sections'] ?? '' ) ) ) ) as $required_section ) { if ( '' !== $required_section && false === stripos( wp_strip_all_tags( $html ), $required_section ) ) { $notes[] = sprintf( __( 'Sezione obbligatoria mancante dalla Tipologia articolo: %s', 'wp-ai-publisher' ), $required_section ); } }
 		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['forbidden_patterns'] ?? '' ) ) ) ) as $forbidden_pattern ) { if ( '' !== $forbidden_pattern && false !== stripos( wp_strip_all_tags( $html ), $forbidden_pattern ) ) { $notes[] = sprintf( __( 'Pattern vietato dalla Tipologia articolo rilevato: %s', 'wp-ai-publisher' ), $forbidden_pattern ); } }
 		foreach ( array( 'pubblico:', 'tono:', 'formato preferito:', 'target tecnico:', 'nota editoriale:', 'regole editoriali:', 'claim vietati:', 'termini brand:', 'contesto editoriale:', 'writing rules:', 'forbidden_claims', 'site_context', 'validation_notes', 'knowledge_summary' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene note interne visibili.', 'wp-ai-publisher' ); break; } }
-		foreach ( array( 'spiegare', 'indicare', 'descrivere', 'mostrare', 'illustrare', 'suggerire', 'riassumere', 'chiudere', 'elencare', 'presentare', 'approfondire' ) as $needle ) { if ( 1 === preg_match( '/<(p|li)>\s*' . preg_quote( $needle, '/' ) . '\b(\s+(che|come|in modo|i passaggi)\b)?/i', $lower ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); break; } }
-		foreach ( array( 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'procedi per passaggi ordinati e annota le verifiche necessarie', 'verifica il risultato finale prima di usare il contenuto in una bozza', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare', 'articolo da completare' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); break; } }
+		if ( $this->contains_placeholder_text( $html ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); }
 		if ( $h2_count < 3 ) { $notes[] = __( 'Il contenuto finale deve contenere almeno 3 sezioni H2.', 'wp-ai-publisher' ); }
 		if ( $word_count < $min_words ) { $notes[] = sprintf( __( 'Il contenuto finale contiene %1$d parole: minimo richiesto %2$d.', 'wp-ai-publisher' ), $word_count, $min_words ); }
 		if ( 1 === preg_match( '/^\s*[\{\[]|"(title|content_outline|validation_notes)"\s*:/i', $plain ) ) { $notes[] = __( 'Il contenuto finale sembra contenere JSON grezzo.', 'wp-ai-publisher' ); }
