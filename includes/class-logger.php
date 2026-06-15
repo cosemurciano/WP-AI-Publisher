@@ -150,11 +150,11 @@ class Logger {
 			return array();
 		}
 
-		$limit = max( 1, min( 20, absint( $limit ) ) );
+		$limit = max( 1, min( 50, absint( $limit ) ) );
 
 		return $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT created_at, level, source, message FROM {$this->db->get_logs_table_name()} WHERE level IN ('emergency', 'error') ORDER BY created_at DESC, id DESC LIMIT %d",
+				"SELECT created_at, level, source, message, context FROM {$this->db->get_logs_table_name()} WHERE level IN ('emergency', 'error') ORDER BY created_at DESC, id DESC LIMIT %d",
 				$limit
 			)
 		);

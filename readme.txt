@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.15
+Stable tag: 0.5.16
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,12 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.16 =
+* Diagnostica generazione AI: ogni tentativo di creazione bozza ora registra quale integrazione AI è rilevata (classi/funzioni presenti) e l’esito di ciascun canale di generazione (filtro, Abilities API, AI Services, wp_ai_generate_text).
+* Aggiunto un canale di generazione per il plugin "AI Services" (felix-arntz/ai-services), invocato in modo sicuro: se l’API non è compatibile l’errore viene catturato e diagnosticato invece di bloccare.
+* Stato sistema: la riga "WordPress AI Client / API" mostra cosa è rilevato e se esiste un canale di generazione compatibile; la sezione "Dettaglio log critici interni" ora include una colonna Dettaglio (canale, integrazioni rilevate, esiti per canale) e mostra più voci.
+* Messaggio d’errore più chiaro quando un’AI è rilevata ma nessun canale produce contenuto, con rimando a Stato sistema.
 
 = 0.5.15 =
 * La creazione bozza non viene più bloccata dalla qualità dell’articolo: i prompt della Tipologia articolo guidano la scrittura ma non impediscono la bozza. Lunghezza minima, numero di H2, sezioni obbligatorie e frasi segnaposto sono ora note di qualità non bloccanti, visibili sull’idea/bozza.

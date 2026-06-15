@@ -594,17 +594,23 @@ class Content_Ideas {
 			return array( 'success' => false, 'idea_id' => $idea_id, 'post_id' => 0, 'status' => 'draft_failed', 'step_failed' => 'category', 'message' => (string) $category_boundary['message'] );
 		}
 
-		$this->logger->info( __( 'Generazione articolo da idea avviata.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'article_generation_started' ) );
+		$ai_diagnostics = method_exists( $this->ai_provider, 'get_ai_generation_diagnostics' ) ? $this->ai_provider->get_ai_generation_diagnostics() : array();
+		$this->logger->info( __( 'Generazione articolo da idea avviata.', 'wp-ai-publisher' ), array_merge( array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'article_generation_started', 'article_type_id' => $article_type_id ), $ai_diagnostics ) );
 		$article = $this->ai_provider->generate_article_from_idea(
 			array( 'topic' => (string) $idea->topic, 'keyword' => (string) $idea->keyword, 'language' => (string) $idea->language ),
 			$site_context,
 			$article_type
 		);
 		if ( is_wp_error( $article ) ) {
-			$this->logger->warning( __( 'Generazione articolo da idea fallita.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'job_failed', 'step' => 'generation', 'error_code' => $article->get_error_code(), 'message' => $article->get_error_message() ) );
+			$error_data = $article->get_error_data();
+			$this->logger->error( __( 'Generazione articolo da idea fallita.', 'wp-ai-publisher' ), array_merge(
+				array( 'source' => 'ai_generation', 'idea_id' => $idea_id, 'event' => 'job_failed', 'step' => 'generation', 'error_code' => $article->get_error_code(), 'message' => $article->get_error_message() ),
+				is_array( $error_data ) ? $error_data : array()
+			) );
 			$this->mark_draft_failed( $idea_id, $article->get_error_message() );
 			return array( 'success' => false, 'idea_id' => $idea_id, 'post_id' => 0, 'status' => 'draft_failed', 'step_failed' => 'generation', 'error_code' => $article->get_error_code(), 'message' => $article->get_error_message() );
 		}
+		$this->logger->info( __( 'Articolo generato dall’AI.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => $idea_id, 'event' => 'article_generated', 'channel' => (string) ( $article['channel'] ?? 'unknown' ), 'ai_source' => (string) ( $article['source'] ?? '' ), 'quality_notes' => count( (array) ( $article['validation_notes'] ?? array() ) ) ) );
 
 		$title  = wp_trim_words( wp_strip_all_tags( (string) $idea->topic ), 14, '' );
 		$output = array(
