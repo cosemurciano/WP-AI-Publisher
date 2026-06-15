@@ -1,6 +1,15 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.21**
+Versione corrente: **0.5.22**
+
+## Generazione lenta vs rete 0.5.22
+
+Se **“Verifica connettività OpenAI”** risulta *Raggiungibile* (es. HTTP 401 in poche centinaia di ms) ma la creazione bozza va comunque in timeout con `0 bytes received`, la causa è una **generazione troppo lenta** (modello lento o output lungo), non la rete: la risposta dell’endpoint `/v1/responses` arriva solo a generazione completata. Dalla **0.5.22** il timeout HTTP predefinito è **180 secondi** (`wpai_publisher_ai_http_timeout`) e l’output è limitato per contenere i tempi (`wpai_publisher_ai_max_output_tokens`, default 4000; `wpai_publisher_ai_temperature`, default 0.7). Per accelerare ulteriormente, scegli un modello più veloce (es. `gpt-4o-mini`) nelle impostazioni del plugin AI o riduci i token:
+
+```php
+add_filter( 'wpai_publisher_ai_http_timeout', fn() => 240 );
+add_filter( 'wpai_publisher_ai_max_output_tokens', fn() => 2500 );
+```
 
 ## Diagnostica connettività OpenAI 0.5.21
 

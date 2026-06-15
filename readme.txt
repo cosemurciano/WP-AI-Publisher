@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.21
+Stable tag: 0.5.22
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.22 =
+* Connettività OpenAI confermata funzionante: il timeout in generazione dipende dalla lentezza del modello/lunghezza output, non dalla rete. Timeout HTTP predefinito alzato a 180 secondi (filtrabile con wpai_publisher_ai_http_timeout).
+* Aggiunto un limite all'output per contenere i tempi di generazione: filtro wpai_publisher_ai_max_output_tokens (default 4000) e wpai_publisher_ai_temperature (default 0.7), applicati al PHP AI Client quando supportati.
+* Messaggio d'errore aggiornato: distingue tra connettività bloccata e generazione troppo lenta, con le leve concrete (timeout, modello più veloce, meno token).
 
 = 0.5.21 =
 * Aggiunto in Diagnostica AI il pulsante "Verifica connettività OpenAI": esegue una richiesta leggera a api.openai.com e indica se il server raggiunge il provider (qualunque codice HTTP, anche 401) o se le connessioni in uscita sono bloccate (timeout/cURL error 28).
