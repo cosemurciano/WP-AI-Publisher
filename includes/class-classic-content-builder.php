@@ -393,6 +393,164 @@ class Classic_Content_Builder {
 		return 1 === preg_match( '/<(p|li)>\s*(spiegare|indicare|descrivere|mostrare|illustrare|suggerire|riassumere|chiudere|elencare|presentare|approfondire)\b/iu', (string) $text );
 	}
 
+
+	/**
+	 * Return H2/H3/H4 heading texts from candidate HTML.
+	 *
+	 * @param string $html Candidate HTML.
+	 * @return array<int,string>
+	 */
+	private function extract_candidate_headings( $html ) {
+		$headings = array();
+		if ( preg_match_all( '/<h[2-4]\b[^>]*>(.*?)<\/h[2-4]>/is', (string) $html, $matches ) ) {
+			foreach ( $matches[1] as $heading_html ) {
+				$heading = trim( wp_strip_all_tags( (string) $heading_html ) );
+				if ( '' !== $heading ) {
+					$headings[] = $heading;
+				}
+			}
+		}
+		return $headings;
+	}
+
+	/**
+	 * Determine which required article-type sections are missing from HTML.
+	 *
+	 * @param string $html Candidate HTML.
+	 * @return array<int,string>
+	 */
+	private function get_missing_required_sections( $html ) {
+		$required_sections = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['required_sections'] ?? '' ) ) ) );
+		if ( empty( $required_sections ) ) {
+			return array();
+		}
+
+		$plain = wp_strip_all_tags( (string) $html );
+		$headings = $this->extract_candidate_headings( $html );
+		$missing = array();
+		foreach ( $required_sections as $required_section ) {
+			$matched = false;
+			foreach ( $headings as $heading ) {
+				if ( $this->matches_required_section_flexibly( $required_section, $heading, $plain ) ) {
+					$matched = true;
+					break;
+				}
+			}
+			if ( ! $matched && $this->plain_text_contains_required_section( $plain, $required_section ) ) {
+				$matched = true;
+			}
+			if ( ! $matched ) {
+				$missing[] = $required_section;
+			}
+		}
+		return $missing;
+	}
+
+	/**
+	 * Match a required section against a generated heading without unsafe reverse substrings.
+	 *
+	 * @param string $required_section Required configured section.
+	 * @param string $heading Generated heading.
+	 * @param string $plain_text Full plain text candidate.
+	 * @return bool
+	 */
+	private function matches_required_section_flexibly( $required_section, $heading, $plain_text = '' ) {
+		$required_key = $this->normalize_required_section_match_key( $required_section );
+		$heading_key  = $this->normalize_required_section_match_key( $heading );
+		if ( '' === $required_key || '' === $heading_key ) {
+			return false;
+		}
+		if ( $heading_key === $required_key || false !== strpos( $heading_key, $required_key ) ) {
+			return true;
+		}
+		if ( '' !== (string) $plain_text && $this->plain_text_contains_required_section( $plain_text, $required_section ) ) {
+			return true;
+		}
+
+		$required_tokens = $this->meaningful_required_section_tokens( $required_key );
+		$heading_tokens  = $this->meaningful_required_section_tokens( $heading_key );
+		if ( empty( $required_tokens ) || empty( $heading_tokens ) ) {
+			return false;
+		}
+
+		$matched = 0;
+		foreach ( $required_tokens as $required_token ) {
+			foreach ( $heading_tokens as $heading_token ) {
+				if ( $required_token === $heading_token || $this->tokens_share_safe_stem( $required_token, $heading_token ) ) {
+					$matched++;
+					break;
+				}
+			}
+		}
+
+		$total = count( $required_tokens );
+		if ( $matched === $total ) {
+			return true;
+		}
+		if ( $total > 1 && $matched >= 2 && ( $matched / $total ) >= 0.8 ) {
+			return true;
+		}
+		return false;
+	}
+
+	private function plain_text_contains_required_section( $plain_text, $required_section ) {
+		$plain_key = $this->normalize_required_section_match_key( $plain_text );
+		$required_key = $this->normalize_required_section_match_key( $required_section );
+		return '' !== $required_key && false !== strpos( $plain_key, $required_key );
+	}
+
+	private function normalize_required_section_match_key( $text ) {
+		$text = strtolower( remove_accents( wp_strip_all_tags( (string) $text ) ) );
+		$text = preg_replace( '/[^a-z0-9]+/i', ' ', $text );
+		return trim( preg_replace( '/\s+/', ' ', (string) $text ) );
+	}
+
+	private function meaningful_required_section_tokens( $key ) {
+		$tokens = preg_split( '/\s+/', (string) $key );
+		$stopwords = array( 'a', 'ad', 'al', 'allo', 'alla', 'ai', 'agli', 'alle', 'che', 'chi', 'con', 'da', 'dal', 'dallo', 'dalla', 'dei', 'del', 'dell', 'della', 'di', 'e', 'gli', 'il', 'in', 'la', 'le', 'lo', 'o', 'per', 'su', 'sul', 'sulla', 'un', 'una', 'uno' );
+		$meaningful = array();
+		foreach ( (array) $tokens as $token ) {
+			$token = trim( (string) $token );
+			if ( strlen( $token ) < 3 || in_array( $token, $stopwords, true ) ) {
+				continue;
+			}
+			$meaningful[] = $token;
+		}
+		return array_values( array_unique( $meaningful ) );
+	}
+
+	private function tokens_share_safe_stem( $left, $right ) {
+		$left = (string) $left;
+		$right = (string) $right;
+		if ( strlen( $left ) < 5 || strlen( $right ) < 5 ) {
+			return false;
+		}
+		$prefix = min( strlen( $left ), strlen( $right ), 4 );
+		return substr( $left, 0, $prefix ) === substr( $right, 0, $prefix );
+	}
+
+	private function get_forbidden_patterns_found( $html ) {
+		$plain = wp_strip_all_tags( (string) $html );
+		$found = array();
+		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['forbidden_patterns'] ?? '' ) ) ) ) as $forbidden_pattern ) {
+			if ( '' !== $forbidden_pattern && false !== stripos( $plain, $forbidden_pattern ) ) {
+				$found[] = $forbidden_pattern;
+			}
+		}
+		return $found;
+	}
+
+	private function get_placeholder_patterns_found( $html ) {
+		$lower = strtolower( remove_accents( wp_strip_all_tags( (string) $html ) ) );
+		$found = array();
+		foreach ( array( 'la sezione “', 'la sezione "', 'introduce gli aspetti pratici piu importanti', 'indica cosa controllare', 'aiuta a mantenere il risultato coerente', 'dry-run ready', 'da revisionare', 'inserire qui', 'da completare', 'todo', 'lorem ipsum', 'articolo da completare', 'traccia editoriale', 'dry-run editoriale', 'struttura preliminare' ) as $needle ) {
+			if ( false !== strpos( $lower, $needle ) ) {
+				$found[] = $needle;
+			}
+		}
+		return array_values( array_unique( $found ) );
+	}
+
 	/**
 	 * Build non-sensitive diagnostics for full_article publishability validation.
 	 *
@@ -407,39 +565,47 @@ class Classic_Content_Builder {
 		$normalized_html = (string) $normalized_html;
 		$dry_run_output = is_array( $dry_run_output ) ? $dry_run_output : array();
 		$validation = is_array( $validation ) ? $validation : $this->validate_publishable_article_html( $normalized_html );
-		$preview_html = '';
-		if ( isset( $dry_run_output['classic_editor_preview']['html'] ) ) {
-			$preview_html = (string) $dry_run_output['classic_editor_preview']['html'];
-		}
-		$plain = wp_strip_all_tags( $normalized_html );
-		$required = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['required_sections'] ?? '' ) ) ) );
-		$required_detected = array();
-		foreach ( $required as $section ) {
-			$required_detected[ $section ] = ( false !== stripos( $plain, $section ) );
-		}
-		$forbidden = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['forbidden_patterns'] ?? '' ) ) ) );
-		$forbidden_detected = array();
-		foreach ( $forbidden as $pattern ) {
-			if ( false !== stripos( $plain, $pattern ) ) {
-				$forbidden_detected[] = $pattern;
-			}
+		$preview_html = isset( $dry_run_output['classic_editor_preview']['html'] ) ? (string) $dry_run_output['classic_editor_preview']['html'] : '';
+		$plain = trim( wp_strip_all_tags( $normalized_html ) );
+		$headings = $this->extract_candidate_headings( $normalized_html );
+		$missing_required = $this->get_missing_required_sections( $normalized_html );
+		$forbidden_found = $this->get_forbidden_patterns_found( $normalized_html );
+		$placeholder_found = $this->get_placeholder_patterns_found( $normalized_html );
+		$required_configured = array_values( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['required_sections'] ?? '' ) ) ) ) );
+
+		$failed_rule = 'unknown';
+		$failed_message = '';
+		if ( ! empty( $missing_required ) ) {
+			$failed_rule = 'missing_required_sections';
+			$failed_message = sprintf( __( 'Sezioni mancanti: %s.', 'wp-ai-publisher' ), implode( ', ', $missing_required ) );
+		} elseif ( ! empty( $placeholder_found ) ) {
+			$failed_rule = 'placeholder_content_detected';
+			$failed_message = __( 'Il contenuto candidato contiene testo placeholder.', 'wp-ai-publisher' );
+		} elseif ( ! empty( $forbidden_found ) ) {
+			$failed_rule = 'forbidden_patterns_detected';
+			$failed_message = sprintf( __( 'Pattern vietati rilevati: %s.', 'wp-ai-publisher' ), implode( ', ', $forbidden_found ) );
+		} elseif ( ! empty( $validation['notes'][0] ) ) {
+			$failed_rule = 'publishability_validation_failed';
+			$failed_message = (string) $validation['notes'][0];
 		}
 
 		return array(
-			'selected_source' => '' !== trim( $raw_html ) ? 'full_article' : 'fallback',
-			'full_article_present' => '' !== trim( $raw_html ) ? 'yes' : 'no',
-			'preview_present' => '' !== trim( $preview_html ) ? 'yes' : 'no',
-			'preview_rejected_as_placeholder' => '' !== trim( $preview_html ) && $this->contains_placeholder_text( $preview_html ) ? 'yes' : 'no',
-			'normalization_status' => '' !== trim( $normalized_html ) ? 'success' : 'failure',
-			'validation_failed_rule' => ! empty( $validation['notes'][0] ) ? (string) $validation['notes'][0] : '',
+			'selected_source' => sanitize_key( (string) ( $dry_run_output['_draft_candidate_source'] ?? ( '' !== trim( $raw_html ) ? 'full_article' : ( '' !== trim( $preview_html ) && ! $this->contains_placeholder_text( $preview_html ) ? 'classic_editor_preview' : ( ! empty( $dry_run_output['content_outline'] ) ? 'content_outline' : 'unknown' ) ) ) ) ),
+			'full_article_present' => '' !== trim( $raw_html ),
+			'normalized_html_length' => strlen( $normalized_html ),
+			'plain_text_length' => strlen( $plain ),
+			'heading_count' => count( $headings ),
+			'headings_detected' => $headings,
+			'required_sections_configured' => $required_configured,
+			'required_sections_missing' => $missing_required,
+			'forbidden_patterns_found' => $forbidden_found,
+			'placeholder_patterns_found' => $placeholder_found,
+			'validation_failed_rule' => $failed_rule,
+			'validation_failed_message' => $failed_message,
 			'full_article_html_exists' => '' !== trim( $raw_html ),
 			'full_article_html_length' => strlen( $raw_html ),
 			'full_article_contains_html_tags' => 1 === preg_match( '/<[a-z][\s\S]*>/i', $raw_html ),
-			'normalized_html_length' => strlen( $normalized_html ),
 			'normalized_h2_count' => (int) ( $validation['h2_count'] ?? 0 ),
-			'required_sections_detected' => $required_detected,
-			'forbidden_patterns_detected' => $forbidden_detected,
-			'placeholder_text_detected' => $this->contains_placeholder_text( $normalized_html ),
 			'failed_validation_rules' => array_values( (array) ( $validation['notes'] ?? array() ) ),
 			'classic_editor_preview_available' => '' !== trim( $preview_html ),
 			'classic_editor_preview_rejected_as_placeholder' => '' !== trim( $preview_html ) && $this->contains_placeholder_text( $preview_html ),
@@ -493,13 +659,10 @@ class Classic_Content_Builder {
 
 		if ( '' === $plain ) { $notes[] = __( 'Articolo completo vuoto.', 'wp-ai-publisher' ); }
 		foreach ( array( '<!-- wp:', 'wp-block', '<script', '<iframe', ' style=', '<style', '[caption', '[gallery' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Markup non consentito nel contenuto finale.', 'wp-ai-publisher' ); break; } }
-		$headings_text = $this->extract_html_headings_text( $html );
-		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['required_sections'] ?? '' ) ) ) ) as $required_section ) {
-			if ( '' !== $required_section && ! $this->matches_required_section_flexibly( $required_section, $plain, $headings_text ) ) {
-				$notes[] = sprintf( __( 'Sezione obbligatoria mancante dalla Tipologia articolo: %s', 'wp-ai-publisher' ), $required_section );
-			}
-		}
-		foreach ( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $this->article_type['forbidden_patterns'] ?? '' ) ) ) ) as $forbidden_pattern ) { if ( '' !== $forbidden_pattern && false !== stripos( wp_strip_all_tags( $html ), $forbidden_pattern ) ) { $notes[] = sprintf( __( 'Pattern vietato dalla Tipologia articolo rilevato: %s', 'wp-ai-publisher' ), $forbidden_pattern ); } }
+		$missing_required_sections = $this->get_missing_required_sections( $html );
+		foreach ( $missing_required_sections as $required_section ) { $notes[] = sprintf( __( 'Sezione obbligatoria mancante dalla Tipologia articolo: %s', 'wp-ai-publisher' ), $required_section ); }
+		$forbidden_patterns_found = $this->get_forbidden_patterns_found( $html );
+		foreach ( $forbidden_patterns_found as $forbidden_pattern ) { $notes[] = sprintf( __( 'Pattern vietato dalla Tipologia articolo rilevato: %s', 'wp-ai-publisher' ), $forbidden_pattern ); }
 		foreach ( array( 'pubblico:', 'tono:', 'formato preferito:', 'target tecnico:', 'nota editoriale:', 'regole editoriali:', 'claim vietati:', 'termini brand:', 'contesto editoriale:', 'writing rules:', 'forbidden_claims', 'site_context', 'validation_notes', 'knowledge_summary' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene note interne visibili.', 'wp-ai-publisher' ); break; } }
 		if ( $this->contains_placeholder_text( $html ) ) { $notes[] = __( 'Il contenuto finale contiene placeholder editoriali.', 'wp-ai-publisher' ); }
 		if ( $h2_count < 3 ) { $notes[] = __( 'Il contenuto finale deve contenere almeno 3 sezioni H2.', 'wp-ai-publisher' ); }

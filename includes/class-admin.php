@@ -379,6 +379,8 @@ class Admin {
 			$this->redirect_content_ideas(
 				array(
 					'wpai_notice' => ! empty( $result['success'] ) ? 'draft_created' : ( 'full_article' === ( $result['step_failed'] ?? '' ) ? 'full_article_failed' : ( 'draft' === ( $result['step_failed'] ?? '' ) && false !== strpos( (string) ( $result['message'] ?? '' ), 'Genera prima' ) ? 'missing_full_article' : 'draft_creation_failed' ) ),
+					'wpai_step'   => sanitize_key( (string) ( $result['step_failed'] ?? '' ) ),
+					'wpai_error'  => rawurlencode( sanitize_text_field( (string) ( $result['message'] ?? $result['error_code'] ?? '' ) ) ),
 					'view_idea'   => $idea_id,
 					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
 				)

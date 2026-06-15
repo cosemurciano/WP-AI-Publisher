@@ -82,6 +82,11 @@ class Draft_Creator {
 			return $error;
 		}
 
+		$article_type = isset( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : ( $article_types_enabled ? wpai_publisher_get_article_type_config_safe( $article_type_id ) : array() );
+		$dry_run['article_type'] = $article_type;
+		$builder = new Classic_Content_Builder( null, $article_type );
+
+		$dry_run['_draft_candidate_source'] = 'full_article';
 		if ( empty( $dry_run['full_article']['html'] ) || ! is_string( $dry_run['full_article']['html'] ) ) {
 			if ( $automatic && ! empty( $args['content_ideas'] ) && is_object( $args['content_ideas'] ) && method_exists( $args['content_ideas'], 'generate_full_article' ) ) {
 				$generated = $args['content_ideas']->generate_full_article( (int) $idea->id );
@@ -94,14 +99,30 @@ class Draft_Creator {
 				}
 			}
 			if ( empty( $dry_run['full_article']['html'] ) || ! is_string( $dry_run['full_article']['html'] ) ) {
-				$this->logger->warning( __( 'Articolo completo mancante per la bozza.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_missing_full_article', 'error_code' => 'wpai_draft_creator_missing_full_article', 'message' => __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ), 'word_count' => 0, 'h2_count' => 0 ) );
-				return new WP_Error( 'wpai_draft_creator_missing_full_article', __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ) );
+				$fallback_html = '';
+				$fallback_source = 'unknown';
+				if ( ! empty( $dry_run['content_outline'] ) && is_array( $dry_run['content_outline'] ) ) {
+					$fallback_article = $builder->build_full_article_from_dry_run( $dry_run );
+					$fallback_html = (string) ( $fallback_article['html'] ?? '' );
+					$fallback_source = 'content_outline';
+				} elseif ( ! empty( $dry_run['classic_editor_preview']['html'] ) && is_string( $dry_run['classic_editor_preview']['html'] ) ) {
+					$preview_html = $builder->normalize_full_article_html( (string) $dry_run['classic_editor_preview']['html'], $dry_run );
+					$preview_validation = $builder->validate_publishable_article_html( $preview_html );
+					if ( ! empty( $preview_validation['valid'] ) ) {
+						$fallback_html = $preview_html;
+						$fallback_source = 'classic_editor_preview';
+					}
+				}
+				if ( '' !== trim( $fallback_html ) ) {
+					$dry_run['full_article'] = array( 'html' => $fallback_html, 'source' => 'draft_creator_fallback' );
+					$dry_run['_draft_candidate_source'] = $fallback_source;
+				} else {
+					$this->logger->warning( __( 'Articolo completo mancante per la bozza.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_missing_full_article', 'error_code' => 'wpai_draft_creator_missing_full_article', 'message' => __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ), 'word_count' => 0, 'h2_count' => 0 ) );
+					return new WP_Error( 'wpai_draft_creator_missing_full_article', __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ) );
+				}
 			}
 		}
 
-		$article_type = isset( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : ( $article_types_enabled ? wpai_publisher_get_article_type_config_safe( $article_type_id ) : array() );
-		$dry_run['article_type'] = $article_type;
-		$builder = new Classic_Content_Builder( null, $article_type );
 		$original_full_article_html = (string) $dry_run['full_article']['html'];
 		$dry_run['full_article']['html'] = $builder->normalize_full_article_html( $original_full_article_html, $dry_run );
 		$this->logger->info( __( 'Validazione bozza avviata.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_validation_started', 'selected_source' => 'full_article', 'full_article_present' => 'yes', 'preview_present' => ! empty( $dry_run['classic_editor_preview']['html'] ) ? 'yes' : 'no', 'preview_rejected_as_placeholder' => ! empty( $dry_run['classic_editor_preview']['html'] ) && $builder->contains_placeholder_text( (string) $dry_run['classic_editor_preview']['html'] ) ? 'yes' : 'no', 'normalization_status' => '' !== trim( (string) $dry_run['full_article']['html'] ) ? 'success' : 'failure' ) );
@@ -113,7 +134,8 @@ class Draft_Creator {
 		if ( empty( $validation['valid'] ) ) {
 			$diagnostics = $builder->get_full_article_validation_diagnostics( $original_full_article_html, (string) $dry_run['full_article']['html'], $dry_run, $validation );
 			$validation['diagnostics'] = $diagnostics;
-			$error = new WP_Error( 'wpai_draft_creator_full_article_not_publishable', __( 'L’AI ha generato il contenuto, ma la bozza non è stata creata perché l’articolo completo non ha superato la validazione di pubblicabilità.', 'wp-ai-publisher' ), $validation );
+			$error_message = $this->format_validation_diagnostic_message( $diagnostics );
+			$error = new WP_Error( 'wpai_draft_creator_full_article_not_publishable', $error_message, $validation );
 			$this->logger->warning( $error->get_error_message(), array_merge( array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_validation_failed', 'error_code' => $error->get_error_code(), 'message' => $error->get_error_message(), 'word_count' => (int) ( $validation['word_count'] ?? 0 ), 'h2_count' => (int) ( $validation['h2_count'] ?? 0 ) ), $diagnostics ) );
 			$this->update_idea_after_draft_failed( (int) $idea->id, $error->get_error_message() );
 			return $error;
@@ -137,6 +159,29 @@ class Draft_Creator {
 		$this->logger->info( __( 'Bozza creata da full_article.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_created', 'error_code' => '', 'message' => __( 'Bozza creata correttamente.', 'wp-ai-publisher' ), 'word_count' => (int) ( $validation['word_count'] ?? 0 ), 'h2_count' => (int) ( $validation['h2_count'] ?? 0 ) ) );
 
 		return $post_id;
+	}
+
+	/**
+	 * Format concise admin-facing validation diagnostics.
+	 *
+	 * @param array<string,mixed> $diagnostics Validation diagnostics.
+	 * @return string
+	 */
+	private function format_validation_diagnostic_message( $diagnostics ) {
+		$diagnostics = is_array( $diagnostics ) ? $diagnostics : array();
+		$rule = sanitize_key( (string) ( $diagnostics['validation_failed_rule'] ?? 'unknown' ) );
+		$message = sprintf( __( 'Creazione bozza fallita. Regola: %s.', 'wp-ai-publisher' ), '' !== $rule ? $rule : 'unknown' );
+		if ( ! empty( $diagnostics['required_sections_missing'] ) && is_array( $diagnostics['required_sections_missing'] ) ) {
+			$message .= ' ' . sprintf( __( 'Sezioni mancanti: %s.', 'wp-ai-publisher' ), implode( ', ', array_map( 'sanitize_text_field', $diagnostics['required_sections_missing'] ) ) );
+		} elseif ( ! empty( $diagnostics['placeholder_patterns_found'] ) && is_array( $diagnostics['placeholder_patterns_found'] ) ) {
+			$message .= ' ' . __( 'Il contenuto candidato contiene testo placeholder.', 'wp-ai-publisher' );
+		} elseif ( ! empty( $diagnostics['forbidden_patterns_found'] ) && is_array( $diagnostics['forbidden_patterns_found'] ) ) {
+			$message .= ' ' . sprintf( __( 'Pattern vietati: %s.', 'wp-ai-publisher' ), implode( ', ', array_map( 'sanitize_text_field', $diagnostics['forbidden_patterns_found'] ) ) );
+		} elseif ( ! empty( $diagnostics['validation_failed_message'] ) ) {
+			$message .= ' ' . sanitize_text_field( (string) $diagnostics['validation_failed_message'] );
+		}
+		$message .= ' ' . sprintf( __( 'Sorgente: %1$s. HTML normalizzato: %2$d caratteri.', 'wp-ai-publisher' ), sanitize_key( (string) ( $diagnostics['selected_source'] ?? 'unknown' ) ), (int) ( $diagnostics['normalized_html_length'] ?? 0 ) );
+		return $message;
 	}
 
 	/**
