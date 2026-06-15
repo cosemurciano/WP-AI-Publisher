@@ -167,13 +167,13 @@ $site_context = wpai_publisher_get_site_context();
 			<h2><?php echo esc_html__( 'Flusso editoriale', 'wp-ai-publisher' ); ?></h2>
 			<ol>
 				<li><?php echo esc_html__( 'Configura Contesto editoriale sito', 'wp-ai-publisher' ); ?></li>
-				<li><?php echo esc_html__( 'Crea Tipologie articolo', 'wp-ai-publisher' ); ?></li>
+				<?php if ( wpai_publisher_article_types_enabled() ) : ?><li><?php echo esc_html__( 'Crea Tipologie articolo', 'wp-ai-publisher' ); ?></li><?php else : ?><li><?php echo esc_html__( 'Recovery mode: usa il contesto editoriale generale', 'wp-ai-publisher' ); ?></li><?php endif; ?>
 				<li><?php echo esc_html__( 'Inserisci idea contenuto', 'wp-ai-publisher' ); ?></li>
 				<li><?php echo esc_html__( 'Genera bozza', 'wp-ai-publisher' ); ?></li>
 				<li><?php echo esc_html__( 'Revisiona in WordPress', 'wp-ai-publisher' ); ?></li>
 			</ol>
 			<ul>
-				<li><?php echo esc_html__( 'Tipologie articolo attive:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( (string) $active_article_types_count ); ?></strong></li>
+				<li><?php echo esc_html__( 'Tipologie articolo:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( wpai_publisher_article_types_enabled() ? (string) $active_article_types_count : __( 'Disabilitate in recovery mode', 'wp-ai-publisher' ) ); ?></strong></li>
 				<li><?php echo esc_html__( 'Idee create:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( (string) array_sum( array_map( 'intval', $content_idea_counts ) ) ); ?></strong></li>
 				<li><?php echo esc_html__( 'Bozze create:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( (string) ( $content_idea_counts['draft_created'] ?? 0 ) ); ?></strong></li>
 				<li><?php echo esc_html__( 'Bozze fallite:', 'wp-ai-publisher' ); ?> <strong><?php echo esc_html( (string) ( $content_idea_counts['draft_failed'] ?? 0 ) ); ?></strong></li>

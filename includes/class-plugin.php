@@ -99,18 +99,20 @@ final class Plugin {
 		$this->maybe_upgrade_database();
 
 		$this->logger      = new Logger( $this->db );
-		$this->settings    = new Settings();
-		$this->article_types = class_exists( __NAMESPACE__ . '\Article_Types' ) ? new Article_Types() : null;
-		$this->job_queue   = new Job_Queue( $this->db );
+		$this->settings      = new Settings();
+		if ( wpai_publisher_article_types_enabled() && class_exists( __NAMESPACE__ . '\Article_Types' ) ) {
+			$this->article_types = new Article_Types();
+		} else {
+			$this->article_types = null;
+		}
+		$this->job_queue     = new Job_Queue( $this->db );
 		$this->ai_provider   = new AI_Provider_Adapter();
 		$this->content_ideas = new Content_Ideas( $this->db, $this->ai_provider, $this->logger );
 		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas );
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );
-		if ( $this->article_types && method_exists( $this->article_types, 'hooks' ) ) {
+		if ( wpai_publisher_article_types_enabled() && $this->article_types && method_exists( $this->article_types, 'hooks' ) ) {
 			$this->article_types->hooks();
-		} elseif ( $this->logger ) {
-			$this->logger->warning( __( 'Classe Article_Types non disponibile: il plugin continua senza CPT tipologie.', 'wp-ai-publisher' ), array( 'source' => 'plugin' ) );
 		}
 		add_action( 'admin_init', array( $this->settings, 'register' ) );
 		add_action( 'admin_menu', array( $this->admin, 'register_menu' ) );

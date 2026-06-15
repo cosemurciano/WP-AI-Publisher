@@ -58,8 +58,9 @@ class Draft_Creator {
 		if ( ! in_array( sanitize_key( (string) ( $idea->status ?? '' ) ), array( 'approved', 'full_article_ready' ), true ) ) {
 			return new WP_Error( 'wpai_draft_creator_not_approved', __( 'Non puoi creare una bozza da un dry-run non approvato.', 'wp-ai-publisher' ) );
 		}
-		$article_type_id = absint( $idea->article_type_id ?? 0 );
-		if ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
+		$article_types_enabled = wpai_publisher_article_types_enabled();
+		$article_type_id      = $article_types_enabled ? absint( $idea->article_type_id ?? 0 ) : 0;
+		if ( $article_types_enabled && ( 0 === $article_type_id || ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) ) {
 			return new WP_Error( 'wpai_draft_creator_missing_article_type', __( 'Assegna una Tipologia articolo prima di generare la bozza.', 'wp-ai-publisher' ) );
 		}
 
@@ -98,7 +99,7 @@ class Draft_Creator {
 			}
 		}
 
-		$article_type = isset( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : wpai_publisher_get_article_type_config_safe( $article_type_id );
+		$article_type = isset( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : ( $article_types_enabled ? wpai_publisher_get_article_type_config_safe( $article_type_id ) : array() );
 		$dry_run['article_type'] = $article_type;
 		$builder = new Classic_Content_Builder( null, $article_type );
 		$original_full_article_html = (string) $dry_run['full_article']['html'];
