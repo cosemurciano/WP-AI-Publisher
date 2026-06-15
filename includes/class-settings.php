@@ -79,20 +79,24 @@ class Settings {
 		$output   = array();
 
 		foreach ( array( 'site_profile_name' ) as $field ) {
-			$output[ $field ] = isset( $input[ $field ] ) ? sanitize_text_field( $input[ $field ] ) : $defaults[ $field ];
+			$output[ $field ] = isset( $input[ $field ] ) ? sanitize_text_field( $input[ $field ] ) : ( $current[ $field ] ?? $defaults[ $field ] );
 		}
 
 		foreach ( array( 'site_description', 'content_niche', 'default_audience', 'allowed_categories', 'preferred_tags', 'excluded_topics', 'writing_rules', 'forbidden_claims', 'brand_terms' ) as $field ) {
-			$fallback = in_array( $field, array( 'allowed_categories', 'preferred_tags' ), true ) ? ( $current[ $field ] ?? $defaults[ $field ] ) : $defaults[ $field ];
+			$fallback = array_key_exists( $field, $current ) ? $current[ $field ] : $defaults[ $field ];
 			$output[ $field ] = isset( $input[ $field ] ) ? sanitize_textarea_field( $input[ $field ] ) : $fallback;
 		}
 
-		$output['allowed_category_ids'] = wpai_publisher_sanitize_category_ids( $input['allowed_category_ids'] ?? array() );
+		if ( array_key_exists( 'allowed_category_ids', $input ) || ! empty( $input['__allowed_category_ids_present'] ) ) {
+			$output['allowed_category_ids'] = wpai_publisher_sanitize_category_ids( $input['allowed_category_ids'] ?? array() );
+		} else {
+			$output['allowed_category_ids'] = array_key_exists( 'allowed_category_ids', $current ) ? (array) $current['allowed_category_ids'] : $defaults['allowed_category_ids'];
+		}
 
 		$allowed_values = wpai_publisher_site_context_allowed_values();
 		foreach ( $allowed_values as $field => $allowed ) {
-			$fallback = 'default_tone' === $field ? ( $current[ $field ] ?? $defaults[ $field ] ) : $defaults[ $field ];
-			$value = isset( $input[ $field ] ) ? sanitize_key( $input[ $field ] ) : sanitize_key( $fallback );
+			$fallback = array_key_exists( $field, $current ) ? $current[ $field ] : $defaults[ $field ];
+			$value    = isset( $input[ $field ] ) ? sanitize_key( $input[ $field ] ) : sanitize_key( $fallback );
 			if ( 'default_tone' === $field && function_exists( 'wpai_publisher_normalize_default_tone' ) ) {
 				$value = wpai_publisher_normalize_default_tone( $value );
 			}

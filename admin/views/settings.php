@@ -164,6 +164,7 @@ $language_options = array(
 				<tr>
 					<th scope="row"><?php echo esc_html__( 'Categorie consentite globali', 'wp-ai-publisher' ); ?></th>
 					<td>
+						<input type="hidden" name="wpai_publisher_settings[site_context][__allowed_category_ids_present]" value="1">
 						<?php if ( empty( $global_categories ) ) : ?>
 							<p class="description"><?php echo esc_html__( 'Nessuna categoria WordPress disponibile.', 'wp-ai-publisher' ); ?></p>
 						<?php else : ?>

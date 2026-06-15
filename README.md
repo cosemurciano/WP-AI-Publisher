@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.7**
+Versione corrente: **0.5.8**
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 

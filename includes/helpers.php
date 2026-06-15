@@ -319,21 +319,45 @@ if ( ! function_exists( 'wpai_publisher_site_context_label' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wpai_publisher_get_raw_settings' ) ) {
+	/**
+	 * Return raw plugin settings exactly as stored.
+	 *
+	 * This diagnostic helper is intentionally read-only: it does not sanitize,
+	 * normalize, or persist settings.
+	 *
+	 * @return array<string,mixed>
+	 */
+	function wpai_publisher_get_raw_settings() {
+		$settings = get_option( 'wpai_publisher_settings', array() );
+		return is_array( $settings ) ? $settings : array();
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_get_raw_site_context' ) ) {
+	/**
+	 * Return raw editorial site context exactly as stored.
+	 *
+	 * @return array<string,mixed>
+	 */
+	function wpai_publisher_get_raw_site_context() {
+		$settings = wpai_publisher_get_raw_settings();
+		$context  = $settings['site_context'] ?? array();
+		return is_array( $context ) ? $context : array();
+	}
+}
+
 if ( ! function_exists( 'wpai_publisher_get_settings' ) ) {
 	/**
 	 * Return merged plugin settings.
 	 *
+	 * Getter functions must stay read-only. Settings are persisted only by the
+	 * explicit WordPress settings save flow.
+	 *
 	 * @return array<string,mixed>
 	 */
 	function wpai_publisher_get_settings() {
-		$raw_settings = get_option( 'wpai_publisher_settings', array() );
-		$settings     = wpai_publisher_normalize_settings( $raw_settings );
-
-		if ( is_array( $raw_settings ) && $settings !== $raw_settings ) {
-			update_option( 'wpai_publisher_settings', $settings, false );
-		}
-
-		return $settings;
+		return wpai_publisher_normalize_settings( wpai_publisher_get_raw_settings() );
 	}
 }
 
