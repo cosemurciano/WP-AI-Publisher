@@ -130,7 +130,7 @@ class Draft_Creator {
 	}
 
 	/**
-	 * Get safe target post status for version 0.4.0.
+	 * Get safe target post status for version 0.5.0.
 	 *
 	 * @return string
 	 */
@@ -150,7 +150,7 @@ class Draft_Creator {
 		}
 
 		if ( 'publish' === $status && ( ! defined( 'WPAIP_ALLOW_DIRECT_PUBLISH' ) || true !== WPAIP_ALLOW_DIRECT_PUBLISH ) ) {
-			$this->logger->warning( __( 'Pubblicazione automatica richiesta ma bloccata in 0.4.0: uso draft.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator' ) );
+			$this->logger->warning( __( 'Pubblicazione automatica richiesta ma bloccata in 0.5.0: uso draft.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator' ) );
 			$status = 'draft';
 		}
 
@@ -287,44 +287,30 @@ class Draft_Creator {
 	 */
 	public function assign_categories_and_tags( $post_id, $dry_run ) {
 		$post_id = absint( $post_id );
-		if ( 0 === $post_id ) {
-			return;
+		if ( 0 === $post_id ) { return; }
+
+		$article_type = isset( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : array();
+		$allowed_category_ids = array_values( array_filter( array_map( 'absint', (array) ( $article_type['allowed_category_ids'] ?? array() ) ) ) );
+		$existing_category_ids = get_terms( array( 'taxonomy' => 'category', 'hide_empty' => false, 'fields' => 'ids' ) );
+		$existing_category_ids = is_wp_error( $existing_category_ids ) ? array() : array_map( 'absint', (array) $existing_category_ids );
+		$requested_ids = array_values( array_filter( array_map( 'absint', (array) ( $dry_run['category_ids'] ?? array() ) ) ) );
+
+		if ( empty( $requested_ids ) && ! empty( $dry_run['categories'] ) ) {
+			foreach ( (array) $dry_run['categories'] as $category_name ) {
+				$term = term_exists( sanitize_text_field( (string) $category_name ), 'category' );
+				if ( is_array( $term ) && ! empty( $term['term_id'] ) ) { $requested_ids[] = absint( $term['term_id'] ); }
+			}
 		}
 
-		$site_context       = wpai_publisher_get_site_context();
-		$allowed_categories = wpai_publisher_split_context_list( $site_context['allowed_categories'] ?? '' );
-		$allowed_lookup     = array();
-		foreach ( $allowed_categories as $category ) {
-			$allowed_lookup[ strtolower( remove_accents( $category ) ) ] = $category;
-		}
-
-		$categories = array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $dry_run['categories'] ?? array() ) ) ) );
-		if ( ! empty( $allowed_lookup ) ) {
-			$categories = array_values(
-				array_filter(
-					$categories,
-					function ( $category ) use ( $allowed_lookup ) {
-						$allowed = isset( $allowed_lookup[ strtolower( remove_accents( $category ) ) ] );
-						if ( ! $allowed ) {
-							$this->logger->warning( __( 'Categoria AI non consentita ignorata.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'category' => $category ) );
-						}
-						return $allowed;
-					}
-				)
-			);
-		}
-
-		$category_ids = $this->create_or_get_terms( 'category', $categories );
-		if ( ! empty( $category_ids ) ) {
-			wp_set_post_categories( $post_id, $category_ids, false );
-		}
+		$category_ids = array_values( array_intersect( $requested_ids, $existing_category_ids ) );
+		if ( ! empty( $allowed_category_ids ) ) { $category_ids = array_values( array_intersect( $category_ids, $allowed_category_ids ) ); }
+		if ( ! empty( $category_ids ) ) { wp_set_post_categories( $post_id, $category_ids, false ); }
 
 		$tags = array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $dry_run['tags'] ?? array() ) ) ) );
-		$tags = array_slice( array_values( array_unique( $tags ) ), 0, 12 );
+		$preferred = wpai_publisher_split_context_list( (string) ( $article_type['preferred_tags'] ?? '' ) );
+		$tags = array_slice( array_values( array_unique( array_merge( $preferred, $tags ) ) ), 0, 12 );
 		$tag_ids = $this->create_or_get_terms( 'post_tag', $tags );
-		if ( ! empty( $tag_ids ) ) {
-			wp_set_post_terms( $post_id, $tag_ids, 'post_tag', false );
-		}
+		if ( ! empty( $tag_ids ) ) { wp_set_post_terms( $post_id, $tag_ids, 'post_tag', false ); }
 	}
 
 	/**

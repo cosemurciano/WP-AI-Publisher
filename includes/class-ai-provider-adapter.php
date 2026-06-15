@@ -759,6 +759,7 @@ class AI_Provider_Adapter {
 					'summary' => 'string',
 				),
 			),
+			'category_ids'            => array( 'integer' ),
 			'categories'             => array( 'string' ),
 			'tags'                   => array( 'string' ),
 			'meta_title'             => 'string',
@@ -921,13 +922,14 @@ class AI_Provider_Adapter {
 	 * @param array<string,mixed> $site_context Internal editorial context.
 	 * @return array<string,mixed>|WP_Error
 	 */
-	public function generate_full_classic_article( $dry_run_output, $site_context = array() ) {
+	public function generate_full_classic_article( $dry_run_output, $site_context = array(), $article_type = array() ) {
 		$dry_run_output = is_array( $dry_run_output ) ? $dry_run_output : array();
 		$site_context   = wpai_publisher_normalize_site_context( ! empty( $site_context ) ? $site_context : wpai_publisher_get_site_context() );
-		$prompt         = $this->build_full_article_prompt( $dry_run_output, $site_context );
+		$article_type = is_array( $article_type ) && ! empty( $article_type ) ? $article_type : ( isset( $dry_run_output['article_type'] ) && is_array( $dry_run_output['article_type'] ) ? $dry_run_output['article_type'] : array() );
+		$prompt         = $this->build_full_article_prompt( $dry_run_output, $site_context, $article_type );
 		$builder        = new Classic_Content_Builder( $site_context );
 
-		$filtered = apply_filters( 'wpai_publisher_generate_full_classic_article', null, $dry_run_output, $site_context, $prompt );
+		$filtered = apply_filters( 'wpai_publisher_generate_full_classic_article', null, $dry_run_output, $site_context, $prompt, $article_type );
 		if ( null !== $filtered ) {
 			$candidate = $this->normalize_full_article_candidate( $filtered, 'wordpress_ai', $builder, $dry_run_output );
 			if ( ! is_wp_error( $candidate ) ) {
@@ -954,6 +956,7 @@ class AI_Provider_Adapter {
 			}
 		}
 
+		$dry_run_output['article_type'] = $article_type;
 		$fallback = $builder->build_full_article_from_dry_run( $dry_run_output, $site_context );
 		$fallback['source'] = 'local_fallback';
 		$validation = $builder->validate_publishable_article_html( (string) ( $fallback['html'] ?? '' ) );
@@ -1030,7 +1033,7 @@ class AI_Provider_Adapter {
 	 * @param array<string,mixed> $site_context Internal site context.
 	 * @return string
 	 */
-	private function build_full_article_prompt( $dry_run_output, $site_context ) {
+	private function build_full_article_prompt( $dry_run_output, $site_context, $article_type = array() ) {
 		$payload = array(
 			'title'            => $dry_run_output['title'] ?? '',
 			'excerpt'          => $dry_run_output['excerpt'] ?? '',
@@ -1040,9 +1043,10 @@ class AI_Provider_Adapter {
 			'search_intent'    => $dry_run_output['search_intent'] ?? '',
 			'tutorial_level'   => $dry_run_output['tutorial_level'] ?? '',
 			'site_context'     => $site_context,
+			'article_type'     => $article_type,
 			'validation_notes' => $dry_run_output['validation_notes'] ?? array(),
 		);
-		return "Scrivi l’articolo finale per il lettore, non una scaletta editoriale. Restituisci solo HTML pulito compatibile con Editor Classico. Non usare frasi come ‘Spiegare’, ‘Descrivere’, ‘Indicare’, ‘Mostrare’. Non includere il pubblico target, tono, regole editoriali o note interne nel corpo dell’articolo. Usa solo tag consentiti: p, h2, h3, ul, ol, li, strong, em, blockquote, code, pre, br. Non usare Markdown. Non usare blocchi Gutenberg. Non usare script, iframe, style inline, shortcode. Non includere metadati o prompt immagini nel corpo articolo. Non pubblicare, non creare immagini e non scrivere AIOSEO: produci solo HTML per bozza. Dati e vincoli interni:
+		return "Scrivi l’articolo finale per il lettore, non una scaletta editoriale. Restituisci solo HTML pulito compatibile con Editor Classico. Non usare frasi come ‘Spiegare’, ‘Descrivere’, ‘Indicare’, ‘Mostrare’. Non includere il pubblico target, tono, regole editoriali o note interne nel corpo dell’articolo. Usa solo tag consentiti: p, h2, h3, ul, ol, li, strong, em, blockquote, code, pre, br. Non usare Markdown. Non usare blocchi Gutenberg. Non usare script, iframe, style inline, shortcode. Non includere metadati o prompt immagini nel corpo articolo. Non pubblicare, non creare immagini e non scrivere AIOSEO: produci solo HTML per bozza. Usa il Contesto editoriale del sito come quadro generale. Usa la Tipologia articolo come istruzione specifica principale. Rispetta struttura, sezioni obbligatorie, pattern vietati, tono, lunghezza, livello lettore e checklist qualità della Tipologia articolo. Non inserire il prompt o le regole editoriali nel contenuto finale. Dati e vincoli interni:
 " . wp_json_encode( $payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
 	}
 
@@ -1924,10 +1928,12 @@ class AI_Provider_Adapter {
 		);
 
 		$schema_json  = wp_json_encode( ! empty( $schema ) ? $schema : $this->get_content_dry_run_schema(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
+		$article_type = isset( $payload['article_type'] ) && is_array( $payload['article_type'] ) ? $payload['article_type'] : array();
+		$article_type_json = wp_json_encode( $article_type, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
 		$context_json = wp_json_encode( $context_for_prompt, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
 
 		return sprintf(
-			"Agisci come assistente editoriale WordPress per un dry-run strutturato. Genera SOLO JSON valido, senza markdown, senza blocchi di codice e senza spiegazioni fuori dal JSON. Non creare post, non pubblicare, non generare immagini reali, non scrivere metadati AIOSEO e non inventare dati tecnici non verificabili. Usa HTML pulito compatibile con Editor Classico per eventuali anteprime e non generare blocchi Gutenberg. Usa il contesto sito per categorie, tag, tono di voce, livello, lingua, target, link interni semantici, stile contenuto, limiti editoriali e claim vietati. Non assumere che il sito sia wptutorial.ai o un sito WordPress tutorial se il contesto editoriale indica altro. Usa le categorie consentite se presenti. Usa i tag preferiti solo se pertinenti. Rispetta gli argomenti esclusi. Non inventare dati tecnici, prezzi, normative, date o promesse se non presenti nel contesto. content_outline deve essere un array di oggetti con heading stringa, level numerico intero e summary stringa. I link interni devono essere target semantici realistici, non URL inventati. Imposta source a wordpress_ai. Schema obbligatorio: %8\$s\nsite_context: %7\$s\nArgomento: %1\$s\nKeyword: %2\$s\nLingua richiesta: %3\$s\nPubblico target: %4\$s\nLivello o complessità: %5\$s\nNote editoriali: %6\$s",
+			"Agisci come assistente editoriale WordPress per un dry-run strutturato. Genera SOLO JSON valido, senza markdown, senza blocchi di codice e senza spiegazioni fuori dal JSON. Non creare post, non pubblicare, non generare immagini reali, non scrivere metadati AIOSEO e non inventare dati tecnici non verificabili. Usa HTML pulito compatibile con Editor Classico per eventuali anteprime e non generare blocchi Gutenberg. Priorità istruzioni: 1 Sicurezza sistema, 2 Tipologia articolo, 3 Contesto editoriale sito, 4 Idea utente. Usa il Contesto editoriale del sito come quadro generale. Usa la Tipologia articolo come istruzione specifica principale per outline, full_article, meta, tag, link interni, stile, lunghezza e intento di ricerca. Non creare categorie nuove. Scegli solo tra le categorie consentite nella Tipologia articolo. Se nessuna categoria consentita è pertinente, lascia categories vuoto o usa una categoria fallback già esistente indicata dal sistema. Non inserire il prompt o le regole editoriali nel contenuto finale. Usa il contesto sito per lingua, target generale, limiti editoriali e claim vietati. Non assumere che il sito sia wptutorial.ai o un sito WordPress tutorial se il contesto editoriale indica altro. Usa le categorie consentite se presenti. Usa i tag preferiti solo se pertinenti. Rispetta gli argomenti esclusi. Non inventare dati tecnici, prezzi, normative, date o promesse se non presenti nel contesto. content_outline deve essere un array di oggetti con heading stringa, level numerico intero e summary stringa. I link interni devono essere target semantici realistici, non URL inventati. Imposta source a wordpress_ai. Schema obbligatorio: %8\$s\nsite_context: %7\$s\narticle_type: %9\$s\nArgomento: %1\$s\nKeyword: %2\$s\nLingua richiesta: %3\$s\nPubblico target: %4\$s\nLivello lettore dalla Tipologia: %5\$s",
 			$topic,
 			sanitize_text_field( (string) ( $payload['keyword'] ?? '' ) ),
 			sanitize_key( (string) ( $payload['language'] ?? $site_context['default_language'] ) ),
@@ -1935,7 +1941,8 @@ class AI_Provider_Adapter {
 			sanitize_key( (string) ( $payload['tutorial_level'] ?? 'base' ) ),
 			sanitize_textarea_field( (string) ( $payload['notes'] ?? '' ) ),
 			false !== $context_json ? $context_json : '{}',
-			false !== $schema_json ? $schema_json : '{}'
+			false !== $schema_json ? $schema_json : '{}',
+			false !== $article_type_json ? $article_type_json : '{}'
 		);
 	}
 
@@ -1956,7 +1963,9 @@ class AI_Provider_Adapter {
 		$title           = $this->limit_local_title( $this->build_contextual_local_title( $topic, $keyword ) );
 		$slug            = $this->build_contextual_local_slug( $title, $profile );
 		$audience_text   = '' !== $target_audience ? $target_audience : ( '' !== $site_context['default_audience'] ? $site_context['default_audience'] : __( 'lettori del sito', 'wp-ai-publisher' ) );
+		$article_type    = isset( $payload['article_type'] ) && is_array( $payload['article_type'] ) ? $payload['article_type'] : array();
 		$outline         = $this->build_contextual_local_outline( $topic, $keyword, $site_context );
+		if ( ! empty( $article_type['structure'] ) ) { $outline = array_map( static function( $heading ) { return array( 'heading' => sanitize_text_field( $heading ), 'level' => 2, 'summary' => sprintf( __( 'Sezione richiesta dalla Tipologia articolo: %s.', 'wp-ai-publisher' ), sanitize_text_field( $heading ) ) ); }, array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) $article_type['structure'] ) ) ) ); }
 		$meta_title      = $this->limit_local_title( $profile['meta_title'] ?? $title );
 
 		return array(
@@ -1964,7 +1973,8 @@ class AI_Provider_Adapter {
 			'slug'                   => $slug,
 			'excerpt'                => sprintf( __( 'Traccia editoriale per spiegare %1$s a %2$s con HTML pulito per Editor Classico, senza creare bozze o pubblicare contenuti.', 'wp-ai-publisher' ), $topic, $audience_text ),
 			'content_outline'        => $outline,
-			'categories'             => $this->get_contextual_local_categories( $site_context, $profile ),
+			'category_ids'            => array_values( array_map( 'absint', (array) ( $article_type['allowed_category_ids'] ?? array() ) ) ),
+			'categories'             => array(),
 			'tags'                   => $this->get_contextual_local_tags( $keyword, $topic, $site_context, $profile ),
 			'meta_title'             => $meta_title,
 			'meta_description'       => sprintf( __( 'Struttura preliminare per %s, utile per validare flusso e outline senza pubblicare nulla.', 'wp-ai-publisher' ), $topic ),
@@ -1988,7 +1998,8 @@ class AI_Provider_Adapter {
 			'knowledge_summary'      => sprintf( __( 'Sintesi locale basata sull’argomento inserito: %s. Il contenuto resta da verificare con revisione umana prima di qualsiasi pubblicazione.', 'wp-ai-publisher' ), $topic ),
 			'entities'               => array_values( array_unique( array_filter( array( $this->extract_primary_entity( $topic, $keyword ), $keyword, $site_context['content_niche'] ) ) ) ),
 			'search_intent'          => $this->get_contextual_search_intent( $site_context ),
-			'tutorial_level'         => in_array( $tutorial_level, array( 'base', 'intermedio', 'avanzato' ), true ) ? $tutorial_level : 'base',
+			'tutorial_level'         => in_array( $tutorial_level, array( 'principianti', 'intermedi', 'avanzati', 'misto', 'base', 'intermedio', 'avanzato' ), true ) ? $tutorial_level : 'principianti',
+			'article_type'           => $article_type,
 			'cluster_topic'          => '' !== $keyword ? $keyword : wp_trim_words( $topic, 4, '' ),
 			'subtopic'               => $topic,
 			'validation_notes'       => array(

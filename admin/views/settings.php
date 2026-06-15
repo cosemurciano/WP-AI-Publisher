@@ -86,7 +86,7 @@ $language_options = array(
 				</tr>
 
 				<tr>
-					<th colspan="2"><h2><?php echo esc_html__( 'Sicurezza Abilities AI', 'wp-ai-publisher' ); ?></h2><p class="description"><?php echo esc_html__( 'Per impostazione predefinita WP AI Publisher non esegue abilities arbitrarie. Usa questa sezione solo se conosci il nome esatto dell’ability e sai che non modifica contenuti, media, opzioni o dati del sito.', 'wp-ai-publisher' ); ?></p></th>
+					<th colspan="2"><h2><?php echo esc_html__( 'Avanzate: Sicurezza Abilities AI', 'wp-ai-publisher' ); ?></h2><p class="description"><?php echo esc_html__( 'Sezione tecnica per sviluppatori e amministratori: non fa parte del flusso editoriale principale. Per impostazione predefinita WP AI Publisher non esegue abilities arbitrarie.', 'wp-ai-publisher' ); ?></p></th>
 				</tr>
 
 				<tr>
@@ -119,13 +119,6 @@ $language_options = array(
 					<td><input type="number" min="0" step="0.01" id="wpai-monthly-cost-limit" name="wpai_publisher_settings[monthly_cost_limit]" value="<?php echo esc_attr( $settings['monthly_cost_limit'] ); ?>"> <span class="description"><?php echo esc_html__( 'Opzionale, sarà usato nelle prossime fasi.', 'wp-ai-publisher' ); ?></span></td>
 				</tr>
 
-				<tr>
-					<th scope="row"><?php echo esc_html__( 'Aggiornamenti da GitHub', 'wp-ai-publisher' ); ?></th>
-					<td>
-						<label><input type="checkbox" value="1" disabled> <?php echo esc_html__( 'Non ancora attivo in questa fase.', 'wp-ai-publisher' ); ?></label>
-						<p class="description"><?php echo esc_html__( 'L’aggiornamento one-click da GitHub sarà implementato nella fase dedicata. Nessun token GitHub viene salvato ora.', 'wp-ai-publisher' ); ?></p>
-					</td>
-				</tr>
 			</tbody>
 		</table>
 
@@ -165,7 +158,7 @@ $language_options = array(
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-future-post-status"><?php echo esc_html__( 'Stato post dopo generazione', 'wp-ai-publisher' ); ?></label></th>
-					<td><select id="wpai-future-post-status" name="wpai_publisher_settings[site_context][default_post_status_after_generation]"><option value="draft" <?php selected( $site_context['default_post_status_after_generation'], 'draft' ); ?>><?php echo esc_html__( 'Bozza', 'wp-ai-publisher' ); ?></option><option value="pending" <?php selected( $site_context['default_post_status_after_generation'], 'pending' ); ?>><?php echo esc_html__( 'In attesa di revisione', 'wp-ai-publisher' ); ?></option><option value="publish" <?php selected( $site_context['default_post_status_after_generation'], 'publish' ); ?>><?php echo esc_html__( 'Pubblicato', 'wp-ai-publisher' ); ?></option></select><p class="description"><?php echo esc_html__( 'In 0.4.0 Pubblicato resta un’intenzione futura: la creazione bozza convertirà publish in draft salvo costante di sviluppo esplicita.', 'wp-ai-publisher' ); ?></p></td>
+					<td><select id="wpai-future-post-status" name="wpai_publisher_settings[site_context][default_post_status_after_generation]"><option value="draft" <?php selected( $site_context['default_post_status_after_generation'], 'draft' ); ?>><?php echo esc_html__( 'Bozza', 'wp-ai-publisher' ); ?></option><option value="pending" <?php selected( $site_context['default_post_status_after_generation'], 'pending' ); ?>><?php echo esc_html__( 'In attesa di revisione', 'wp-ai-publisher' ); ?></option><option value="publish" <?php selected( $site_context['default_post_status_after_generation'], 'publish' ); ?>><?php echo esc_html__( 'Pubblicato', 'wp-ai-publisher' ); ?></option></select><p class="description"><?php echo esc_html__( 'In 0.5.0 Pubblicato resta un’intenzione futura: la creazione bozza convertirà publish in draft salvo costante di sviluppo esplicita.', 'wp-ai-publisher' ); ?></p></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-allowed-categories"><?php echo esc_html__( 'Categorie consentite', 'wp-ai-publisher' ); ?></label></th>

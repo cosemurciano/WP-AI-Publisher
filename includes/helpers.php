@@ -52,7 +52,6 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'log_retention_days'            => 30,
 			'monthly_cost_limit'            => '',
 			'daily_cost_limit'              => '',
-			'github_updater_enabled'        => false,
 			'safe_ai_ability_names'         => '',
 			'allow_unverified_ai_abilities' => false,
 			'auto_create_draft_from_idea'   => true,

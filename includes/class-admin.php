@@ -119,6 +119,14 @@ class Admin {
 
 		add_submenu_page(
 			'wp-ai-publisher',
+			esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
+			esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
+			'manage_options',
+			'edit.php?post_type=wpai_article_type'
+		);
+
+		add_submenu_page(
+			'wp-ai-publisher',
 			esc_html__( 'Diagnostica AI', 'wp-ai-publisher' ),
 			esc_html__( 'Diagnostica AI', 'wp-ai-publisher' ),
 			'manage_options',
@@ -173,8 +181,7 @@ class Admin {
 				'topic'           => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
 				'keyword'         => sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) ),
 				'language'        => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
-				'tutorial_level'  => sanitize_text_field( wp_unslash( $_POST['tutorial_level'] ?? '' ) ),
-				'notes'           => sanitize_textarea_field( wp_unslash( $_POST['notes'] ?? '' ) ),
+				'article_type_id' => absint( $_POST['article_type_id'] ?? 0 ),
 				'_wpnonce'        => sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ?? '' ) ),
 			)
 		);
@@ -406,6 +413,8 @@ class Admin {
 		}
 
 		$content_ideas = $this->content_ideas;
+		$active_article_types = Article_Types::get_active_article_types();
+		$article_types_url = admin_url( 'edit.php?post_type=' . Article_Types::POST_TYPE );
 		$ideas         = $content_ideas->get_recent_ideas( 20 );
 		$selected_idea = null;
 		$dry_run_data  = array();
@@ -502,6 +511,7 @@ class Admin {
 		$ai_status           = $this->ai_provider->get_status();
 		$db_status           = $this->db->check_tables();
 		$content_idea_counts = $this->content_ideas->count_by_status();
+		$active_article_types_count = count( Article_Types::get_active_article_types() );
 		$third_party_plugins = array();
 
 		if ( class_exists( __NAMESPACE__ . '\\Third_Party_Plugins' ) ) {

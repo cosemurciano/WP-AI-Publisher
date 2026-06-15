@@ -97,6 +97,7 @@ class Structured_Output_Validator {
 			'slug'                   => '',
 			'excerpt'                => '',
 			'content_outline'        => array(),
+			'category_ids'            => array(),
 			'categories'             => array(),
 			'tags'                   => array(),
 			'meta_title'             => '',
@@ -135,12 +136,12 @@ class Structured_Output_Validator {
 			}
 		}
 
-		foreach ( array( 'categories', 'tags', 'internal_image_prompts', 'image_alt_texts', 'image_captions', 'internal_link_targets', 'entities', 'validation_notes' ) as $array_field ) {
+		foreach ( array( 'category_ids', 'categories', 'tags', 'internal_image_prompts', 'image_alt_texts', 'image_captions', 'internal_link_targets', 'entities', 'validation_notes' ) as $array_field ) {
 			if ( ! is_array( $output[ $array_field ] ) ) {
 				$output[ $array_field ] = '' === (string) $output[ $array_field ] ? array() : array( (string) $output[ $array_field ] );
 				$notes[] = sprintf( __( 'Campo convertito in array: %s.', 'wp-ai-publisher' ), $array_field );
 			}
-			$output[ $array_field ] = array_values( array_filter( array_map( 'strval', $output[ $array_field ] ) ) );
+			if ( 'category_ids' === $array_field ) { $output[ $array_field ] = array_values( array_filter( array_map( 'absint', $output[ $array_field ] ) ) ); } else { $output[ $array_field ] = array_values( array_filter( array_map( 'strval', $output[ $array_field ] ) ) ); }
 		}
 
 		$output['content_outline'] = $this->normalize_outline( $output['content_outline'], $notes );
