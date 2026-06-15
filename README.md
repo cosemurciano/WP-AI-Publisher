@@ -1,6 +1,12 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.13**
+Versione corrente: **0.5.14**
+
+## Creazione bozza semplificata 0.5.14
+
+Dalla versione **0.5.14** il flusso di creazione bozza segue il percorso essenziale: **1)** inserisci l’idea contenuto, **2)** scegli la Tipologia articolo, **3)** richiedi la bozza. L’idea e i prompt della Tipologia vengono inviati al sistema AI di WordPress in **un’unica chiamata**, l’AI restituisce l’articolo completo in HTML pulito e il plugin crea direttamente la bozza, senza più il passaggio intermedio di dry-run JSON.
+
+Le **sezioni obbligatorie** della Tipologia vengono iniettate nel prompt come scaletta richiesta all’AI e non bloccano più la pubblicabilità (restano un segnale di qualità nei log): questo risolve l’errore per cui la bozza falliva quando i titoli generati non corrispondevano esattamente alle sezioni configurate. Se non è attivo alcun sistema AI di WordPress, la creazione bozza non produce contenuti segnaposto: mostra un messaggio chiaro e lascia l’idea pronta a riprovare. I passaggi manuali (dry-run, genera articolo completo) restano disponibili in modalità avanzata.
 
 ## Fix 0.5.13
 

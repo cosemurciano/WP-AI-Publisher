@@ -690,8 +690,11 @@ class Classic_Content_Builder {
 
 		if ( '' === $plain ) { $notes[] = __( 'Articolo completo vuoto.', 'wp-ai-publisher' ); }
 		foreach ( array( '<!-- wp:', 'wp-block', '<script', '<iframe', ' style=', '<style', '[caption', '[gallery' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Markup non consentito nel contenuto finale.', 'wp-ai-publisher' ); break; } }
-		$missing_required_sections = $this->get_missing_required_sections( $html );
-		foreach ( $missing_required_sections as $required_section ) { $notes[] = sprintf( __( 'Sezione obbligatoria mancante dalla Tipologia articolo: %s', 'wp-ai-publisher' ), $required_section ); }
+		// Required sections are injected into the AI prompt as the requested
+		// outline, but their presence is a non-blocking quality signal: a
+		// publishable article is not rejected only because a generated heading
+		// label differs from the configured section name. Missing sections are
+		// still surfaced for logging via get_full_article_validation_diagnostics().
 		$forbidden_patterns_found = $this->get_forbidden_patterns_found( $html );
 		foreach ( $forbidden_patterns_found as $forbidden_pattern ) { $notes[] = sprintf( __( 'Pattern vietato dalla Tipologia articolo rilevato: %s', 'wp-ai-publisher' ), $forbidden_pattern ); }
 		foreach ( array( 'pubblico:', 'tono:', 'formato preferito:', 'target tecnico:', 'nota editoriale:', 'regole editoriali:', 'claim vietati:', 'termini brand:', 'contesto editoriale:', 'writing rules:', 'forbidden_claims', 'site_context', 'validation_notes', 'knowledge_summary' ) as $needle ) { if ( false !== strpos( $lower, $needle ) ) { $notes[] = __( 'Il contenuto finale contiene note interne visibili.', 'wp-ai-publisher' ); break; } }
