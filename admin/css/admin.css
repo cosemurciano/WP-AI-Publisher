@@ -67,7 +67,9 @@
 }
 
 .wpai-badge--not-implemented,
-.wpai-badge--not-configured {
+.wpai-badge--not-configured,
+.wpai-badge--info,
+.wpai-badge--unknown {
 	color: #2c3338;
 	background: #e2e3e5;
 }
