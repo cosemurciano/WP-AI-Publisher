@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.20**
+Versione corrente: **0.5.21**
+
+## Diagnostica connettività OpenAI 0.5.21
+
+Se la generazione raggiunge OpenAI ma fallisce con `cURL error 28 … 0 bytes received` anche con timeout alti, il problema è la **connettività in uscita del server** (firewall hosting, proxy o DNS), non il plugin. Dalla **0.5.21**, in **Diagnostica AI** è disponibile il pulsante **“Verifica connettività OpenAI”**: esegue una richiesta leggera a `api.openai.com` e indica se il server raggiunge il provider (qualunque codice HTTP, anche `401`, conferma la connettività) o se le connessioni in uscita sono bloccate. In quest’ultimo caso il messaggio di errore della creazione bozza lo segnala esplicitamente e rimanda al test.
 
 ## Fix timeout generazione 0.5.20
 

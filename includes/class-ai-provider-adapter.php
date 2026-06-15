@@ -1121,6 +1121,20 @@ class AI_Provider_Adapter {
 			);
 		}
 
+		// If a real generation channel reached the provider but failed with a
+		// network/timeout error, surface that as the primary cause: it is a server
+		// outbound-connectivity problem (firewall/proxy/DNS), not a plugin bug.
+		$network_haystack = strtolower( (string) ( $diagnostics['channel_attempts']['php_ai_client'] ?? '' ) . ' ' . (string) ( $diagnostics['channel_attempts']['ai_services'] ?? '' ) );
+		foreach ( array( 'curl error 28', 'timed out', '0 bytes', 'could not resolve', 'errore di rete', 'connection timed out', 'failed to connect' ) as $needle ) {
+			if ( false !== strpos( $network_haystack, $needle ) ) {
+				return new WP_Error(
+					'wpai_article_network_error',
+					__( 'Il server WordPress ha raggiunto il provider AI ma la richiesta è andata in timeout / non ha ricevuto risposta. È quasi certamente un blocco delle connessioni in uscita verso api.openai.com (firewall hosting, proxy o DNS), non un problema del plugin. Esegui "Verifica connettività OpenAI" in Diagnostica AI e, se necessario, chiedi all’hosting di abilitare HTTPS in uscita. Se invece la connessione funziona ma il modello è lento, aumenta il filtro wpai_publisher_ai_http_timeout.', 'wp-ai-publisher' ),
+					$diagnostics
+				);
+			}
+		}
+
 		return new WP_Error(
 			'wpai_article_no_ai_output',
 			__( 'Un sistema AI è rilevato ma nessun canale ha generato l’articolo. Le ability disponibili potrebbero non includere la generazione di testo/articoli (spesso sono specifiche: immagini, classificazione, SEO) o richiedere permessi non disponibili durante l’esecuzione pianificata (WP-Cron senza utente). Soluzione consigliata: collega un generatore di testo con il filtro wpai_publisher_generate_article_from_idea (vedi README → Integrazione AI). Dettagli per-ability in Stato sistema → Dettaglio log critici interni.', 'wp-ai-publisher' ),

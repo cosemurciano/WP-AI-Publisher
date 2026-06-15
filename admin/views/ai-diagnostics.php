@@ -244,6 +244,29 @@ $confidence_labels = array(
 		<p><?php echo esc_html__( 'Nessun test eseguito in questa visualizzazione.', 'wp-ai-publisher' ); ?></p>
 	<?php endif; ?>
 
+	<h2><?php echo esc_html__( 'Verifica connettività OpenAI', 'wp-ai-publisher' ); ?></h2>
+	<p><?php echo esc_html__( 'Controlla se il server WordPress riesce a raggiungere api.openai.com. Utile quando la generazione fallisce con timeout / cURL error 28 / "0 bytes received": in quel caso il problema è la connettività in uscita del server, non il plugin.', 'wp-ai-publisher' ); ?></p>
+	<form method="post">
+		<?php wp_nonce_field( 'wpai_publisher_ai_diagnostics_test', 'wpai_publisher_ai_diagnostics_nonce' ); ?>
+		<input type="hidden" name="wpai_publisher_ai_diagnostics_action" value="run_connectivity_test" />
+		<?php submit_button( __( 'Verifica connettività OpenAI', 'wp-ai-publisher' ), 'secondary', 'submit', false ); ?>
+	</form>
+	<?php if ( ! empty( $connectivity_result ) ) : ?>
+		<table class="widefat striped wpai-status-table wpai-test-result">
+			<tbody>
+				<tr><th scope="row"><?php echo esc_html__( 'Esito', 'wp-ai-publisher' ); ?></th><td><span class="<?php echo esc_attr( wpai_publisher_badge_class( $connectivity_result['status'] ?? 'unknown' ) ); ?>"><?php echo ! empty( $connectivity_result['reachable'] ) ? esc_html__( 'Raggiungibile', 'wp-ai-publisher' ) : esc_html__( 'Non raggiungibile', 'wp-ai-publisher' ); ?></span></td></tr>
+				<?php if ( isset( $connectivity_result['http_code'] ) && $connectivity_result['http_code'] > 0 ) : ?>
+					<tr><th scope="row"><?php echo esc_html__( 'Codice HTTP', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( (string) $connectivity_result['http_code'] ); ?></td></tr>
+				<?php endif; ?>
+				<tr><th scope="row"><?php echo esc_html__( 'Tempo', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( (string) ( $connectivity_result['elapsed_ms'] ?? 0 ) . ' ms' ); ?></td></tr>
+				<tr><th scope="row"><?php echo esc_html__( 'Messaggio', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( (string) ( $connectivity_result['message'] ?? '' ) ); ?></td></tr>
+				<?php if ( ! empty( $connectivity_result['hint'] ) ) : ?>
+					<tr><th scope="row"><?php echo esc_html__( 'Suggerimento', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( (string) $connectivity_result['hint'] ); ?></td></tr>
+				<?php endif; ?>
+			</tbody>
+		</table>
+	<?php endif; ?>
+
 	<h2><?php echo esc_html__( '11. Bridge manuale consigliato', 'wp-ai-publisher' ); ?></h2>
 	<p><?php echo esc_html__( 'WP AI Publisher supporta un bridge manuale tramite filtri. Usa questo approccio quando la diagnostica mostra che il sistema AI è installato ma non espone una funzione di generazione direttamente invocabile dal plugin.', 'wp-ai-publisher' ); ?></p>
 	<ul class="ul-disc">

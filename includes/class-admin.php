@@ -616,6 +616,7 @@ class Admin {
 
 		$diagnostics = new AI_Diagnostics( $this->ai_provider, $this->logger );
 		$test_result = null;
+		$connectivity_result = null;
 
 		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) && isset( $_POST['wpai_publisher_ai_diagnostics_action'] ) ) {
 			check_admin_referer( 'wpai_publisher_ai_diagnostics_test', 'wpai_publisher_ai_diagnostics_nonce' );
@@ -623,6 +624,8 @@ class Admin {
 			$action = sanitize_key( wp_unslash( $_POST['wpai_publisher_ai_diagnostics_action'] ) );
 			if ( 'run_safe_generation_test' === $action ) {
 				$test_result = $diagnostics->run_safe_generation_test();
+			} elseif ( 'run_connectivity_test' === $action ) {
+				$connectivity_result = $diagnostics->run_openai_connectivity_test();
 			}
 		}
 
