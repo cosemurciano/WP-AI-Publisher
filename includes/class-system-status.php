@@ -70,7 +70,7 @@ class System_Status {
 		$ai_diagnostics_available  = class_exists( __NAMESPACE__ . '\AI_Diagnostics' );
 		$draft_creator_available  = class_exists( __NAMESPACE__ . '\Draft_Creator' );
 		$article_types_available = wpai_publisher_article_types_available();
-		$article_type_cpt_registered = $article_types_available && function_exists( 'post_type_exists' ) && post_type_exists( Article_Types::POST_TYPE );
+		$article_type_cpt_registered = $article_types_available && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' );
 		$active_article_types = wpai_publisher_get_active_article_types_safe();
 		$active_article_type_ids = array_map( 'absint', wp_list_pluck( $active_article_types, 'ID' ) );
 		$article_types_with_categories = 0;
@@ -79,7 +79,7 @@ class System_Status {
 		$article_type_column = method_exists( $this->db, 'has_content_ideas_article_type_column' ) && $this->db->has_content_ideas_article_type_column();
 		$ideas_without_article_type = method_exists( $this->db, 'count_content_ideas_without_article_type' ) ? $this->db->count_content_ideas_without_article_type() : 0;
 		$ideas_with_invalid_article_type = $this->count_ideas_with_invalid_article_type( $active_article_type_ids, $article_type_column );
-		$defaults_created = class_exists( __NAMESPACE__ . '\\Article_Types' ) && defined( __NAMESPACE__ . '\\Article_Types::DEFAULTS_OPTION' ) && get_option( Article_Types::DEFAULTS_OPTION );
+		$defaults_created = class_exists( __NAMESPACE__ . '\\Article_Types' ) && defined( __NAMESPACE__ . '\\Article_Types::DEFAULTS_OPTION' ) && get_option( constant( __NAMESPACE__ . '\\Article_Types::DEFAULTS_OPTION' ) );
 		$ai_diagnostics_paths      = array();
 		$ai_diagnostics_routes     = array();
 

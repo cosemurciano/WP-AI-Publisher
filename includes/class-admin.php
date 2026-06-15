@@ -118,13 +118,13 @@ class Admin {
 			array( $this, 'render_content_ideas' )
 		);
 
-		if ( wpai_publisher_article_types_available() && function_exists( 'post_type_exists' ) && post_type_exists( Article_Types::POST_TYPE ) ) {
+		if ( wpai_publisher_article_types_available() && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' ) ) {
 			add_submenu_page(
 				'wp-ai-publisher',
 				esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
 				esc_html__( 'Tipologie articolo', 'wp-ai-publisher' ),
 				'manage_options',
-				'edit.php?post_type=' . Article_Types::POST_TYPE
+				'edit.php?post_type=wpai_article_type'
 			);
 		} else {
 			add_submenu_page(
@@ -443,7 +443,7 @@ class Admin {
 
 		$content_ideas = $this->content_ideas;
 		$active_article_types = wpai_publisher_get_active_article_types_safe();
-		$article_types_url = wpai_publisher_article_types_available() && function_exists( 'post_type_exists' ) && post_type_exists( Article_Types::POST_TYPE ) ? admin_url( 'edit.php?post_type=' . Article_Types::POST_TYPE ) : admin_url( 'admin.php?page=wp-ai-publisher-system-status' );
+		$article_types_url = wpai_publisher_article_types_available() && function_exists( 'post_type_exists' ) && post_type_exists( 'wpai_article_type' ) ? admin_url( 'edit.php?post_type=wpai_article_type' ) : admin_url( 'admin.php?page=wp-ai-publisher-system-status' );
 		$ideas         = $content_ideas->get_recent_ideas( 20 );
 		$selected_idea = null;
 		$dry_run_data  = array();
