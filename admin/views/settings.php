@@ -10,14 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $site_context = wpai_publisher_get_site_context();
-$tone_options = array(
-	'chiaro_didattico_e_operativo' => __( 'chiaro, didattico e operativo', 'wp-ai-publisher' ),
-	'professionale_tecnico'        => __( 'professionale e tecnico', 'wp-ai-publisher' ),
-	'divulgativo_semplice'         => __( 'divulgativo e semplice', 'wp-ai-publisher' ),
-	'commerciale_informativo'      => __( 'commerciale ma informativo', 'wp-ai-publisher' ),
-	'editoriale_narrativo'         => __( 'editoriale e narrativo', 'wp-ai-publisher' ),
-	'personalizzato'               => __( 'personalizzato', 'wp-ai-publisher' ),
-);
+$global_categories = get_categories( array( 'hide_empty' => false ) );
 $language_options = array(
 	'it' => __( 'Italiano', 'wp-ai-publisher' ),
 	'en' => __( 'Inglese', 'wp-ai-publisher' ),
@@ -123,8 +116,8 @@ $language_options = array(
 		</table>
 
 
-		<h2><?php echo esc_html__( 'Contesto editoriale del sito', 'wp-ai-publisher' ); ?></h2>
-		<p><?php echo esc_html__( 'Queste impostazioni rendono i dry-run e il fallback locale riutilizzabili su siti e nicchie diverse. Non salvano HTML, chiavi API e non attivano pubblicazione automatica.', 'wp-ai-publisher' ); ?></p>
+		<h2><?php echo esc_html__( 'Profilo sito', 'wp-ai-publisher' ); ?></h2>
+		<p><?php echo esc_html__( 'Contesto generale del sito. Le Tipologie Articolo restano la fonte principale per tono, struttura, tag e istruzioni specifiche.', 'wp-ai-publisher' ); ?></p>
 
 		<table class="form-table" role="presentation">
 			<tbody>
@@ -138,20 +131,22 @@ $language_options = array(
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-content-niche"><?php echo esc_html__( 'Nicchia contenuti', 'wp-ai-publisher' ); ?></label></th>
-					<td><input id="wpai-content-niche" name="wpai_publisher_settings[site_context][content_niche]" type="text" class="regular-text" value="<?php echo esc_attr( $site_context['content_niche'] ); ?>"><p class="description"><?php echo esc_html__( 'Esempi: Tutorial WordPress, Viaggi, Giardinaggio e agricoltura, Food e ristorazione, E-commerce.', 'wp-ai-publisher' ); ?></p></td>
+					<td><textarea id="wpai-content-niche" name="wpai_publisher_settings[site_context][content_niche]" rows="2" class="large-text"><?php echo esc_textarea( $site_context['content_niche'] ); ?></textarea><p class="description"><?php echo esc_html__( 'Ambito editoriale ampio del sito, non istruzioni per un singolo articolo.', 'wp-ai-publisher' ); ?></p></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-default-audience"><?php echo esc_html__( 'Pubblico target predefinito', 'wp-ai-publisher' ); ?></label></th>
-					<td><input id="wpai-default-audience" name="wpai_publisher_settings[site_context][default_audience]" type="text" class="regular-text" value="<?php echo esc_attr( $site_context['default_audience'] ); ?>"><p class="description"><?php echo esc_html__( 'Esempio: utenti WordPress principianti, viaggiatori italiani, clienti interessati al giardinaggio.', 'wp-ai-publisher' ); ?></p></td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="wpai-default-tone"><?php echo esc_html__( 'Tono di voce', 'wp-ai-publisher' ); ?></label></th>
-					<td><select id="wpai-default-tone" name="wpai_publisher_settings[site_context][default_tone]"><?php foreach ( $tone_options as $tone_key => $tone_label ) : ?><option value="<?php echo esc_attr( $tone_key ); ?>" <?php selected( $site_context['default_tone'], $tone_key ); ?>><?php echo esc_html( $tone_label ); ?></option><?php endforeach; ?></select><p class="description"><?php echo esc_html__( 'Se scegli personalizzato, usa le regole editoriali aggiuntive.', 'wp-ai-publisher' ); ?></p></td>
+					<td><textarea id="wpai-default-audience" name="wpai_publisher_settings[site_context][default_audience]" rows="2" class="large-text"><?php echo esc_textarea( $site_context['default_audience'] ); ?></textarea><p class="description"><?php echo esc_html__( 'Profilo pubblico generale. Il livello lettore della Tipologia Articolo ha priorità.', 'wp-ai-publisher' ); ?></p></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-default-language"><?php echo esc_html__( 'Lingua predefinita', 'wp-ai-publisher' ); ?></label></th>
 					<td><select id="wpai-default-language" name="wpai_publisher_settings[site_context][default_language]"><?php foreach ( $language_options as $language_key => $language_label ) : ?><option value="<?php echo esc_attr( $language_key ); ?>" <?php selected( $site_context['default_language'], $language_key ); ?>><?php echo esc_html( $language_label ); ?></option><?php endforeach; ?></select></td>
 				</tr>
+			</tbody>
+		</table>
+
+		<h2><?php echo esc_html__( 'Workflow contenuti', 'wp-ai-publisher' ); ?></h2>
+		<table class="form-table" role="presentation">
+			<tbody>
 				<tr>
 					<th scope="row"><label for="wpai-default-editor"><?php echo esc_html__( 'Editor predefinito', 'wp-ai-publisher' ); ?></label></th>
 					<td><select id="wpai-default-editor" name="wpai_publisher_settings[site_context][default_editor]"><option value="classic" selected><?php echo esc_html__( 'Editor Classico', 'wp-ai-publisher' ); ?></option><option value="gutenberg_future" disabled><?php echo esc_html__( 'Gutenberg, futuro/non attivo', 'wp-ai-publisher' ); ?></option></select><p class="description"><?php echo esc_html__( 'In questa fase il plugin produce solo HTML pulito compatibile con Editor Classico.', 'wp-ai-publisher' ); ?></p></td>
@@ -160,17 +155,24 @@ $language_options = array(
 					<th scope="row"><label for="wpai-future-post-status"><?php echo esc_html__( 'Stato post dopo generazione', 'wp-ai-publisher' ); ?></label></th>
 					<td><select id="wpai-future-post-status" name="wpai_publisher_settings[site_context][default_post_status_after_generation]"><option value="draft" <?php selected( $site_context['default_post_status_after_generation'], 'draft' ); ?>><?php echo esc_html__( 'Bozza', 'wp-ai-publisher' ); ?></option><option value="pending" <?php selected( $site_context['default_post_status_after_generation'], 'pending' ); ?>><?php echo esc_html__( 'In attesa di revisione', 'wp-ai-publisher' ); ?></option><option value="publish" <?php selected( $site_context['default_post_status_after_generation'], 'publish' ); ?>><?php echo esc_html__( 'Pubblicato', 'wp-ai-publisher' ); ?></option></select><p class="description"><?php echo esc_html__( 'In 0.5.0 Pubblicato resta un’intenzione futura: la creazione bozza convertirà publish in draft salvo costante di sviluppo esplicita.', 'wp-ai-publisher' ); ?></p></td>
 				</tr>
+			</tbody>
+		</table>
+
+		<h2><?php echo esc_html__( 'Vincoli globali', 'wp-ai-publisher' ); ?></h2>
+		<table class="form-table" role="presentation">
+			<tbody>
 				<tr>
-					<th scope="row"><label for="wpai-allowed-categories"><?php echo esc_html__( 'Categorie consentite', 'wp-ai-publisher' ); ?></label></th>
-					<td><textarea id="wpai-allowed-categories" name="wpai_publisher_settings[site_context][allowed_categories]" rows="3" class="large-text"><?php echo esc_textarea( $site_context['allowed_categories'] ); ?></textarea><p class="description"><?php echo esc_html__( 'Una categoria per riga oppure separate da virgola.', 'wp-ai-publisher' ); ?></p></td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="wpai-preferred-tags"><?php echo esc_html__( 'Tag preferiti', 'wp-ai-publisher' ); ?></label></th>
-					<td><textarea id="wpai-preferred-tags" name="wpai_publisher_settings[site_context][preferred_tags]" rows="3" class="large-text"><?php echo esc_textarea( $site_context['preferred_tags'] ); ?></textarea><p class="description"><?php echo esc_html__( 'Uno o più tag separati da virgola.', 'wp-ai-publisher' ); ?></p></td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="wpai-excluded-topics"><?php echo esc_html__( 'Argomenti esclusi', 'wp-ai-publisher' ); ?></label></th>
-					<td><textarea id="wpai-excluded-topics" name="wpai_publisher_settings[site_context][excluded_topics]" rows="3" class="large-text"><?php echo esc_textarea( $site_context['excluded_topics'] ); ?></textarea><p class="description"><?php echo esc_html__( 'Argomenti che il plugin non dovrebbe proporre.', 'wp-ai-publisher' ); ?></p></td>
+					<th scope="row"><?php echo esc_html__( 'Categorie consentite globali', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<?php if ( empty( $global_categories ) ) : ?>
+							<p class="description"><?php echo esc_html__( 'Nessuna categoria WordPress disponibile.', 'wp-ai-publisher' ); ?></p>
+						<?php else : ?>
+							<?php foreach ( $global_categories as $cat ) : ?>
+								<label style="display:block"><input type="checkbox" name="wpai_publisher_settings[site_context][allowed_category_ids][]" value="<?php echo esc_attr( (string) $cat->term_id ); ?>" <?php checked( in_array( (int) $cat->term_id, (array) $site_context['allowed_category_ids'], true ) ); ?>> <?php echo esc_html( $cat->name ); ?></label>
+							<?php endforeach; ?>
+						<?php endif; ?>
+						<p class="description"><?php echo esc_html__( 'Limite globale opzionale. Se selezioni una o più categorie, il plugin potrà usare solo queste categorie. Le Tipologie Articolo potranno restringere ulteriormente la selezione, ma non ampliarla.', 'wp-ai-publisher' ); ?></p>
+					</td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-internal-link-strategy"><?php echo esc_html__( 'Strategia link interni', 'wp-ai-publisher' ); ?></label></th>
@@ -180,8 +182,14 @@ $language_options = array(
 					<th scope="row"><label for="wpai-seo-plugin-preference"><?php echo esc_html__( 'Plugin SEO preferito', 'wp-ai-publisher' ); ?></label></th>
 					<td><select id="wpai-seo-plugin-preference" name="wpai_publisher_settings[site_context][seo_plugin_preference]"><option value="aioseo" <?php selected( $site_context['seo_plugin_preference'], 'aioseo' ); ?>><?php echo esc_html__( 'AIOSEO', 'wp-ai-publisher' ); ?></option><option value="none" <?php selected( $site_context['seo_plugin_preference'], 'none' ); ?>><?php echo esc_html__( 'Nessuno', 'wp-ai-publisher' ); ?></option><option value="other_future" <?php selected( $site_context['seo_plugin_preference'], 'other_future' ); ?>><?php echo esc_html__( 'Altro, futuro', 'wp-ai-publisher' ); ?></option></select><p class="description"><?php echo esc_html__( 'Preferenza informativa per dry-run e fasi future: in questa versione non vengono scritti metadati SEO.', 'wp-ai-publisher' ); ?></p></td>
 				</tr>
+			</tbody>
+		</table>
+
+		<h2><?php echo esc_html__( 'Regole globali AI', 'wp-ai-publisher' ); ?></h2>
+		<table class="form-table" role="presentation">
+			<tbody>
 				<tr>
-					<th scope="row"><label for="wpai-writing-rules"><?php echo esc_html__( 'Regole editoriali aggiuntive', 'wp-ai-publisher' ); ?></label></th>
+					<th scope="row"><label for="wpai-writing-rules"><?php echo esc_html__( 'Regole editoriali globali', 'wp-ai-publisher' ); ?></label></th>
 					<td><textarea id="wpai-writing-rules" name="wpai_publisher_settings[site_context][writing_rules]" rows="4" class="large-text"><?php echo esc_textarea( $site_context['writing_rules'] ); ?></textarea></td>
 				</tr>
 				<tr>

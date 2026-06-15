@@ -302,7 +302,12 @@ class Draft_Creator {
 		if ( 0 === $post_id ) { return; }
 
 		$article_type = isset( $dry_run['article_type'] ) && is_array( $dry_run['article_type'] ) ? $dry_run['article_type'] : array();
-		$allowed_category_ids = array_values( array_filter( array_map( 'absint', (array) ( $article_type['allowed_category_ids'] ?? array() ) ) ) );
+		$category_boundary = wpai_publisher_resolve_allowed_category_ids( $article_type );
+		if ( ! empty( $category_boundary['conflict'] ) ) {
+			$this->logger->warning( (string) $category_boundary['message'], array( 'source' => 'draft_creator', 'post_id' => $post_id ) );
+			return;
+		}
+		$allowed_category_ids = (array) $category_boundary['ids'];
 		$existing_category_ids = get_terms( array( 'taxonomy' => 'category', 'hide_empty' => false, 'fields' => 'ids' ) );
 		$existing_category_ids = is_wp_error( $existing_category_ids ) ? array() : array_map( 'absint', (array) $existing_category_ids );
 		$requested_ids = array_values( array_filter( array_map( 'absint', (array) ( $dry_run['category_ids'] ?? array() ) ) ) );
@@ -315,10 +320,7 @@ class Draft_Creator {
 		}
 
 		$category_ids = array_values( array_intersect( $requested_ids, $existing_category_ids ) );
-		if ( empty( $allowed_category_ids ) ) {
-			$this->logger->info( __( 'Nessuna categoria consentita configurata nella tipologia articolo.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'post_id' => $post_id ) );
-			$category_ids = array();
-		} else {
+		if ( ! empty( $category_boundary['has_restriction'] ) ) {
 			$category_ids = array_values( array_intersect( $category_ids, $allowed_category_ids ) );
 		}
 		if ( ! empty( $category_ids ) ) { wp_set_post_categories( $post_id, $category_ids, false ); }
