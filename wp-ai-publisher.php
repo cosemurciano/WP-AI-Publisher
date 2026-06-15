@@ -24,6 +24,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'WPAIP_VERSION', '0.5.5' );
+if ( ! defined( 'WPAIP_MIN_WP_VERSION' ) ) {
+	define( 'WPAIP_MIN_WP_VERSION', '7.0' );
+}
+if ( ! defined( 'WPAIP_MIN_PHP_VERSION' ) ) {
+	define( 'WPAIP_MIN_PHP_VERSION', '8.1' );
+}
 if ( ! defined( 'WPAIP_ENABLE_ARTICLE_TYPES' ) ) {
 	define( 'WPAIP_ENABLE_ARTICLE_TYPES', false );
 }
