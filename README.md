@@ -12,6 +12,10 @@ Migliorie aggiuntive di manutenzione 0.5.13:
 - **Migrazione DB più economica**: `dbDelta` viene eseguito solo quando cambia lo schema, non a ogni bump di versione; la versione plugin resta comunque sincronizzata per la diagnostica.
 - **Coda job più affidabile**: ogni esecuzione cron elabora un piccolo batch (filtro `wpai_publisher_jobs_per_run`, default 5) e si ripianifica finché restano job pendenti.
 - **Pulizia codice legacy**: rimossi la classe CPT `Article_Types`, la vista `article-type-meta-boxes.php`, la costante `WPAIP_ENABLE_ARTICLE_TYPES` e il metodo `render_article_types_unavailable()` non più utilizzati.
+- **Capability dedicata**: introdotta `manage_wp_ai_publisher`, filtrabile via `wpai_publisher_capability`, concessa agli amministratori in attivazione e upgrade. Consente di delegare il workflow editoriale ad altri ruoli senza concedere `manage_options`.
+- **Iniezione dipendenze**: `Article_Type_Repository` è creato una sola volta e iniettato in `Admin`; `Draft_Creator` usa un accessor condiviso in `Content_Ideas`.
+- **Disinstallazione opt-in**: nuova opzione “Elimina i dati alla disinstallazione” (default disattiva) e filtro `wpai_publisher_delete_data_on_uninstall`; il plugin conserva i dati salvo scelta esplicita.
+- **Tooling di qualità**: aggiunti `composer.json`, `phpcs.xml.dist`, test PHPUnit di base in `tests/` e workflow CI in `.github/workflows/ci.yml` (lint PHP su 8.1–8.3, unit test, phpcs informativo).
 
 WP AI Publisher è un plugin WordPress per preparare un workflow di pubblicazione assistita da AI usando il sistema AI di WordPress configurato sul sito.
 

@@ -103,6 +103,11 @@ $language_options = array(
 				</tr>
 
 				<tr>
+					<th scope="row"><?php echo esc_html__( 'Elimina i dati alla disinstallazione', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[delete_data_on_uninstall]" value="1" <?php checked( ! empty( $settings['delete_data_on_uninstall'] ) ); ?>> <?php echo esc_html__( 'Quando attivo, la disinstallazione del plugin elimina tabelle, impostazioni e capability dedicata. Lascia disattivo per conservare lo storico operativo.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+
+				<tr>
 					<th scope="row"><label for="wpai-daily-cost-limit"><?php echo esc_html__( 'Limite costo giornaliero', 'wp-ai-publisher' ); ?></label></th>
 					<td><input type="number" min="0" step="0.01" id="wpai-daily-cost-limit" name="wpai_publisher_settings[daily_cost_limit]" value="<?php echo esc_attr( $settings['daily_cost_limit'] ); ?>"> <span class="description"><?php echo esc_html__( 'Opzionale, sarà usato nelle prossime fasi.', 'wp-ai-publisher' ); ?></span></td>
 				</tr>

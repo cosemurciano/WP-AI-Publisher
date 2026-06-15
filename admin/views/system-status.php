@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-if ( ! current_user_can( 'manage_options' ) ) {
+if ( ! current_user_can( wpai_publisher_capability() ) ) {
 	wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 }
 

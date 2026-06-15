@@ -77,6 +77,10 @@ Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione atti
 * La migrazione database non riesegue più dbDelta a ogni nuova versione, ma solo quando cambia effettivamente lo schema.
 * La coda elabora un piccolo batch di job per esecuzione cron (filtrabile via wpai_publisher_jobs_per_run) e si ripianifica se restano job pendenti.
 * Rimosso codice legacy non utilizzato: classe CPT Tipologie articolo, relativa vista metabox, costante WPAIP_ENABLE_ARTICLE_TYPES e fallback admin inutilizzato.
+* Introdotta una capability dedicata e filtrabile (manage_wp_ai_publisher), concessa agli amministratori in attivazione e upgrade, così l’accesso al plugin può essere delegato senza concedere manage_options.
+* Centralizzata l’istanziazione di Article_Type_Repository (iniettato in Admin) e Draft_Creator (accessor condiviso in Content_Ideas).
+* Aggiunta l’opzione opt-in “Elimina i dati alla disinstallazione”: di default il plugin conserva tabelle, impostazioni e capability.
+* Aggiunto tooling di qualità: composer.json, ruleset phpcs, test PHPUnit di base e workflow GitHub Actions (lint PHP, unit test, phpcs informativo).
 
 = 0.5.7 =
 * Semplificata la pagina Impostazioni: il contesto globale non duplica più tono, tag e categorie delle Tipologie Articolo.

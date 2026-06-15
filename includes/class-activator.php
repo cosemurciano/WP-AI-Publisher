@@ -46,6 +46,10 @@ final class Activator {
 		$db->create_tables();
 		$db->set_schema_version( WPAIP_DB_SCHEMA_VERSION );
 
+		if ( function_exists( 'wpai_publisher_grant_capabilities' ) ) {
+			wpai_publisher_grant_capabilities();
+		}
+
 		update_option( 'wpai_publisher_version', WPAIP_VERSION, false );
 
 		if ( false === get_option( 'wpai_publisher_settings', false ) ) {

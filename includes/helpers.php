@@ -57,6 +57,7 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'allow_unverified_ai_abilities' => false,
 			'auto_create_draft_from_idea'   => true,
 			'workflow_mode'                 => 'simple',
+			'delete_data_on_uninstall'      => false,
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -101,6 +102,7 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['safe_ai_ability_names']         = sanitize_textarea_field( (string) ( $settings['safe_ai_ability_names'] ?? '' ) );
 		$settings['allow_unverified_ai_abilities'] = ! empty( $settings['allow_unverified_ai_abilities'] );
 		$settings['auto_create_draft_from_idea']   = ! empty( $settings['auto_create_draft_from_idea'] );
+		$settings['delete_data_on_uninstall']      = ! empty( $settings['delete_data_on_uninstall'] );
 		$settings['workflow_mode']                 = in_array( sanitize_key( (string) ( $settings['workflow_mode'] ?? 'simple' ) ), array( 'simple', 'advanced' ), true ) ? sanitize_key( (string) $settings['workflow_mode'] ) : 'simple';
 
 		$allowed = array_keys( $defaults );
@@ -358,6 +360,66 @@ if ( ! function_exists( 'wpai_publisher_get_settings' ) ) {
 	 */
 	function wpai_publisher_get_settings() {
 		return wpai_publisher_normalize_settings( wpai_publisher_get_raw_settings() );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_capability' ) ) {
+	/**
+	 * Return the capability required to manage WP AI Publisher.
+	 *
+	 * Defaults to a dedicated capability so administrators can delegate the
+	 * editorial workflow to other roles (e.g. editor) without granting full
+	 * `manage_options` access. Filterable for sites that prefer a core capability.
+	 *
+	 * @return string
+	 */
+	function wpai_publisher_capability() {
+		$capability = apply_filters( 'wpai_publisher_capability', 'manage_wp_ai_publisher' );
+
+		return is_string( $capability ) && '' !== $capability ? $capability : 'manage_wp_ai_publisher';
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_grant_capabilities' ) ) {
+	/**
+	 * Grant the plugin capability to administrators.
+	 *
+	 * Runs on activation and on upgrade so the dedicated capability never locks
+	 * out existing administrators. Other roles can be granted the capability via
+	 * the `wpai_publisher_capability` filter plus a role->add_cap() call.
+	 *
+	 * @return void
+	 */
+	function wpai_publisher_grant_capabilities() {
+		if ( ! function_exists( 'get_role' ) ) {
+			return;
+		}
+
+		$capability = wpai_publisher_capability();
+		$admin      = get_role( 'administrator' );
+		if ( $admin && ! $admin->has_cap( $capability ) ) {
+			$admin->add_cap( $capability );
+		}
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_remove_capabilities' ) ) {
+	/**
+	 * Remove the plugin capability from all roles. Used by opt-in uninstall cleanup.
+	 *
+	 * @return void
+	 */
+	function wpai_publisher_remove_capabilities() {
+		if ( ! function_exists( 'wp_roles' ) ) {
+			return;
+		}
+
+		$capability = wpai_publisher_capability();
+		foreach ( wp_roles()->role_objects as $role ) {
+			if ( is_object( $role ) && $role->has_cap( $capability ) ) {
+				$role->remove_cap( $capability );
+			}
+		}
 	}
 }
 

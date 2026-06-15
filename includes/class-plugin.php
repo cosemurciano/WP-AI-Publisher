@@ -73,6 +73,13 @@ final class Plugin {
 	private $ai_provider;
 
 	/**
+	 * Article type repository.
+	 *
+	 * @var Article_Type_Repository|null
+	 */
+	private $article_type_repository;
+
+	/**
 	 * Return singleton instance.
 	 *
 	 * @return Plugin
@@ -97,7 +104,8 @@ final class Plugin {
 		$this->job_queue     = new Job_Queue( $this->db );
 		$this->ai_provider   = new AI_Provider_Adapter();
 		$this->content_ideas = new Content_Ideas( $this->db, $this->ai_provider, $this->logger );
-		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas );
+		$this->article_type_repository = class_exists( __NAMESPACE__ . '\\Article_Type_Repository' ) ? new Article_Type_Repository() : null;
+		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas, $this->article_type_repository );
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 		add_action( 'admin_init', array( $this->settings, 'register' ) );
@@ -128,8 +136,13 @@ final class Plugin {
 		}
 
 		// Keep the stored plugin version in sync for diagnostics; this is a cheap
-		// option write and does not touch the schema.
+		// option write and does not touch the schema. On upgrade we also (re)grant
+		// the plugin capability so the dedicated capability never locks out
+		// administrators after a one-click update.
 		if ( $stored_version !== WPAIP_VERSION ) {
+			if ( function_exists( 'wpai_publisher_grant_capabilities' ) ) {
+				wpai_publisher_grant_capabilities();
+			}
 			update_option( 'wpai_publisher_version', WPAIP_VERSION, false );
 		}
 	}
@@ -150,9 +163,8 @@ final class Plugin {
 	 * @return void
 	 */
 	public function maybe_create_default_article_types() {
-		if ( wpai_publisher_article_types_enabled() && class_exists( __NAMESPACE__ . '\Article_Type_Repository' ) ) {
-			$repository = new Article_Type_Repository();
-			$repository->maybe_create_default_article_types();
+		if ( wpai_publisher_article_types_enabled() && $this->article_type_repository instanceof Article_Type_Repository ) {
+			$this->article_type_repository->maybe_create_default_article_types();
 		}
 	}
 
