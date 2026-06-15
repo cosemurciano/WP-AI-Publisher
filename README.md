@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.28**
+Versione corrente: **0.5.29**
+
+## Test e CI 0.5.29
+
+Aggiunti test unitari per `Classic_Content_Builder` (validazione pubblicabilità, normalizzazione HTML, placeholder), per i parametri AI e la decodifica immagini di `AI_Provider_Adapter`, e per la normalizzazione delle impostazioni. Il bootstrap di test (`tests/bootstrap.php`) è stato ampliato con stub WordPress; i test girano in CI tramite `composer test`.
 
 ## Snellimento workflow 0.5.28
 
