@@ -1199,7 +1199,29 @@ class AI_Provider_Adapter {
 			if ( ! method_exists( $request, 'generateText' ) ) {
 				return new WP_Error( 'wpai_php_ai_client_no_method', __( 'Il metodo generateText() non è disponibile nel PHP AI Client installato.', 'wp-ai-publisher' ) );
 			}
-			$text = $this->stringify_ai_result( $request->generateText() );
+
+			// AI text generation can take far longer than the 5s WordPress HTTP
+			// default; raise the timeout only for the duration of this request.
+			$timeout       = max( 15, (int) apply_filters( 'wpai_publisher_ai_http_timeout', 90 ) );
+			$raise_timeout = static function ( $value ) use ( $timeout ) {
+				return max( (float) $value, (float) $timeout );
+			};
+			$raise_args = static function ( $args ) use ( $timeout ) {
+				if ( is_array( $args ) ) {
+					$args['timeout'] = max( (float) ( $args['timeout'] ?? 0 ), (float) $timeout );
+				}
+				return $args;
+			};
+			add_filter( 'http_request_timeout', $raise_timeout, 9999 );
+			add_filter( 'http_request_args', $raise_args, 9999 );
+			try {
+				$generated = $request->generateText();
+			} finally {
+				remove_filter( 'http_request_timeout', $raise_timeout, 9999 );
+				remove_filter( 'http_request_args', $raise_args, 9999 );
+			}
+
+			$text = $this->stringify_ai_result( $generated );
 			if ( '' === trim( (string) $text ) ) {
 				return new WP_Error( 'wpai_php_ai_client_empty', __( 'Il PHP AI Client non ha restituito testo.', 'wp-ai-publisher' ) );
 			}
