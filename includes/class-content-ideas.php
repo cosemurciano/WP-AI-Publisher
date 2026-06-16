@@ -153,6 +153,40 @@ class Content_Ideas {
 	}
 
 	/**
+	 * Count all content ideas.
+	 *
+	 * @return int
+	 */
+	public function count_all() {
+		global $wpdb;
+		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->get_table_name()}" );
+	}
+
+	/**
+	 * Get a page of content ideas.
+	 *
+	 * @param int $page Page number (1-based).
+	 * @param int $per_page Items per page.
+	 * @return array<int,object>
+	 */
+	public function get_ideas_paginated( $page = 1, $per_page = 20 ) {
+		global $wpdb;
+		$per_page = min( 100, max( 1, absint( $per_page ) ) );
+		$page     = max( 1, absint( $page ) );
+		$offset   = ( $page - 1 ) * $per_page;
+		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) {
+			$this->db->ensure_content_ideas_article_type_column();
+		}
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$this->get_table_name()} ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d",
+				$per_page,
+				$offset
+			)
+		);
+	}
+
+	/**
 	 * Get recent content ideas.
 	 *
 	 * @param int $limit Maximum rows.

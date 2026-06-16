@@ -451,7 +451,12 @@ class Admin {
 		$active_article_types = $article_types_enabled ? wpai_publisher_get_active_article_types_safe() : array();
 		$article_types_url = admin_url( 'admin.php?page=wp-ai-publisher-article-types' );
 		$this->content_ideas->mark_stale_processing_ideas( 15 );
-		$ideas         = $content_ideas->get_recent_ideas( 20 );
+		$ideas_per_page = (int) apply_filters( 'wpai_publisher_ideas_per_page', 20 );
+		$ideas_per_page = min( 100, max( 5, $ideas_per_page ) );
+		$ideas_total    = $content_ideas->count_all();
+		$ideas_pages    = max( 1, (int) ceil( $ideas_total / $ideas_per_page ) );
+		$ideas_page     = min( $ideas_pages, max( 1, absint( $_GET['paged'] ?? 1 ) ) );
+		$ideas          = $content_ideas->get_ideas_paginated( $ideas_page, $ideas_per_page );
 		$selected_idea = null;
 		$dry_run_data  = array();
 		$notes_data    = array();
@@ -596,6 +601,44 @@ class Admin {
 		$status_counts = $job_queue->count_by_status();
 		$jobs          = $job_queue->get_recent_jobs( 20 );
 		include WPAIP_PLUGIN_DIR . 'admin/views/jobs.php';
+	}
+
+	/**
+	 * Register the WordPress dashboard widget.
+	 *
+	 * @return void
+	 */
+	public function register_dashboard_widget() {
+		if ( ! current_user_can( wpai_publisher_capability() ) || ! function_exists( 'wp_add_dashboard_widget' ) ) {
+			return;
+		}
+		wp_add_dashboard_widget(
+			'wpai_publisher_dashboard_widget',
+			esc_html__( 'WP AI Publisher — Idee contenuto', 'wp-ai-publisher' ),
+			array( $this, 'render_dashboard_widget' )
+		);
+	}
+
+	/**
+	 * Render the dashboard widget: status counts, recent ideas and quick links.
+	 *
+	 * @return void
+	 */
+	public function render_dashboard_widget() {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
+			return;
+		}
+		$counts        = $this->content_ideas->count_by_status();
+		$total         = $this->content_ideas->count_all();
+		$recent        = $this->content_ideas->get_recent_ideas( 5 );
+		$ideas_url     = admin_url( 'admin.php?page=wp-ai-publisher-content-ideas' );
+		$summary       = array(
+			'draft_created' => __( 'Bozze create', 'wp-ai-publisher' ),
+			'processing'    => __( 'In lavorazione', 'wp-ai-publisher' ),
+			'draft_failed'  => __( 'In errore', 'wp-ai-publisher' ),
+			'new'           => __( 'Nuove', 'wp-ai-publisher' ),
+		);
+		include WPAIP_PLUGIN_DIR . 'admin/views/dashboard-widget.php';
 	}
 
 	/**

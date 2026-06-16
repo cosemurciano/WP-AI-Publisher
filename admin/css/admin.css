@@ -120,3 +120,12 @@
 	font-size: 14px;
 	line-height: 1.7;
 }
+
+/* Ultime idee: tabella compatta e a tutta larghezza */
+.wpai-ideas-table { width: 100%; table-layout: auto; }
+.wpai-ideas-table td,
+.wpai-ideas-table th { padding-top: 6px; padding-bottom: 6px; vertical-align: top; }
+.wpai-ideas-table td .description { margin: 2px 0 0; font-size: 11px; line-height: 1.4; }
+.wpai-ideas-table form { margin: 0; }
+.wpai-ideas-table .row-actions { padding: 2px 0 0; }
+.wpai-ideas-table .wpai-badge { white-space: nowrap; }

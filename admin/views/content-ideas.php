@@ -148,10 +148,31 @@ $render_list = static function ( $items ) {
 	<h2><?php echo esc_html__( 'Ultime idee', 'wp-ai-publisher' ); ?></h2>
 	<?php if ( empty( $ideas ) ) : ?>
 		<div class="notice notice-info inline">
-			<p><?php echo esc_html__( 'Nessuna idea contenuto presente. Inserisci un argomento per iniziare un dry-run sicuro.', 'wp-ai-publisher' ); ?></p>
+			<p><?php echo esc_html__( 'Nessuna idea contenuto presente. Inserisci un argomento per crearne una.', 'wp-ai-publisher' ); ?></p>
 		</div>
 	<?php else : ?>
-		<table class="widefat striped wpai-status-table">
+		<?php
+		$ideas_total      = isset( $ideas_total ) ? (int) $ideas_total : count( $ideas );
+		$ideas_page       = isset( $ideas_page ) ? (int) $ideas_page : 1;
+		$ideas_pages      = isset( $ideas_pages ) ? (int) $ideas_pages : 1;
+		$ideas_page_base  = remove_query_arg( array( 'view_idea', '_wpnonce', 'wpai_notice', 'wpai_step', 'wpai_error', 'wpai_debug' ) );
+		$render_ideas_nav = static function () use ( $ideas_total, $ideas_page, $ideas_pages, $ideas_page_base ) {
+			if ( $ideas_pages < 2 ) { return; }
+			echo '<div class="tablenav"><div class="tablenav-pages">';
+			echo '<span class="displaying-num">' . esc_html( sprintf( _n( '%s idea', '%s idee', $ideas_total, 'wp-ai-publisher' ), number_format_i18n( $ideas_total ) ) ) . '</span> ';
+			echo wp_kses_post( paginate_links( array(
+				'base'      => add_query_arg( 'paged', '%#%', $ideas_page_base ),
+				'format'    => '',
+				'current'   => $ideas_page,
+				'total'     => $ideas_pages,
+				'prev_text' => '‹',
+				'next_text' => '›',
+			) ) );
+			echo '</div></div>';
+		};
+		$render_ideas_nav();
+		?>
+		<table class="widefat striped wpai-status-table wpai-ideas-table">
 			<thead>
 				<tr>
 					<th scope="col"><?php echo esc_html__( 'ID', 'wp-ai-publisher' ); ?></th>
@@ -286,6 +307,7 @@ $render_list = static function ( $items ) {
 				<?php endforeach; ?>
 			</tbody>
 		</table>
+		<?php $render_ideas_nav(); ?>
 	<?php endif; ?>
 
 	<?php if ( $selected_idea && ! empty( $dry_run_data ) ) : ?>

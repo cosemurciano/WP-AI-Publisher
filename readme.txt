@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.30
+Stable tag: 0.5.31
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,10 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.31 =
+* Dashboard WordPress: nuovo widget "WP AI Publisher — Idee contenuto" con contatori per stato, ultime idee con link e collegamento rapido alla pagina Idee.
+* Elenco "Ultime idee": tabella a tutta larghezza e più compatta, con paginazione quando le idee sono molte (filtro wpai_publisher_ideas_per_page, default 20).
 
 = 0.5.30 =
 * Escissione profonda dell'adapter AI: rimosso il vecchio motore dry-run/strutturato e il probing speculativo non più usato (generazione locale di fallback, registry e client ipotetici, validazione strutturata). L'adapter passa da ~3380 a ~1890 righe.

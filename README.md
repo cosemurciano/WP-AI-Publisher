@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.30**
+Versione corrente: **0.5.31**
+
+## Dashboard widget + elenco idee paginato 0.5.31
+
+Aggiunto un **widget nella dashboard WordPress** ("WP AI Publisher — Idee contenuto") con contatori per stato, ultime idee con link e accesso rapido. L'**elenco "Ultime idee"** è ora a tutta larghezza, con righe più compatte e **paginazione** (filtro `wpai_publisher_ideas_per_page`, default 20).
 
 ## Escissione profonda adapter 0.5.30
 
