@@ -65,6 +65,7 @@ class Telegram_Integration {
 		add_action( self::CRON_HOOK, array( $this, 'process_idea_async' ), 10, 2 );
 		add_action( 'admin_post_wpai_publisher_telegram_set_webhook', array( $this, 'handle_set_webhook' ) );
 		add_action( 'admin_post_wpai_publisher_telegram_webhook_info', array( $this, 'handle_webhook_info' ) );
+		add_action( 'admin_post_wpai_publisher_telegram_send_help', array( $this, 'handle_send_help' ) );
 	}
 
 	/**
@@ -187,6 +188,62 @@ class Telegram_Integration {
 		);
 		wp_safe_redirect( add_query_arg( 'wpai_notice', 'telegram_webhook', admin_url( 'admin.php?page=wp-ai-publisher-settings' ) ) );
 		exit;
+	}
+
+	/**
+	 * Admin action: send the usage instructions to the allowed Telegram chats.
+	 *
+	 * @return void
+	 */
+	public function handle_send_help() {
+		$this->guard_admin_action( 'wpai_publisher_telegram_send_help' );
+
+		if ( '' === wpai_publisher_get_telegram_bot_token() ) {
+			$this->finish_admin_action( __( 'Token bot non configurato (costante WPAIP_TELEGRAM_BOT_TOKEN).', 'wp-ai-publisher' ), false );
+		}
+		$chat_ids = wpai_publisher_get_telegram_allowed_chat_ids();
+		if ( empty( $chat_ids ) ) {
+			$this->finish_admin_action( __( 'Aggiungi almeno una Chat ID autorizzata per inviare le istruzioni.', 'wp-ai-publisher' ), false );
+		}
+
+		$text = $this->get_help_message();
+		$sent = 0;
+		foreach ( $chat_ids as $chat_id ) {
+			if ( $this->send_message( $chat_id, $text ) ) {
+				$sent++;
+			}
+		}
+
+		if ( $sent > 0 ) {
+			$this->finish_admin_action( sprintf( _n( 'Istruzioni inviate a %d chat.', 'Istruzioni inviate a %d chat.', $sent, 'wp-ai-publisher' ), $sent ), true );
+		}
+		$this->finish_admin_action( __( 'Invio delle istruzioni non riuscito. Controlla token, Chat ID e connettività verso api.telegram.org.', 'wp-ai-publisher' ), false );
+	}
+
+	/**
+	 * Build the usage instructions message sent to Telegram.
+	 *
+	 * @return string
+	 */
+	private function get_help_message() {
+		$lines = array(
+			__( '🤖 WP AI Publisher — come creare una bozza', 'wp-ai-publisher' ),
+			'',
+			__( 'Scrivi qui un messaggio con l’argomento dell’articolo che vuoi creare.', 'wp-ai-publisher' ),
+			__( 'Esempio: “Guida alla scelta del nome a dominio per un blog WordPress”.', 'wp-ai-publisher' ),
+			'',
+			__( 'Cosa succede:', 'wp-ai-publisher' ),
+			__( '1) Ricevi subito la conferma “Idea ricevuta”.', 'wp-ai-publisher' ),
+			__( '2) Genero l’articolo e la bozza in background.', 'wp-ai-publisher' ),
+			__( '3) Ti rispondo con il titolo e il link alla bozza.', 'wp-ai-publisher' ),
+			'',
+			__( 'Consigli:', 'wp-ai-publisher' ),
+			__( '• Usa argomenti chiari e specifici per risultati migliori.', 'wp-ai-publisher' ),
+			__( '• Un messaggio = una bozza.', 'wp-ai-publisher' ),
+			__( '• I messaggi che iniziano con “/” vengono ignorati.', 'wp-ai-publisher' ),
+			__( '• Tipologia articolo e lingua sono quelle impostate nel plugin.', 'wp-ai-publisher' ),
+		);
+		return implode( "\n", $lines );
 	}
 
 	/**
@@ -342,9 +399,20 @@ class Telegram_Integration {
 		if ( empty( $settings['telegram_reply_enabled'] ) ) {
 			return;
 		}
+		$this->send_message( $chat_id, $text );
+	}
+
+	/**
+	 * Send a message to a Telegram chat.
+	 *
+	 * @param string $chat_id Chat ID.
+	 * @param string $text Message text.
+	 * @return bool True when Telegram accepted the message.
+	 */
+	private function send_message( $chat_id, $text ) {
 		$token = wpai_publisher_get_telegram_bot_token();
 		if ( '' === $token || '' === (string) $chat_id || '' === trim( (string) $text ) ) {
-			return;
+			return false;
 		}
 
 		$response = wp_remote_post(
@@ -360,7 +428,10 @@ class Telegram_Integration {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			$this->logger->warning( __( 'Invio risposta Telegram non riuscito.', 'wp-ai-publisher' ), array( 'source' => 'telegram', 'event' => 'reply_failed', 'chat_id' => (string) $chat_id, 'message' => $response->get_error_message() ) );
+			$this->logger->warning( __( 'Invio messaggio Telegram non riuscito.', 'wp-ai-publisher' ), array( 'source' => 'telegram', 'event' => 'send_failed', 'chat_id' => (string) $chat_id, 'message' => $response->get_error_message() ) );
+			return false;
 		}
+		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		return is_array( $body ) && ! empty( $body['ok'] );
 	}
 }

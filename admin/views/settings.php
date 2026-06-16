@@ -175,6 +175,28 @@ $language_options = array(
 		<h2><?php echo esc_html__( 'Telegram', 'wp-ai-publisher' ); ?></h2>
 		<p><?php echo esc_html__( 'Invia un messaggio al bot Telegram per creare automaticamente un’idea contenuto e generare la bozza. La generazione avviene in background e ricevi una risposta con il link alla bozza.', 'wp-ai-publisher' ); ?></p>
 
+		<details class="wpai-telegram-help" style="margin:8px 0 16px; padding:12px 16px; background:#fff; border:1px solid #dcdcde; border-radius:4px;">
+			<summary style="cursor:pointer; font-weight:600;"><?php echo esc_html__( 'Come configurare e usare l’integrazione Telegram', 'wp-ai-publisher' ); ?></summary>
+			<div style="margin-top:10px;">
+				<p><strong><?php echo esc_html__( 'Configurazione (una sola volta):', 'wp-ai-publisher' ); ?></strong></p>
+				<ol style="margin-left:18px;">
+					<li><?php echo wp_kses( __( 'Crea un bot con <strong>@BotFather</strong> su Telegram e copia il <em>token</em>.', 'wp-ai-publisher' ), array( 'strong' => array(), 'em' => array() ) ); ?></li>
+					<li><?php echo wp_kses( __( 'In <code>wp-config.php</code> aggiungi:<br><code>define( \'WPAIP_TELEGRAM_BOT_TOKEN\', \'123456:ABC...\' );</code><br><code>define( \'WPAIP_TELEGRAM_SECRET\', \'una-stringa-casuale-lunga\' );</code>', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array() ) ); ?></li>
+					<li><?php echo esc_html__( 'Scopri la tua Chat ID: scrivi al bot @userinfobot (ti risponde con il tuo ID), oppure invia un messaggio al tuo bot e leggi la Chat ID nei log (Stato sistema → eventi “telegram”).', 'wp-ai-publisher' ); ?></li>
+					<li><?php echo esc_html__( 'Qui sotto: spunta “Abilita Telegram”, incolla la/le Chat ID autorizzate, scegli la Tipologia articolo e la lingua, poi salva le impostazioni.', 'wp-ai-publisher' ); ?></li>
+					<li><?php echo esc_html__( 'Clicca “Registra webhook”, poi “Verifica stato webhook” per conferma.', 'wp-ai-publisher' ); ?></li>
+				</ol>
+				<p><strong><?php echo esc_html__( 'Uso quotidiano:', 'wp-ai-publisher' ); ?></strong></p>
+				<ul style="margin-left:18px; list-style:disc;">
+					<li><?php echo esc_html__( 'Scrivi al bot un messaggio con l’argomento dell’articolo (es. “Guida alla scelta del nome a dominio per un blog WordPress”).', 'wp-ai-publisher' ); ?></li>
+					<li><?php echo esc_html__( 'Ricevi subito la conferma “Idea ricevuta”; a generazione completata il bot risponde con titolo e link alla bozza.', 'wp-ai-publisher' ); ?></li>
+					<li><?php echo esc_html__( 'Un messaggio = una bozza. I messaggi che iniziano con “/” vengono ignorati. Tipologia e lingua sono quelle impostate qui.', 'wp-ai-publisher' ); ?></li>
+					<li><?php echo esc_html__( 'Il pulsante “Invia istruzioni su Telegram” recapita queste istruzioni d’uso alle Chat ID autorizzate.', 'wp-ai-publisher' ); ?></li>
+				</ul>
+				<p class="description"><?php echo esc_html__( 'Requisiti: il sito deve essere raggiungibile pubblicamente (per ricevere il webhook), l’hosting deve consentire HTTPS in uscita verso api.telegram.org e WP-Cron deve essere attivo (la bozza è generata in background).', 'wp-ai-publisher' ); ?></p>
+			</div>
+		</details>
+
 		<?php
 		$wpai_tg_token_present  = '' !== wpai_publisher_get_telegram_bot_token();
 		$wpai_tg_secret_present = '' !== wpai_publisher_get_telegram_secret_token();
@@ -232,10 +254,12 @@ $language_options = array(
 						<?php
 						$wpai_tg_set_url  = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_telegram_set_webhook' ), 'wpai_publisher_telegram_set_webhook' );
 						$wpai_tg_info_url = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_telegram_webhook_info' ), 'wpai_publisher_telegram_webhook_info' );
+						$wpai_tg_help_url = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_telegram_send_help' ), 'wpai_publisher_telegram_send_help' );
 						?>
 						<p style="margin-top:8px;">
 							<a href="<?php echo esc_url( $wpai_tg_set_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Registra webhook', 'wp-ai-publisher' ); ?></a>
 							<a href="<?php echo esc_url( $wpai_tg_info_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Verifica stato webhook', 'wp-ai-publisher' ); ?></a>
+							<a href="<?php echo esc_url( $wpai_tg_help_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Invia istruzioni su Telegram', 'wp-ai-publisher' ); ?></a>
 						</p>
 						<p class="description"><?php echo esc_html__( 'I pulsanti usano il token e il secret configurati nelle costanti, senza terminale. Registra il webhook dopo aver salvato le impostazioni e definito le costanti.', 'wp-ai-publisher' ); ?></p>
 					</td>
