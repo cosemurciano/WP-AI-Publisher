@@ -499,18 +499,23 @@ class Content_Ideas {
 		}
 		$this->logger->info( __( 'Articolo generato dall’AI.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => $idea_id, 'event' => 'article_generated', 'channel' => (string) ( $article['channel'] ?? 'unknown' ), 'ai_source' => (string) ( $article['source'] ?? '' ), 'quality_notes' => count( (array) ( $article['validation_notes'] ?? array() ) ) ) );
 
-		$title  = wp_trim_words( wp_strip_all_tags( (string) $idea->topic ), 14, '' );
+		// Prefer the AI-generated title/slug; fall back to the idea topic only
+		// when the AI did not provide a usable title.
+		$ai_title = sanitize_text_field( (string) ( $article['title'] ?? '' ) );
+		$title    = '' !== $ai_title ? $ai_title : wp_trim_words( wp_strip_all_tags( (string) $idea->topic ), 14, '' );
+		$slug     = sanitize_title( (string) ( $article['slug'] ?? '' ) );
 		$output = array(
-			'title'            => $title,
-			'slug'             => '',
-			'excerpt'          => (string) ( $article['plain_text_summary'] ?? '' ),
-			'content_outline'  => array(),
-			'category_ids'     => array_values( array_filter( array_map( 'absint', (array) ( $article['category_ids'] ?? array() ) ) ) ),
-			'categories'       => array(),
-			'tags'             => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $article['tags'] ?? array() ) ) ) ),
-			'meta_title'       => sanitize_text_field( (string) ( $article['meta_title'] ?? '' ) ),
-			'meta_description' => sanitize_text_field( (string) ( $article['meta_description'] ?? '' ) ),
-			'article_type'     => $article_type,
+			'title'              => $title,
+			'slug'               => $slug,
+			'excerpt'            => (string) ( $article['plain_text_summary'] ?? '' ),
+			'content_outline'    => array(),
+			'category_ids'       => array_values( array_filter( array_map( 'absint', (array) ( $article['category_ids'] ?? array() ) ) ) ),
+			'categories'         => array(),
+			'tags'               => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $article['tags'] ?? array() ) ) ) ),
+			'meta_title'         => sanitize_text_field( (string) ( $article['meta_title'] ?? '' ) ),
+			'meta_description'   => sanitize_text_field( (string) ( $article['meta_description'] ?? '' ) ),
+			'featured_image_alt' => sanitize_text_field( (string) ( $article['featured_image_alt'] ?? '' ) ),
+			'article_type'       => $article_type,
 			'full_article'     => array(
 				'html'             => (string) ( $article['html'] ?? '' ),
 				'source'           => (string) ( $article['source'] ?? 'wordpress_ai' ),
@@ -539,7 +544,7 @@ class Content_Ideas {
 
 		$this->logger->info( __( 'Bozza creata da idea + tipologia.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'draft_created', 'step' => 'draft_created', 'post_id' => absint( $post_id ) ) );
 		$this->maybe_generate_inline_images( absint( $post_id ), $idea_id, $article_type );
-		$this->maybe_generate_featured_image( absint( $post_id ), $idea_id, $article_type );
+		$this->maybe_generate_featured_image( absint( $post_id ), $idea_id, $article_type, $output['featured_image_alt'] );
 		return array( 'success' => true, 'idea_id' => $idea_id, 'post_id' => absint( $post_id ), 'status' => 'draft_created', 'message' => __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) );
 	}
 
@@ -570,6 +575,11 @@ class Content_Ideas {
 		}
 		$content = (string) $post->post_content;
 
+		// Accept both our marker syntax and any <img>/<figure> the AI emitted on
+		// its own (e.g. when the article-type prompt asks for figure markup):
+		// normalize everything to the [[wpai-image: ...]] marker first.
+		$content = $this->convert_ai_image_markup_to_markers( $content );
+
 		// Marker syntax: [[wpai-image: descrizione della scena]] (descrizione opzionale).
 		$pattern = '/\[\[\s*wpai-image\s*:?\s*(.*?)\s*\]\]/is';
 		if ( ! preg_match( $pattern, $content ) ) {
@@ -584,7 +594,7 @@ class Content_Ideas {
 		// unavailable) strip every marker so no placeholder survives.
 		if ( ! $enabled || $max <= 0 || ! method_exists( $this->ai_provider, 'generate_image' ) ) {
 			$cleaned = (string) preg_replace( $pattern, '', $content );
-			if ( $cleaned !== $content ) {
+			if ( $cleaned !== (string) $post->post_content ) {
 				wp_update_post( array( 'ID' => $post_id, 'post_content' => $cleaned ) );
 			}
 			return;
@@ -616,37 +626,108 @@ class Content_Ideas {
 					$this->logger->warning( __( 'Immagine nel corpo non generata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'inline_image_failed', 'error_code' => $image->get_error_code(), 'message' => $image->get_error_message() ) );
 					return '';
 				}
-				$attachment_id = $this->import_image_attachment( $post_id, $image, absint( $idea_id ), $title );
+				// The marker description is the image's own title/alt: it drives
+				// the file name and media title (not the article title).
+				$image_title = '' !== $description ? $description : $title;
+				$attachment_id = $this->import_image_attachment( $post_id, $image, absint( $idea_id ), $image_title, $image_title );
 				if ( $attachment_id <= 0 ) {
 					return '';
 				}
-				$src = wp_get_attachment_image_url( $attachment_id, 'large' );
+				$src = wp_get_attachment_image_url( $attachment_id, 'full' );
 				if ( ! $src ) {
 					$src = wp_get_attachment_url( $attachment_id );
 				}
 				if ( ! $src ) {
 					return '';
 				}
-				$alt = '' !== $description ? $description : $title;
-				update_post_meta( $attachment_id, '_wp_attachment_image_alt', sanitize_text_field( $alt ) );
 				$placed++;
-				return wp_get_attachment_image(
-					$attachment_id,
-					'large',
-					false,
-					array( 'alt' => esc_attr( $alt ), 'class' => 'wpai-inline-image', 'loading' => 'lazy' )
-				);
+				return $this->build_inline_figure_markup( (string) $src, $image_title );
 			},
 			$content
 		);
 
-		if ( null === $result || $result === $content ) {
+		if ( null === $result ) {
 			// Defensive: ensure no leftover markers remain even if callback failed.
 			$result = (string) preg_replace( $pattern, '', $content );
 		}
 
-		wp_update_post( array( 'ID' => $post_id, 'post_content' => $result ) );
+		if ( $result !== (string) $post->post_content ) {
+			wp_update_post( array( 'ID' => $post_id, 'post_content' => $result ) );
+		}
 		$this->logger->info( __( 'Immagini nel corpo inserite.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'inline_images_done', 'placed' => $placed, 'detected' => $count ) );
+	}
+
+	/**
+	 * Normalize AI-emitted image markup (<figure>/<img>) into image markers.
+	 *
+	 * Lets a custom article-type prompt that asks for <figure>/<img> markup work
+	 * with the marker pipeline: the alt text (or figcaption) becomes the image
+	 * briefing. Existing [[wpai-image: ...]] markers are left untouched.
+	 *
+	 * @param string $html Article HTML.
+	 * @return string
+	 */
+	private function convert_ai_image_markup_to_markers( $html ) {
+		$html = (string) $html;
+
+		// <figure>…<img …>…[<figcaption>…</figcaption>]…</figure> → marker.
+		$html = (string) preg_replace_callback(
+			'/<figure\b[^>]*>(.*?)<\/figure>/is',
+			function ( $m ) {
+				$inner   = (string) ( $m[1] ?? '' );
+				$alt     = $this->extract_attr_from_tag( $inner, 'alt' );
+				$caption = '';
+				if ( preg_match( '/<figcaption\b[^>]*>(.*?)<\/figcaption>/is', $inner, $cap ) ) {
+					$caption = trim( wp_strip_all_tags( (string) $cap[1] ) );
+				}
+				$desc = '' !== $alt ? $alt : $caption;
+				return '[[wpai-image: ' . sanitize_text_field( $desc ) . ']]';
+			},
+			$html
+		);
+
+		// Any remaining bare <img …> → marker (use alt as the briefing).
+		$html = (string) preg_replace_callback(
+			'/<img\b[^>]*>/is',
+			function ( $m ) {
+				$alt = $this->extract_attr_from_tag( (string) $m[0], 'alt' );
+				return '[[wpai-image: ' . sanitize_text_field( $alt ) . ']]';
+			},
+			$html
+		);
+
+		return $html;
+	}
+
+	/**
+	 * Extract an HTML attribute value from a tag/markup fragment.
+	 *
+	 * @param string $tag Markup fragment.
+	 * @param string $attr Attribute name.
+	 * @return string
+	 */
+	private function extract_attr_from_tag( $tag, $attr ) {
+		$attr = preg_quote( (string) $attr, '/' );
+		if ( preg_match( '/\b' . $attr . '\s*=\s*("|\')(.*?)\1/is', (string) $tag, $m ) ) {
+			return trim( (string) $m[2] );
+		}
+		return '';
+	}
+
+	/**
+	 * Build the <figure> markup for an inserted inline image.
+	 *
+	 * @param string $src Image URL.
+	 * @param string $alt Alt text.
+	 * @return string
+	 */
+	private function build_inline_figure_markup( $src, $alt ) {
+		$alt = sanitize_text_field( (string) $alt );
+		return sprintf(
+			'<figure class="aligncenter"><img class="aligncenter" src="%1$s" alt="%2$s" loading="lazy" /></figure>',
+			esc_url( $src ),
+			esc_attr( $alt )
+		);
 	}
 
 	/**
@@ -660,7 +741,7 @@ class Content_Ideas {
 	 * @param array<string,mixed> $article_type Article type config.
 	 * @return void
 	 */
-	private function maybe_generate_featured_image( $post_id, $idea_id, $article_type ) {
+	private function maybe_generate_featured_image( $post_id, $idea_id, $article_type, $featured_alt = '' ) {
 		$post_id = absint( $post_id );
 		if ( $post_id <= 0 || ! function_exists( 'set_post_thumbnail' ) ) {
 			return;
@@ -684,6 +765,13 @@ class Content_Ideas {
 			$image_prompt .= "\n" . sprintf( __( 'Argomento dell’articolo: %s.', 'wp-ai-publisher' ), $title );
 		}
 
+		// The image's own descriptive title/alt drives its file name and media
+		// title; fall back to the article title only when the AI gave none.
+		$image_title = trim( (string) $featured_alt );
+		if ( '' === $image_title ) {
+			$image_title = $title;
+		}
+
 		$this->logger->info( __( 'Generazione immagine in evidenza avviata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'featured_image_started' ) );
 		$image = $this->ai_provider->generate_image( $image_prompt );
 		if ( is_wp_error( $image ) ) {
@@ -691,7 +779,7 @@ class Content_Ideas {
 			return;
 		}
 
-		$attachment_id = $this->import_featured_image( $post_id, $image, absint( $idea_id ), $title );
+		$attachment_id = $this->import_featured_image( $post_id, $image, absint( $idea_id ), $image_title );
 		if ( $attachment_id > 0 ) {
 			$this->logger->info( __( 'Immagine in evidenza impostata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'featured_image_set', 'attachment_id' => $attachment_id ) );
 		}
@@ -703,11 +791,11 @@ class Content_Ideas {
 	 * @param int                          $post_id Post ID.
 	 * @param array{bytes:string,mime:string} $image Image data.
 	 * @param int                          $idea_id Idea ID.
-	 * @param string                       $title Post title for attachment.
+	 * @param string                       $image_title Descriptive title for the image.
 	 * @return int Attachment ID or 0 on failure.
 	 */
-	private function import_featured_image( $post_id, $image, $idea_id, $title ) {
-		$attach_id = $this->import_image_attachment( $post_id, $image, $idea_id, $title );
+	private function import_featured_image( $post_id, $image, $idea_id, $image_title ) {
+		$attach_id = $this->import_image_attachment( $post_id, $image, $idea_id, $image_title );
 		if ( $attach_id > 0 ) {
 			set_post_thumbnail( $post_id, $attach_id );
 		}
@@ -717,13 +805,17 @@ class Content_Ideas {
 	/**
 	 * Import image bytes into the media library, attached to a post.
 	 *
+	 * The file name and the attachment title are derived from the image's own
+	 * descriptive title (alt/briefing), not from the article title.
+	 *
 	 * @param int                             $post_id Post ID.
 	 * @param array{bytes:string,mime:string} $image Image data.
 	 * @param int                             $idea_id Idea ID.
-	 * @param string                          $title Attachment title.
+	 * @param string                          $image_title Descriptive title for this image.
+	 * @param string                          $alt Alt text (defaults to the image title).
 	 * @return int Attachment ID or 0 on failure.
 	 */
-	private function import_image_attachment( $post_id, $image, $idea_id, $title ) {
+	private function import_image_attachment( $post_id, $image, $idea_id, $image_title, $alt = '' ) {
 		if ( empty( $image['bytes'] ) ) {
 			return 0;
 		}
@@ -731,9 +823,22 @@ class Content_Ideas {
 			require_once ABSPATH . 'wp-admin/includes/file.php';
 		}
 
-		$mime     = (string) ( $image['mime'] ?? 'image/png' );
-		$ext      = $this->mime_to_extension( $mime );
-		$filename = 'wpai-' . absint( $idea_id ) . '-' . time() . '-' . wp_rand( 100, 999 ) . '.' . $ext;
+		$image_title = trim( (string) $image_title );
+		$alt         = trim( (string) $alt );
+		if ( '' === $alt ) {
+			$alt = $image_title;
+		}
+
+		$mime = (string) ( $image['mime'] ?? 'image/png' );
+		$ext  = $this->mime_to_extension( $mime );
+
+		// File name from the image title (slug), so it reflects the image itself.
+		$slug = sanitize_title( $image_title );
+		if ( '' === $slug ) {
+			$slug = 'immagine-' . absint( $idea_id );
+		}
+		$slug     = substr( $slug, 0, 80 );
+		$filename = $slug . '-' . wp_rand( 1000, 9999 ) . '.' . $ext;
 		$upload   = wp_upload_bits( $filename, null, (string) $image['bytes'] );
 		if ( ! is_array( $upload ) || ! empty( $upload['error'] ) || empty( $upload['file'] ) ) {
 			$this->logger->warning( __( 'Upload immagine non riuscito.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'post_id' => absint( $post_id ), 'error' => is_array( $upload ) ? (string) ( $upload['error'] ?? '' ) : 'unknown' ) );
@@ -743,8 +848,9 @@ class Content_Ideas {
 		$filetype   = wp_check_filetype( $upload['file'], null );
 		$attachment = array(
 			'post_mime_type' => ! empty( $filetype['type'] ) ? $filetype['type'] : $mime,
-			'post_title'     => '' !== $title ? $title : __( 'Immagine articolo', 'wp-ai-publisher' ),
+			'post_title'     => '' !== $image_title ? $image_title : __( 'Immagine articolo', 'wp-ai-publisher' ),
 			'post_content'   => '',
+			'post_excerpt'   => $alt,
 			'post_status'    => 'inherit',
 		);
 		$attach_id = wp_insert_attachment( $attachment, $upload['file'], $post_id, true );
@@ -757,6 +863,9 @@ class Content_Ideas {
 		$metadata = wp_generate_attachment_metadata( $attach_id, $upload['file'] );
 		if ( is_array( $metadata ) ) {
 			wp_update_attachment_metadata( $attach_id, $metadata );
+		}
+		if ( '' !== $alt ) {
+			update_post_meta( (int) $attach_id, '_wp_attachment_image_alt', sanitize_text_field( $alt ) );
 		}
 		return (int) $attach_id;
 	}

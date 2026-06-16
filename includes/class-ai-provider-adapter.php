@@ -1616,7 +1616,7 @@ class AI_Provider_Adapter {
 		if ( ! empty( $settings['generate_inline_images'] ) && (int) ( $settings['max_inline_images'] ?? 0 ) > 0 ) {
 			$max_images = max( 0, min( 10, (int) $settings['max_inline_images'] ) );
 			$image_line = sprintf(
-				"\nDove un'immagine aiuta davvero la comprensione, inserisci nel campo html un segnaposto su una riga a sé (tipicamente tra due paragrafi) nel formato esatto [[wpai-image: descrizione visiva dettagliata della scena]]. Usa al massimo %d segnaposto, descrizioni concrete e pertinenti al testo vicino; non inserire tag <img> né URL di immagini, ci pensa il sistema a generarle e inserirle.",
+				"\nIMMAGINI NEL CORPO: dove un'immagine aiuta davvero la comprensione, inserisci nel campo html un segnaposto su una riga a sé (tra due paragrafi) nel formato ESATTO [[wpai-image: descrizione visiva dettagliata del soggetto da generare]]. Usa al massimo %d segnaposto, con descrizioni concrete e coerenti col testo vicino. NON inserire tag <img>, <figure> o URL di immagini: il sistema genera le immagini reali e le inserisce al posto dei segnaposto con il markup corretto (figure, img class=\"aligncenter\", figcaption).",
 				$max_images
 			);
 		}
@@ -1624,10 +1624,13 @@ class AI_Provider_Adapter {
 		return sprintf(
 			"Scrivi un articolo completo, originale e pubblicabile per il lettore (non una scaletta), pronto per una bozza WordPress in Editor Classico.\n" .
 			"Restituisci SOLO un oggetto JSON valido (nessun testo fuori dal JSON, nessun markdown) con questi campi:\n" .
-			"- \"html\": l'articolo in HTML pulito Classic Editor. Usa solo i tag consentiti: p, h2, h3, ul, ol, li, strong, em, blockquote, code, pre, br, a. Niente blocchi Gutenberg, script, iframe, style inline, shortcode. Almeno tre sezioni H2 con contenuto sostanziale. Non includere nel corpo prompt, tono, regole editoriali o note interne.\n" .
+			"- \"title\": il titolo dell'articolo, riscritto in forma chiara e naturale, SEO-oriented, con la keyword principale nelle prime posizioni (~50-60 caratteri, niente clickbait). NON usare l'argomento grezzo dell'idea così com'è.\n" .
+			"- \"slug\": permalink breve e parlante, minuscolo, parole separate da trattini, con la keyword principale e senza stop word superflue.\n" .
+			"- \"html\": l'articolo in HTML pulito Classic Editor. Usa solo i tag consentiti: p, h2, h3, h4, ul, ol, li, strong, em, blockquote, code, pre, br, a. Niente blocchi Gutenberg, script, iframe, style inline, shortcode. Non usare H1. Almeno tre sezioni H2 con contenuto sostanziale. Non includere nel corpo prompt, tono, regole editoriali o note interne.\n" .
 			"- \"tags\": array di stringhe. Riusa i tag esistenti pertinenti (campo existing_tags) e aggiungine di nuovi solo se utili.\n" .
 			"- \"category_ids\": array di ID interi scelti ESCLUSIVAMENTE tra le categorie fornite (campo categories). Scegli 1-2 categorie coerenti.\n" .
 			"- \"meta_title\": titolo SEO (max ~60 caratteri). \"meta_description\": descrizione SEO (max ~160 caratteri).\n" .
+			"- \"featured_image_alt\": breve testo alternativo descrittivo per l'immagine di copertina (cosa rappresenta), utile a SEO e accessibilità, senza keyword stuffing.\n" .
 			"Inserisci nel campo html alcuni link interni pertinenti usando ESCLUSIVAMENTE gli URL reali forniti in internal_links (tag <a href>), dove hanno senso nel testo; non inventare URL. Non inventare dati tecnici, prezzi, normative o date non verificabili. Usa il Contesto editoriale del sito come quadro generale e la Tipologia articolo come istruzione principale.%1\$s%6\$s\n" .
 			"Lingua dell'articolo: %2\$s.\nArgomento principale: %3\$s.\nKeyword principale: %4\$s.\nVincoli, dati del sito e istruzioni:\n%5\$s",
 			$sections_line,
@@ -1766,10 +1769,13 @@ class AI_Provider_Adapter {
 		if ( is_wp_error( $candidate ) ) {
 			return $candidate;
 		}
-		$candidate['tags']             = $structured['tags'];
-		$candidate['category_ids']     = $structured['category_ids'];
-		$candidate['meta_title']       = $structured['meta_title'];
-		$candidate['meta_description'] = $structured['meta_description'];
+		$candidate['title']              = $structured['title'];
+		$candidate['slug']               = $structured['slug'];
+		$candidate['tags']               = $structured['tags'];
+		$candidate['category_ids']       = $structured['category_ids'];
+		$candidate['meta_title']         = $structured['meta_title'];
+		$candidate['meta_description']   = $structured['meta_description'];
+		$candidate['featured_image_alt'] = $structured['featured_image_alt'];
 		return $candidate;
 	}
 
@@ -1795,11 +1801,14 @@ class AI_Provider_Adapter {
 		}
 
 		return array(
-			'html'             => (string) ( $data['html'] ?? $data['content'] ?? $data['post_content'] ?? '' ),
-			'tags'             => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $data['tags'] ?? array() ) ) ) ),
-			'category_ids'     => array_values( array_filter( array_map( 'absint', (array) ( $data['category_ids'] ?? array() ) ) ) ),
-			'meta_title'       => sanitize_text_field( (string) ( $data['meta_title'] ?? '' ) ),
-			'meta_description' => sanitize_text_field( (string) ( $data['meta_description'] ?? '' ) ),
+			'html'                => (string) ( $data['html'] ?? $data['content'] ?? $data['post_content'] ?? '' ),
+			'title'               => sanitize_text_field( (string) ( $data['title'] ?? '' ) ),
+			'slug'                => sanitize_title( (string) ( $data['slug'] ?? $data['permalink'] ?? '' ) ),
+			'tags'                => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $data['tags'] ?? array() ) ) ) ),
+			'category_ids'        => array_values( array_filter( array_map( 'absint', (array) ( $data['category_ids'] ?? array() ) ) ) ),
+			'meta_title'          => sanitize_text_field( (string) ( $data['meta_title'] ?? '' ) ),
+			'meta_description'    => sanitize_text_field( (string) ( $data['meta_description'] ?? '' ) ),
+			'featured_image_alt'  => sanitize_text_field( (string) ( $data['featured_image_alt'] ?? '' ) ),
 		);
 	}
 

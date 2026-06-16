@@ -1,6 +1,12 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.35**
+Versione corrente: **0.5.36**
+
+## Titolo/permalink dall'AI, immagini nel corpo e nomi file 0.5.36
+
+- **Titolo e permalink generati dall'AI**: il titolo del post non è più la prima parte del testo dell'idea, ma viene **riscritto dall'AI** in forma SEO-oriented; lo **slug/permalink** è proposto dall'AI. Aggiunti i campi JSON `title` e `slug` al contratto di generazione.
+- **Immagini nel corpo più robuste**: oltre ai segnaposto `[[wpai-image: ...]]`, ora vengono intercettati anche i tag `<img>`/`<figure>` che l'AI può produrre (es. con prompt personalizzati che chiedono markup figure) e convertiti in **immagini reali**. Output con `<figure>` e `<img class="aligncenter">`.
+- **Nome file immagini**: file e titolo in Libreria media derivano dalla **descrizione/alt della singola immagine**, non dal titolo dell'articolo. L'immagine in evidenza usa il nuovo campo `featured_image_alt` dell'AI e imposta anche il testo alternativo.
 
 ## Knowledge base OpenAI — file_search / RAG 0.5.35
 
@@ -533,6 +539,11 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.36
+- Titolo e permalink generati dall'AI (campi JSON `title`/`slug`); il titolo non deriva più dal testo grezzo dell'idea.
+- Immagini nel corpo: intercettati anche `<img>`/`<figure>` emessi dall'AI e convertiti in immagini reali; markup `<figure>` + `<img class="aligncenter">`.
+- Nome file e titolo media derivati dalla descrizione/alt della singola immagine; immagine in evidenza con `featured_image_alt` e alt impostato.
 
 ### 0.5.35
 - Canale opt-in OpenAI Responses API con file_search: articoli ancorati ai Vector store dello storage OpenAI (RAG), con fallback automatico ai canali esistenti.
