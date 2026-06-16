@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.40
+Stable tag: 0.5.41
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.41 =
+* Knowledge base OpenAI: nuovo pulsante "Testa accesso allo storage OpenAI" che verifica la raggiungibilità dei Vector store (con numero di file indicizzati) e che il modello sappia usarli tramite file_search. L'uso dei documenti è automatico quando la spunta file_search è attiva: non serve indicarlo nel prompt.
 
 = 0.5.40 =
 * Telegram: nuovo pulsante "Invia istruzioni su Telegram" che recapita alle Chat ID autorizzate le istruzioni su come creare una bozza tramite messaggi.
