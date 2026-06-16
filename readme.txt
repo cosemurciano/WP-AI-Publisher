@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.33
+Stable tag: 0.5.34
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.34 =
+* Immagini reali nel corpo dell'articolo: l'AI indica i punti adatti con un segnaposto [[wpai-image: descrizione]] e il plugin genera l'immagine, la carica nella Libreria media e sostituisce il segnaposto con un'immagine vera (mai un placeholder). I segnaposto non elaborati o in eccesso vengono rimossi.
+* Nuove impostazioni opt-in: "Immagini nel corpo AI" e "Numero massimo immagini nel corpo" (0–10, default 3). Strettamente non bloccante.
+* Il prompt di generazione istruisce automaticamente l'AI sul formato del segnaposto quando la funzione è attiva.
 
 = 0.5.33 =
 * Contesto del sito passato all'AI: la generazione riceve i tag esistenti (da riusare), le categorie disponibili (l'AI sceglie quelle coerenti tramite ID) e gli URL reali degli articoli pubblicati per inserire link interni pertinenti nel corpo dell'articolo.

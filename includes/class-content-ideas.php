@@ -538,8 +538,115 @@ class Content_Ideas {
 		}
 
 		$this->logger->info( __( 'Bozza creata da idea + tipologia.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'draft_created', 'step' => 'draft_created', 'post_id' => absint( $post_id ) ) );
+		$this->maybe_generate_inline_images( absint( $post_id ), $idea_id, $article_type );
 		$this->maybe_generate_featured_image( absint( $post_id ), $idea_id, $article_type );
 		return array( 'success' => true, 'idea_id' => $idea_id, 'post_id' => absint( $post_id ), 'status' => 'draft_created', 'message' => __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Replace AI image markers in the body with real generated images.
+	 *
+	 * The AI places markers like [[wpai-image: descrizione]] where an
+	 * illustrative image helps. For each marker (up to the configured limit)
+	 * the plugin generates a real image, uploads it to the media library and
+	 * substitutes the marker with an <img>. Any leftover/failed marker is
+	 * removed so no placeholder text is ever left in the published draft.
+	 *
+	 * Opt-in (setting generate_inline_images) and strictly non-blocking.
+	 *
+	 * @param int                 $post_id Draft post ID.
+	 * @param int                 $idea_id Idea ID.
+	 * @param array<string,mixed> $article_type Article type config.
+	 * @return void
+	 */
+	private function maybe_generate_inline_images( $post_id, $idea_id, $article_type ) {
+		$post_id = absint( $post_id );
+		if ( $post_id <= 0 ) {
+			return;
+		}
+		$post = get_post( $post_id );
+		if ( ! $post || ! is_string( $post->post_content ) ) {
+			return;
+		}
+		$content = (string) $post->post_content;
+
+		// Marker syntax: [[wpai-image: descrizione della scena]] (descrizione opzionale).
+		$pattern = '/\[\[\s*wpai-image\s*:?\s*(.*?)\s*\]\]/is';
+		if ( ! preg_match( $pattern, $content ) ) {
+			return;
+		}
+
+		$settings = wpai_publisher_get_settings();
+		$enabled  = ! empty( $settings['generate_inline_images'] );
+		$max      = max( 0, (int) ( $settings['max_inline_images'] ?? 3 ) );
+
+		// When the feature is off (or the limit is 0, or image generation is
+		// unavailable) strip every marker so no placeholder survives.
+		if ( ! $enabled || $max <= 0 || ! method_exists( $this->ai_provider, 'generate_image' ) ) {
+			$cleaned = (string) preg_replace( $pattern, '', $content );
+			if ( $cleaned !== $content ) {
+				wp_update_post( array( 'ID' => $post_id, 'post_content' => $cleaned ) );
+			}
+			return;
+		}
+
+		$style  = trim( (string) ( $article_type['image_prompt'] ?? '' ) );
+		$title  = get_the_title( $post_id );
+		$count  = 0;
+		$placed = 0;
+
+		$this->logger->info( __( 'Generazione immagini nel corpo avviata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'inline_images_started' ) );
+
+		$result = preg_replace_callback(
+			$pattern,
+			function ( $matches ) use ( &$count, &$placed, $max, $style, $title, $post_id, $idea_id ) {
+				$count++;
+				if ( $count > $max ) {
+					return '';
+				}
+				$description = trim( (string) ( $matches[1] ?? '' ) );
+				$prompt      = '' !== $description ? $description : sprintf( __( 'Illustrazione editoriale pertinente per un articolo intitolato: %s.', 'wp-ai-publisher' ), $title );
+				if ( '' !== $style ) {
+					$prompt = $style . "\n" . $prompt;
+				}
+				$prompt .= "\n" . __( 'Senza testo nell’immagine.', 'wp-ai-publisher' );
+
+				$image = $this->ai_provider->generate_image( $prompt );
+				if ( is_wp_error( $image ) ) {
+					$this->logger->warning( __( 'Immagine nel corpo non generata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'inline_image_failed', 'error_code' => $image->get_error_code(), 'message' => $image->get_error_message() ) );
+					return '';
+				}
+				$attachment_id = $this->import_image_attachment( $post_id, $image, absint( $idea_id ), $title );
+				if ( $attachment_id <= 0 ) {
+					return '';
+				}
+				$src = wp_get_attachment_image_url( $attachment_id, 'large' );
+				if ( ! $src ) {
+					$src = wp_get_attachment_url( $attachment_id );
+				}
+				if ( ! $src ) {
+					return '';
+				}
+				$alt = '' !== $description ? $description : $title;
+				update_post_meta( $attachment_id, '_wp_attachment_image_alt', sanitize_text_field( $alt ) );
+				$placed++;
+				return wp_get_attachment_image(
+					$attachment_id,
+					'large',
+					false,
+					array( 'alt' => esc_attr( $alt ), 'class' => 'wpai-inline-image', 'loading' => 'lazy' )
+				);
+			},
+			$content
+		);
+
+		if ( null === $result || $result === $content ) {
+			// Defensive: ensure no leftover markers remain even if callback failed.
+			$result = (string) preg_replace( $pattern, '', $content );
+		}
+
+		wp_update_post( array( 'ID' => $post_id, 'post_content' => $result ) );
+		$this->logger->info( __( 'Immagini nel corpo inserite.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'inline_images_done', 'placed' => $placed, 'detected' => $count ) );
 	}
 
 	/**
@@ -600,6 +707,23 @@ class Content_Ideas {
 	 * @return int Attachment ID or 0 on failure.
 	 */
 	private function import_featured_image( $post_id, $image, $idea_id, $title ) {
+		$attach_id = $this->import_image_attachment( $post_id, $image, $idea_id, $title );
+		if ( $attach_id > 0 ) {
+			set_post_thumbnail( $post_id, $attach_id );
+		}
+		return $attach_id;
+	}
+
+	/**
+	 * Import image bytes into the media library, attached to a post.
+	 *
+	 * @param int                             $post_id Post ID.
+	 * @param array{bytes:string,mime:string} $image Image data.
+	 * @param int                             $idea_id Idea ID.
+	 * @param string                          $title Attachment title.
+	 * @return int Attachment ID or 0 on failure.
+	 */
+	private function import_image_attachment( $post_id, $image, $idea_id, $title ) {
 		if ( empty( $image['bytes'] ) ) {
 			return 0;
 		}
@@ -609,10 +733,10 @@ class Content_Ideas {
 
 		$mime     = (string) ( $image['mime'] ?? 'image/png' );
 		$ext      = $this->mime_to_extension( $mime );
-		$filename = 'wpai-' . absint( $idea_id ) . '-' . time() . '.' . $ext;
+		$filename = 'wpai-' . absint( $idea_id ) . '-' . time() . '-' . wp_rand( 100, 999 ) . '.' . $ext;
 		$upload   = wp_upload_bits( $filename, null, (string) $image['bytes'] );
 		if ( ! is_array( $upload ) || ! empty( $upload['error'] ) || empty( $upload['file'] ) ) {
-			$this->logger->warning( __( 'Upload immagine in evidenza non riuscito.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'post_id' => absint( $post_id ), 'error' => is_array( $upload ) ? (string) ( $upload['error'] ?? '' ) : 'unknown' ) );
+			$this->logger->warning( __( 'Upload immagine non riuscito.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'post_id' => absint( $post_id ), 'error' => is_array( $upload ) ? (string) ( $upload['error'] ?? '' ) : 'unknown' ) );
 			return 0;
 		}
 
@@ -634,7 +758,6 @@ class Content_Ideas {
 		if ( is_array( $metadata ) ) {
 			wp_update_attachment_metadata( $attach_id, $metadata );
 		}
-		set_post_thumbnail( $post_id, $attach_id );
 		return (int) $attach_id;
 	}
 

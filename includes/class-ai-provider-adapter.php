@@ -1441,6 +1441,18 @@ class AI_Provider_Adapter {
 		$constraints['internal_links']   = $internal_links;
 		$constraints_json = wp_json_encode( $constraints, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
 
+		// When inline image generation is enabled, instruct the model to place
+		// image markers; the plugin turns each marker into a real generated image.
+		$settings    = wpai_publisher_get_settings();
+		$image_line  = '';
+		if ( ! empty( $settings['generate_inline_images'] ) && (int) ( $settings['max_inline_images'] ?? 0 ) > 0 ) {
+			$max_images = max( 0, min( 10, (int) $settings['max_inline_images'] ) );
+			$image_line = sprintf(
+				"\nDove un'immagine aiuta davvero la comprensione, inserisci nel campo html un segnaposto su una riga a sé (tipicamente tra due paragrafi) nel formato esatto [[wpai-image: descrizione visiva dettagliata della scena]]. Usa al massimo %d segnaposto, descrizioni concrete e pertinenti al testo vicino; non inserire tag <img> né URL di immagini, ci pensa il sistema a generarle e inserirle.",
+				$max_images
+			);
+		}
+
 		return sprintf(
 			"Scrivi un articolo completo, originale e pubblicabile per il lettore (non una scaletta), pronto per una bozza WordPress in Editor Classico.\n" .
 			"Restituisci SOLO un oggetto JSON valido (nessun testo fuori dal JSON, nessun markdown) con questi campi:\n" .
@@ -1448,13 +1460,14 @@ class AI_Provider_Adapter {
 			"- \"tags\": array di stringhe. Riusa i tag esistenti pertinenti (campo existing_tags) e aggiungine di nuovi solo se utili.\n" .
 			"- \"category_ids\": array di ID interi scelti ESCLUSIVAMENTE tra le categorie fornite (campo categories). Scegli 1-2 categorie coerenti.\n" .
 			"- \"meta_title\": titolo SEO (max ~60 caratteri). \"meta_description\": descrizione SEO (max ~160 caratteri).\n" .
-			"Inserisci nel campo html alcuni link interni pertinenti usando ESCLUSIVAMENTE gli URL reali forniti in internal_links (tag <a href>), dove hanno senso nel testo; non inventare URL. Non inventare dati tecnici, prezzi, normative o date non verificabili. Usa il Contesto editoriale del sito come quadro generale e la Tipologia articolo come istruzione principale.%1\$s\n" .
+			"Inserisci nel campo html alcuni link interni pertinenti usando ESCLUSIVAMENTE gli URL reali forniti in internal_links (tag <a href>), dove hanno senso nel testo; non inventare URL. Non inventare dati tecnici, prezzi, normative o date non verificabili. Usa il Contesto editoriale del sito come quadro generale e la Tipologia articolo come istruzione principale.%1\$s%6\$s\n" .
 			"Lingua dell'articolo: %2\$s.\nArgomento principale: %3\$s.\nKeyword principale: %4\$s.\nVincoli, dati del sito e istruzioni:\n%5\$s",
 			$sections_line,
 			$generation_context['language'],
 			$generation_context['topic'],
 			$generation_context['keyword'],
-			false !== $constraints_json ? $constraints_json : '{}'
+			false !== $constraints_json ? $constraints_json : '{}',
+			$image_line
 		);
 	}
 

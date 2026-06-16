@@ -114,6 +114,14 @@ $language_options = array(
 					<th scope="row"><?php echo esc_html__( 'Immagine in evidenza AI', 'wp-ai-publisher' ); ?></th>
 					<td><label><input type="checkbox" name="wpai_publisher_settings[generate_featured_image]" value="1" <?php checked( ! empty( $settings['generate_featured_image'] ) ); ?>> <?php echo esc_html__( 'Genera automaticamente un’immagine in evidenza quando creo la bozza.', 'wp-ai-publisher' ); ?></label><p class="description"><?php echo esc_html__( 'Usa il “Prompt immagini” della Tipologia articolo (se vuoto, ne crea uno dal titolo). Richiede un provider AI con generazione immagini. Se fallisce, la bozza viene comunque creata senza immagine.', 'wp-ai-publisher' ); ?></p></td>
 				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Immagini nel corpo AI', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[generate_inline_images]" value="1" <?php checked( ! empty( $settings['generate_inline_images'] ) ); ?>> <?php echo esc_html__( 'Genera e inserisci automaticamente immagini reali nel corpo dell’articolo, nei punti scelti dall’AI.', 'wp-ai-publisher' ); ?></label><p class="description"><?php echo esc_html__( 'L’AI indica i punti adatti; il plugin genera l’immagine, la carica nella Libreria media e sostituisce il segnaposto con un’immagine reale (nessun placeholder). Usa lo stile del “Prompt immagini” della Tipologia articolo. Richiede un provider AI con generazione immagini.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-max-inline-images"><?php echo esc_html__( 'Numero massimo immagini nel corpo', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="number" id="wpai-max-inline-images" name="wpai_publisher_settings[max_inline_images]" class="small-text" min="0" max="10" step="1" value="<?php echo esc_attr( (string) ( $settings['max_inline_images'] ?? 3 ) ); ?>"><p class="description"><?php echo esc_html__( 'Limite di immagini generate per articolo (0–10). Oltre questo numero i segnaposto in eccesso vengono rimossi.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
 			</tbody>
 		</table>
 

@@ -66,6 +66,8 @@ class Settings {
 		$raw_temperature                         = isset( $input['ai_temperature'] ) ? trim( (string) $input['ai_temperature'] ) : '';
 		$output['ai_temperature']                = ( '' === $raw_temperature ) ? '' : (string) max( 0, min( 2, (float) $raw_temperature ) );
 		$output['generate_featured_image']       = ! empty( $input['generate_featured_image'] );
+		$output['generate_inline_images']        = ! empty( $input['generate_inline_images'] );
+		$output['max_inline_images']             = isset( $input['max_inline_images'] ) ? max( 0, min( 10, absint( $input['max_inline_images'] ) ) ) : $defaults['max_inline_images'];
 		$output['site_context']                  = $this->sanitize_site_context( $input['site_context'] ?? array() );
 
 		return $output;

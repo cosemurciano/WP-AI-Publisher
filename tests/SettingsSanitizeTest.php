@@ -32,4 +32,16 @@ final class SettingsSanitizeTest extends TestCase {
 		$this->assertArrayNotHasKey( 'monthly_cost_limit', $normalized );
 		$this->assertArrayNotHasKey( 'ai_provider_preference', $normalized );
 	}
+
+	public function test_inline_images_settings() {
+		$defaults = wpai_publisher_normalize_settings( array() );
+		$this->assertFalse( $defaults['generate_inline_images'] );
+		$this->assertSame( 3, $defaults['max_inline_images'] );
+
+		$normalized = wpai_publisher_normalize_settings( array( 'generate_inline_images' => '1', 'max_inline_images' => 99 ) );
+		$this->assertTrue( $normalized['generate_inline_images'] );
+		$this->assertSame( 10, $normalized['max_inline_images'] );
+
+		$this->assertSame( 0, wpai_publisher_normalize_settings( array( 'max_inline_images' => -4 ) )['max_inline_images'] );
+	}
 }

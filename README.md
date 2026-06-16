@@ -1,6 +1,12 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.33**
+Versione corrente: **0.5.34**
+
+## Immagini reali nel corpo dell'articolo 0.5.34
+
+Funzione **opt-in** ("Immagini nel corpo AI" in Impostazioni). Quando attiva, l'AI inserisce nel testo dei **segnaposto** nel formato `[[wpai-image: descrizione]]` nei punti in cui un'immagine aiuta davvero. Dopo la creazione della bozza il plugin **genera l'immagine reale** per ogni segnaposto, la **carica nella Libreria media** (con `alt` dalla descrizione) e **sostituisce il segnaposto con il vero `<img>`** — nessun placeholder lasciato nel testo. I segnaposto non elaborati o oltre il limite (**Numero massimo immagini nel corpo**, 0–10, default 3) vengono rimossi. Lo stile segue il "Prompt immagini" della Tipologia articolo. L'operazione è **non bloccante**: se la generazione fallisce, la bozza resta valida.
+
+> Il formato del segnaposto viene comunicato **automaticamente** all'AI dal plugin quando la funzione è attiva: non devi aggiungere nulla al prompt. Puoi comunque scrivere nel "Prompt principale" della Tipologia indicazioni su **quante** immagini o **quali soggetti** preferisci.
 
 ## Contesto del sito, link interni e SEO 0.5.33
 
@@ -515,6 +521,11 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.34
+- Immagini reali nel corpo dell'articolo: segnaposto `[[wpai-image: descrizione]]` generati dall'AI e sostituiti con immagini vere caricate in Libreria media.
+- Nuove impostazioni opt-in: "Immagini nel corpo AI" e "Numero massimo immagini nel corpo" (0–10, default 3).
+- Segnaposto non elaborati o in eccesso rimossi automaticamente; funzione non bloccante.
 
 ### 0.5.33
 - Contesto del sito passato all'AI: tag esistenti da riusare, categorie disponibili (scelta per ID) e URL reali degli articoli pubblicati per i link interni.
