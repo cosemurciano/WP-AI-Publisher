@@ -1,6 +1,19 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.37**
+Versione corrente: **0.5.38**
+
+## Integrazione Telegram 0.5.38
+
+Invia un messaggio al **bot Telegram** per creare automaticamente un'**idea contenuto** e generare la **bozza**. Il flusso è asincrono: l'endpoint crea subito l'idea, accoda la generazione su WP-Cron e risponde rapido (così Telegram non ritenta); a bozza pronta il bot invia un messaggio con il **link di modifica**.
+
+- **Endpoint**: `POST /wp-json/wp-ai-publisher/v1/telegram`
+- **Sicurezza**: secret token nell'header `X-Telegram-Bot-Api-Secret-Token` (confronto `hash_equals`) + **allowlist di chat ID**. Token e secret **non si salvano nel DB**: costanti `WPAIP_TELEGRAM_BOT_TOKEN` / `WPAIP_TELEGRAM_SECRET` (o filtri `wpai_publisher_telegram_bot_token` / `wpai_publisher_telegram_secret_token`).
+- **Impostazioni → Telegram**: abilitazione, chat autorizzate, Tipologia articolo, lingua, risposta on/off, URL webhook da registrare.
+
+Setup:
+1. In `wp-config.php`: `define( 'WPAIP_TELEGRAM_BOT_TOKEN', '123456:ABC...' );` e `define( 'WPAIP_TELEGRAM_SECRET', 'stringa-casuale' );`
+2. Registra il webhook (una volta): `curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<URL_WEBHOOK>&secret_token=<SECRET>"`
+3. In Impostazioni abilita Telegram, aggiungi le chat ID autorizzate e scegli la Tipologia.
 
 ## Fix inserimento immagini (corpo + in evidenza) 0.5.37
 
@@ -546,6 +559,11 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.38
+- Integrazione Telegram: messaggio al bot → idea + bozza (async via WP-Cron) con risposta e link alla bozza.
+- Endpoint REST autenticato (secret token + allowlist chat); credenziali da costanti/filtri, mai nel DB.
+- Nuove impostazioni Telegram e refactor: `Content_Ideas::create_idea_programmatic()` per la creazione idee da chiamanti fidati.
 
 ### 0.5.37
 - Immagine in evidenza generata per prima; immagini nel corpo salvate in modo incrementale per evitare la perdita del lavoro in caso di timeout.

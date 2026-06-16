@@ -63,6 +63,11 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'use_openai_file_search'        => false,
 			'openai_vector_store_ids'       => '',
 			'openai_responses_model'        => '',
+			'telegram_enabled'              => false,
+			'telegram_allowed_chat_ids'     => '',
+			'telegram_article_type_id'      => 0,
+			'telegram_language'             => 'it',
+			'telegram_reply_enabled'        => true,
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -118,6 +123,12 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['use_openai_file_search']        = ! empty( $settings['use_openai_file_search'] );
 		$settings['openai_vector_store_ids']       = sanitize_textarea_field( (string) ( $settings['openai_vector_store_ids'] ?? '' ) );
 		$settings['openai_responses_model']        = sanitize_text_field( (string) ( $settings['openai_responses_model'] ?? '' ) );
+		$settings['telegram_enabled']              = ! empty( $settings['telegram_enabled'] );
+		$settings['telegram_allowed_chat_ids']     = sanitize_textarea_field( (string) ( $settings['telegram_allowed_chat_ids'] ?? '' ) );
+		$settings['telegram_article_type_id']      = absint( $settings['telegram_article_type_id'] ?? 0 );
+		$telegram_lang                             = sanitize_key( (string) ( $settings['telegram_language'] ?? 'it' ) );
+		$settings['telegram_language']             = in_array( $telegram_lang, array( 'it', 'en', 'fr', 'es', 'de' ), true ) ? $telegram_lang : 'it';
+		$settings['telegram_reply_enabled']        = ! empty( $settings['telegram_reply_enabled'] );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );
@@ -524,6 +535,74 @@ if ( ! function_exists( 'wpai_publisher_get_openai_vector_store_ids' ) ) {
 				continue;
 			}
 			if ( preg_match( '/^[A-Za-z0-9_\-]+$/', $part ) ) {
+				$ids[] = $part;
+			}
+		}
+
+		return array_values( array_unique( $ids ) );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_get_telegram_bot_token' ) ) {
+	/**
+	 * Resolve the Telegram bot token (used to send replies / read updates).
+	 *
+	 * Never stored in the DB: read from the WPAIP_TELEGRAM_BOT_TOKEN constant
+	 * or the wpai_publisher_telegram_bot_token filter.
+	 *
+	 * @return string
+	 */
+	function wpai_publisher_get_telegram_bot_token() {
+		$token = defined( 'WPAIP_TELEGRAM_BOT_TOKEN' ) ? (string) WPAIP_TELEGRAM_BOT_TOKEN : '';
+
+		/**
+		 * Filter the Telegram bot token.
+		 *
+		 * @param string $token Bot token.
+		 */
+		return trim( (string) apply_filters( 'wpai_publisher_telegram_bot_token', $token ) );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_get_telegram_secret_token' ) ) {
+	/**
+	 * Resolve the secret token used to authenticate inbound Telegram webhooks.
+	 *
+	 * Telegram echoes this in the X-Telegram-Bot-Api-Secret-Token header when a
+	 * webhook is registered with a secret_token. Read from the
+	 * WPAIP_TELEGRAM_SECRET constant or the wpai_publisher_telegram_secret_token filter.
+	 *
+	 * @return string
+	 */
+	function wpai_publisher_get_telegram_secret_token() {
+		$secret = defined( 'WPAIP_TELEGRAM_SECRET' ) ? (string) WPAIP_TELEGRAM_SECRET : '';
+
+		/**
+		 * Filter the Telegram webhook secret token.
+		 *
+		 * @param string $secret Secret token.
+		 */
+		return trim( (string) apply_filters( 'wpai_publisher_telegram_secret_token', $secret ) );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_get_telegram_allowed_chat_ids' ) ) {
+	/**
+	 * Parse the configured allowed Telegram chat IDs.
+	 *
+	 * @param string|null $raw Raw setting (reads settings when null).
+	 * @return array<int,string>
+	 */
+	function wpai_publisher_get_telegram_allowed_chat_ids( $raw = null ) {
+		if ( null === $raw ) {
+			$settings = wpai_publisher_get_settings();
+			$raw      = (string) ( $settings['telegram_allowed_chat_ids'] ?? '' );
+		}
+		$parts = preg_split( '/[\s,]+/', (string) $raw );
+		$ids   = array();
+		foreach ( (array) $parts as $part ) {
+			$part = trim( (string) $part );
+			if ( '' !== $part && preg_match( '/^-?\d+$/', $part ) ) {
 				$ids[] = $part;
 			}
 		}
