@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.35
+Stable tag: 0.5.36
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.36 =
+* Titolo e permalink generati dall'AI: il titolo non è più la prima parte dell'idea ma viene riscritto dall'AI (SEO-oriented) e lo slug/permalink è proposto dall'AI. Nuovi campi JSON "title" e "slug" nel contratto di generazione.
+* Immagini nel corpo più robuste: oltre ai segnaposto [[wpai-image: ...]] vengono ora intercettati anche eventuali tag <img>/<figure> prodotti dall'AI (es. con prompt personalizzati) e convertiti in immagini reali. Markup di output con <figure> e <img class="aligncenter">.
+* Nome file immagini: il file e il titolo nella Libreria media derivano ora dalla descrizione/alt della singola immagine (non dal titolo dell'articolo). L'immagine in evidenza usa il nuovo campo "featured_image_alt" generato dall'AI; viene impostato anche il testo alternativo.
 
 = 0.5.35 =
 * Knowledge base OpenAI (file_search): nuovo canale opt-in che genera gli articoli tramite la Responses API di OpenAI ancorandoli ai documenti caricati nei Vector store (RAG). Quando attivo e configurato viene tentato per primo, con fallback automatico al canale AI di WordPress.
