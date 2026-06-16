@@ -482,8 +482,9 @@ class Content_Ideas {
 
 		$ai_diagnostics = method_exists( $this->ai_provider, 'get_ai_generation_diagnostics' ) ? $this->ai_provider->get_ai_generation_diagnostics() : array();
 		$this->logger->info( __( 'Generazione articolo da idea avviata.', 'wp-ai-publisher' ), array_merge( array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'article_generation_started', 'article_type_id' => $article_type_id ), $ai_diagnostics ) );
-		$article = $this->ai_provider->generate_article_from_idea(
-			array( 'topic' => (string) $idea->topic, 'keyword' => (string) $idea->keyword, 'language' => (string) $idea->language ),
+		$site_data = function_exists( 'wpai_publisher_get_site_generation_context' ) ? wpai_publisher_get_site_generation_context() : array();
+		$article   = $this->ai_provider->generate_article_from_idea(
+			array( 'topic' => (string) $idea->topic, 'keyword' => (string) $idea->keyword, 'language' => (string) $idea->language, 'context' => $site_data ),
 			$site_context,
 			$article_type
 		);
@@ -504,11 +505,11 @@ class Content_Ideas {
 			'slug'             => '',
 			'excerpt'          => (string) ( $article['plain_text_summary'] ?? '' ),
 			'content_outline'  => array(),
-			'category_ids'     => array(),
+			'category_ids'     => array_values( array_filter( array_map( 'absint', (array) ( $article['category_ids'] ?? array() ) ) ) ),
 			'categories'       => array(),
-			'tags'             => array(),
-			'meta_title'       => '',
-			'meta_description' => '',
+			'tags'             => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $article['tags'] ?? array() ) ) ) ),
+			'meta_title'       => sanitize_text_field( (string) ( $article['meta_title'] ?? '' ) ),
+			'meta_description' => sanitize_text_field( (string) ( $article['meta_description'] ?? '' ) ),
 			'article_type'     => $article_type,
 			'full_article'     => array(
 				'html'             => (string) ( $article['html'] ?? '' ),

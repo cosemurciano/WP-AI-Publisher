@@ -427,6 +427,46 @@ if ( ! function_exists( 'wpai_publisher_remove_capabilities' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wpai_publisher_get_site_generation_context' ) ) {
+	/**
+	 * Collect existing site data to pass to the AI: tags, categories and internal
+	 * link targets (published posts). Lists are filterable/limited to bound prompt size.
+	 *
+	 * @return array{tags:array<int,string>,categories:array<int,array{id:int,name:string}>,internal_links:array<int,array{title:string,url:string}>}
+	 */
+	function wpai_publisher_get_site_generation_context() {
+		$tags = array();
+		if ( function_exists( 'get_terms' ) ) {
+			$max   = max( 0, (int) apply_filters( 'wpai_publisher_context_max_tags', 200 ) );
+			$terms = $max > 0 ? get_terms( array( 'taxonomy' => 'post_tag', 'hide_empty' => false, 'number' => $max, 'orderby' => 'count', 'order' => 'DESC', 'fields' => 'names' ) ) : array();
+			if ( ! is_wp_error( $terms ) ) {
+				$tags = array_values( array_filter( array_map( 'sanitize_text_field', (array) $terms ) ) );
+			}
+		}
+
+		$categories = array();
+		if ( function_exists( 'get_categories' ) ) {
+			foreach ( get_categories( array( 'hide_empty' => false ) ) as $category ) {
+				$categories[] = array( 'id' => (int) $category->term_id, 'name' => sanitize_text_field( (string) $category->name ) );
+			}
+		}
+
+		$internal_links = array();
+		if ( function_exists( 'get_posts' ) ) {
+			$max   = max( 0, (int) apply_filters( 'wpai_publisher_context_max_links', 50 ) );
+			$posts = $max > 0 ? get_posts( array( 'post_status' => 'publish', 'post_type' => 'post', 'numberposts' => $max, 'orderby' => 'date', 'order' => 'DESC' ) ) : array();
+			foreach ( (array) $posts as $post ) {
+				$url = get_permalink( $post );
+				if ( $url ) {
+					$internal_links[] = array( 'title' => sanitize_text_field( get_the_title( $post ) ), 'url' => esc_url_raw( $url ) );
+				}
+			}
+		}
+
+		return array( 'tags' => $tags, 'categories' => $categories, 'internal_links' => $internal_links );
+	}
+}
+
 if ( ! function_exists( 'wpai_publisher_badge_class' ) ) {
 	/**
 	 * Build a CSS badge modifier class from a status key.

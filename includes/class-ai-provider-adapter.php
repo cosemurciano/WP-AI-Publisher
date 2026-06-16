@@ -792,6 +792,7 @@ class AI_Provider_Adapter {
 			'language'        => sanitize_key( (string) ( $payload['language'] ?? $site_context['default_language'] ) ),
 			'article_type'    => $article_type,
 			'content_outline' => $this->build_outline_from_article_type( $article_type ),
+			'site_data'       => isset( $payload['context'] ) && is_array( $payload['context'] ) ? $payload['context'] : array(),
 		);
 
 		$prompt  = $this->build_article_from_idea_prompt( $generation_context, $site_context, $article_type );
@@ -812,7 +813,7 @@ class AI_Provider_Adapter {
 		 */
 		$filtered = apply_filters( 'wpai_publisher_generate_article_from_idea', null, $generation_context, $site_context, $prompt, $article_type );
 		if ( null !== $filtered ) {
-			$candidate = $this->normalize_full_article_candidate( $filtered, 'wordpress_ai', $builder, $generation_context, true );
+			$candidate = $this->normalize_article_candidate( $filtered, 'wordpress_ai', $builder, $generation_context, true );
 			if ( ! is_wp_error( $candidate ) ) {
 				$candidate['channel'] = 'filter';
 				return $candidate;
@@ -851,7 +852,7 @@ class AI_Provider_Adapter {
 			foreach ( array( array( 'prompt' => $prompt, 'temperature' => 0.4, 'format' => 'html' ), $prompt ) as $args ) {
 				try {
 					$result    = call_user_func( 'wp_ai_generate_text', $args );
-					$candidate = $this->normalize_full_article_candidate( $result, 'wordpress_ai', $builder, $generation_context, true );
+					$candidate = $this->normalize_article_candidate( $result, 'wordpress_ai', $builder, $generation_context, true );
 					if ( ! is_wp_error( $candidate ) ) {
 						$candidate['channel'] = 'wp_ai_generate_text';
 						return $candidate;
@@ -1040,7 +1041,7 @@ class AI_Provider_Adapter {
 			if ( '' === trim( (string) $text ) ) {
 				return new WP_Error( 'wpai_php_ai_client_empty', __( 'Il PHP AI Client non ha restituito testo.', 'wp-ai-publisher' ) );
 			}
-			return $this->normalize_full_article_candidate( $text, 'wordpress_ai', $builder, $generation_context, $tolerant );
+			return $this->normalize_article_candidate( $text, 'wordpress_ai', $builder, $generation_context, $tolerant );
 		} catch ( Throwable $error ) {
 			return new WP_Error( 'wpai_php_ai_client_exception', $error->getMessage() );
 		}
@@ -1271,7 +1272,7 @@ class AI_Provider_Adapter {
 			if ( '' === trim( (string) $text ) ) {
 				return new WP_Error( 'wpai_ai_services_empty', __( 'AI Services non ha restituito testo utilizzabile.', 'wp-ai-publisher' ) );
 			}
-			return $this->normalize_full_article_candidate( $text, 'wordpress_ai', $builder, $generation_context, $tolerant );
+			return $this->normalize_article_candidate( $text, 'wordpress_ai', $builder, $generation_context, $tolerant );
 		} catch ( Throwable $error ) {
 			return new WP_Error( 'wpai_ai_services_exception', $error->getMessage() );
 		}
@@ -1418,10 +1419,37 @@ class AI_Provider_Adapter {
 			$constraints['forbidden_patterns'] = sanitize_textarea_field( (string) ( $article_type['forbidden_patterns'] ?? '' ) );
 			$constraints['quality_checklist']  = sanitize_textarea_field( (string) ( $article_type['quality_checklist'] ?? '' ) );
 		}
+		// Existing site data the AI should reuse: tags, allowed categories and
+		// internal link targets (real published URLs).
+		$site_data       = isset( $generation_context['site_data'] ) && is_array( $generation_context['site_data'] ) ? $generation_context['site_data'] : array();
+		$existing_tags   = array_slice( array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $site_data['tags'] ?? array() ) ) ) ), 0, 200 );
+		$categories      = array();
+		foreach ( (array) ( $site_data['categories'] ?? array() ) as $cat ) {
+			if ( is_array( $cat ) && ! empty( $cat['id'] ) ) {
+				$categories[] = array( 'id' => absint( $cat['id'] ), 'name' => sanitize_text_field( (string) ( $cat['name'] ?? '' ) ) );
+			}
+		}
+		$internal_links = array();
+		foreach ( (array) ( $site_data['internal_links'] ?? array() ) as $link ) {
+			if ( is_array( $link ) && ! empty( $link['url'] ) ) {
+				$internal_links[] = array( 'title' => sanitize_text_field( (string) ( $link['title'] ?? '' ) ), 'url' => esc_url_raw( (string) $link['url'] ) );
+			}
+		}
+
+		$constraints['existing_tags']    = $existing_tags;
+		$constraints['categories']       = $categories;
+		$constraints['internal_links']   = $internal_links;
 		$constraints_json = wp_json_encode( $constraints, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
 
 		return sprintf(
-			"Scrivi un articolo completo, originale e pubblicabile per il lettore (non una scaletta), pronto per una bozza WordPress in Editor Classico. Restituisci SOLO HTML pulito, senza markdown, senza blocchi di codice e senza spiegazioni fuori dall’HTML. Usa solo i tag consentiti: p, h2, h3, ul, ol, li, strong, em, blockquote, code, pre, br. Non usare blocchi Gutenberg, script, iframe, style inline, shortcode o JSON. Non includere nel corpo dell’articolo il prompt, il pubblico target, il tono, le regole editoriali, note interne o prompt immagini. Non inventare dati tecnici, prezzi, normative o date non verificabili. Produci almeno tre sezioni H2 e contenuto sostanziale per ciascuna. Usa il Contesto editoriale del sito come quadro generale e la Tipologia articolo come istruzione specifica principale per struttura, tono, lunghezza, intento di ricerca e livello lettore.%1\$s\nLingua dell’articolo: %2\$s.\nArgomento principale: %3\$s.\nKeyword principale: %4\$s.\nVincoli e istruzioni della Tipologia articolo e del sito:\n%5\$s",
+			"Scrivi un articolo completo, originale e pubblicabile per il lettore (non una scaletta), pronto per una bozza WordPress in Editor Classico.\n" .
+			"Restituisci SOLO un oggetto JSON valido (nessun testo fuori dal JSON, nessun markdown) con questi campi:\n" .
+			"- \"html\": l'articolo in HTML pulito Classic Editor. Usa solo i tag consentiti: p, h2, h3, ul, ol, li, strong, em, blockquote, code, pre, br, a. Niente blocchi Gutenberg, script, iframe, style inline, shortcode. Almeno tre sezioni H2 con contenuto sostanziale. Non includere nel corpo prompt, tono, regole editoriali o note interne.\n" .
+			"- \"tags\": array di stringhe. Riusa i tag esistenti pertinenti (campo existing_tags) e aggiungine di nuovi solo se utili.\n" .
+			"- \"category_ids\": array di ID interi scelti ESCLUSIVAMENTE tra le categorie fornite (campo categories). Scegli 1-2 categorie coerenti.\n" .
+			"- \"meta_title\": titolo SEO (max ~60 caratteri). \"meta_description\": descrizione SEO (max ~160 caratteri).\n" .
+			"Inserisci nel campo html alcuni link interni pertinenti usando ESCLUSIVAMENTE gli URL reali forniti in internal_links (tag <a href>), dove hanno senso nel testo; non inventare URL. Non inventare dati tecnici, prezzi, normative o date non verificabili. Usa il Contesto editoriale del sito come quadro generale e la Tipologia articolo come istruzione principale.%1\$s\n" .
+			"Lingua dell'articolo: %2\$s.\nArgomento principale: %3\$s.\nKeyword principale: %4\$s.\nVincoli, dati del sito e istruzioni:\n%5\$s",
 			$sections_line,
 			$generation_context['language'],
 			$generation_context['topic'],
@@ -1536,6 +1564,83 @@ class AI_Provider_Adapter {
 	}
 
 	
+
+	/**
+	 * Normalize a (possibly structured) article candidate.
+	 *
+	 * Accepts either clean HTML or a JSON object with html/tags/category_ids/
+	 * meta_title/meta_description. The html is validated via the publishability
+	 * normalizer; structured fields are attached to the returned candidate.
+	 *
+	 * @param mixed                   $raw Raw AI result.
+	 * @param string                  $source Source label.
+	 * @param Classic_Content_Builder $builder Builder/validator.
+	 * @param array<string,mixed>     $context Generation context.
+	 * @param bool                    $tolerant Tolerant acceptance.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private function normalize_article_candidate( $raw, $source, Classic_Content_Builder $builder, $context = array(), $tolerant = false ) {
+		$structured = $this->extract_structured_article( $raw );
+		$candidate  = $this->normalize_full_article_candidate( $structured['html'], $source, $builder, $context, $tolerant );
+		if ( is_wp_error( $candidate ) ) {
+			return $candidate;
+		}
+		$candidate['tags']             = $structured['tags'];
+		$candidate['category_ids']     = $structured['category_ids'];
+		$candidate['meta_title']       = $structured['meta_title'];
+		$candidate['meta_description'] = $structured['meta_description'];
+		return $candidate;
+	}
+
+	/**
+	 * Extract structured article fields from a raw AI result (JSON or HTML).
+	 *
+	 * @param mixed $raw Raw result.
+	 * @return array{html:string,tags:array<int,string>,category_ids:array<int,int>,meta_title:string,meta_description:string}
+	 */
+	private function extract_structured_article( $raw ) {
+		$data = null;
+		if ( is_array( $raw ) ) {
+			$data = $raw;
+		} elseif ( is_string( $raw ) ) {
+			$decoded = json_decode( $this->extract_json_block( $raw ), true );
+			$data    = is_array( $decoded ) ? $decoded : array( 'html' => $raw );
+		} elseif ( is_object( $raw ) ) {
+			$text    = $this->stringify_ai_result( $raw );
+			$decoded = json_decode( $this->extract_json_block( $text ), true );
+			$data    = is_array( $decoded ) ? $decoded : array( 'html' => $text );
+		} else {
+			$data = array( 'html' => '' );
+		}
+
+		return array(
+			'html'             => (string) ( $data['html'] ?? $data['content'] ?? $data['post_content'] ?? '' ),
+			'tags'             => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $data['tags'] ?? array() ) ) ) ),
+			'category_ids'     => array_values( array_filter( array_map( 'absint', (array) ( $data['category_ids'] ?? array() ) ) ) ),
+			'meta_title'       => sanitize_text_field( (string) ( $data['meta_title'] ?? '' ) ),
+			'meta_description' => sanitize_text_field( (string) ( $data['meta_description'] ?? '' ) ),
+		);
+	}
+
+	/**
+	 * Isolate a JSON object from a raw string (strips markdown code fences).
+	 *
+	 * @param string $raw Raw text.
+	 * @return string JSON candidate or the original string.
+	 */
+	private function extract_json_block( $raw ) {
+		$raw = trim( (string) $raw );
+		if ( '' === $raw ) {
+			return $raw;
+		}
+		$raw = (string) preg_replace( '/^```(?:json)?\s*|\s*```$/i', '', $raw );
+		$start = strpos( $raw, '{' );
+		$end   = strrpos( $raw, '}' );
+		if ( false !== $start && false !== $end && $end > $start ) {
+			return substr( $raw, $start, $end - $start + 1 );
+		}
+		return $raw;
+	}
 
 	/**
 	 * Normalize and validate full article candidate.
