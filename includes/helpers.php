@@ -58,6 +58,8 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'ai_max_output_tokens'          => 4000,
 			'ai_temperature'                => '',
 			'generate_featured_image'       => false,
+			'generate_inline_images'        => false,
+			'max_inline_images'             => 3,
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -108,6 +110,8 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$raw_temperature                           = $settings['ai_temperature'] ?? '';
 		$settings['ai_temperature']                = ( '' === $raw_temperature || null === $raw_temperature ) ? '' : (string) max( 0, min( 2, (float) $raw_temperature ) );
 		$settings['generate_featured_image']       = ! empty( $settings['generate_featured_image'] );
+		$settings['generate_inline_images']        = ! empty( $settings['generate_inline_images'] );
+		$settings['max_inline_images']             = max( 0, min( 10, (int) ( $settings['max_inline_images'] ?? 3 ) ) );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );
