@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.37
+Stable tag: 0.5.38
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.38 =
+* Integrazione Telegram: invia un messaggio al bot per creare automaticamente un'idea contenuto e generare la bozza. La generazione avviene in background (WP-Cron) e il bot risponde con il link alla bozza.
+* Endpoint REST POST /wp-json/wp-ai-publisher/v1/telegram autenticato con secret token (header X-Telegram-Bot-Api-Secret-Token) e allowlist di chat ID. Token e secret letti da costanti WPAIP_TELEGRAM_BOT_TOKEN / WPAIP_TELEGRAM_SECRET (o filtri), mai salvati nel database.
+* Nuove impostazioni Telegram: abilitazione, chat autorizzate, Tipologia articolo, lingua, risposta on/off; mostra l'URL del webhook da registrare.
 
 = 0.5.37 =
 * Fix inserimento immagini nel corpo e immagine in evidenza: la generazione delle immagini (lenta) poteva interrompere la richiesta prima che il post venisse salvato, lasciando i segnaposto e saltando l'immagine in evidenza. Ora l'immagine in evidenza viene generata per prima e ogni immagine del corpo viene salvata subito nel post (salvataggio incrementale), così un'eventuale interruzione non annulla il lavoro già fatto.

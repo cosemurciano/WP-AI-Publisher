@@ -80,6 +80,13 @@ final class Plugin {
 	private $article_type_repository;
 
 	/**
+	 * Telegram integration.
+	 *
+	 * @var Telegram_Integration|null
+	 */
+	private $telegram;
+
+	/**
 	 * Return singleton instance.
 	 *
 	 * @return Plugin
@@ -119,6 +126,12 @@ final class Plugin {
 		add_filter( 'cron_schedules', array( $this, 'register_cron_schedules' ) );
 		add_action( 'wpai_publisher_run_scheduled_ideas', array( $this->admin, 'process_scheduled_ideas' ) );
 		add_action( 'init', array( $this, 'maybe_schedule_scheduled_ideas_cron' ) );
+
+		// Telegram integration: inbound webhook → idea + draft, with reply.
+		if ( class_exists( __NAMESPACE__ . '\\Telegram_Integration' ) ) {
+			$this->telegram = new Telegram_Integration( $this->content_ideas, $this->logger );
+			$this->telegram->register();
+		}
 	}
 
 	/**

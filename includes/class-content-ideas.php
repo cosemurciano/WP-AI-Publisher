@@ -87,8 +87,6 @@ class Content_Ideas {
 	 * @return int|WP_Error Inserted idea ID or error.
 	 */
 	public function create_idea( $data ) {
-		global $wpdb;
-
 		$nonce = sanitize_text_field( (string) ( $data['_wpnonce'] ?? '' ) );
 		if ( '' === $nonce || ! wp_verify_nonce( $nonce, 'wpai_publisher_create_content_idea' ) ) {
 			return new WP_Error( 'wpai_content_idea_invalid_nonce', __( 'Nonce non valido.', 'wp-ai-publisher' ) );
@@ -97,6 +95,32 @@ class Content_Ideas {
 		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			return new WP_Error( 'wpai_content_idea_forbidden', __( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
+
+		return $this->insert_idea_row( $data );
+	}
+
+	/**
+	 * Create an idea from a trusted programmatic caller (e.g. an authenticated
+	 * webhook), bypassing the admin nonce/capability checks.
+	 *
+	 * The CALLER is responsible for authenticating the request (Telegram secret,
+	 * signature, etc.) before invoking this method.
+	 *
+	 * @param array<string,mixed> $data Idea data (topic, keyword, language, article_type_id, scheduled_at).
+	 * @return int|WP_Error Idea ID or error.
+	 */
+	public function create_idea_programmatic( $data ) {
+		return $this->insert_idea_row( is_array( $data ) ? $data : array() );
+	}
+
+	/**
+	 * Validate and insert a content idea row.
+	 *
+	 * @param array<string,mixed> $data Idea data.
+	 * @return int|WP_Error Idea ID or error.
+	 */
+	private function insert_idea_row( $data ) {
+		global $wpdb;
 
 		$topic = sanitize_textarea_field( (string) ( $data['topic'] ?? '' ) );
 		if ( '' === trim( $topic ) ) {
@@ -148,7 +172,7 @@ class Content_Ideas {
 				'target_audience' => '',
 				'tutorial_level'  => null,
 				'article_type_id' => $article_type_id,
-				'notes'           => '',
+				'notes'           => sanitize_textarea_field( (string) ( $data['notes'] ?? '' ) ),
 			),
 			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
 		);

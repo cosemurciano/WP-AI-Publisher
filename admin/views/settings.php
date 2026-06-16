@@ -158,6 +158,69 @@ $language_options = array(
 			</tbody>
 		</table>
 
+		<h2><?php echo esc_html__( 'Telegram', 'wp-ai-publisher' ); ?></h2>
+		<p><?php echo esc_html__( 'Invia un messaggio al bot Telegram per creare automaticamente un’idea contenuto e generare la bozza. La generazione avviene in background e ricevi una risposta con il link alla bozza.', 'wp-ai-publisher' ); ?></p>
+
+		<?php
+		$wpai_tg_token_present  = '' !== wpai_publisher_get_telegram_bot_token();
+		$wpai_tg_secret_present = '' !== wpai_publisher_get_telegram_secret_token();
+		$wpai_tg_article_types  = function_exists( 'wpai_publisher_get_active_article_types_safe' ) ? wpai_publisher_get_active_article_types_safe() : array();
+		$wpai_tg_webhook_url    = esc_url_raw( rest_url( 'wp-ai-publisher/v1/telegram' ) );
+		?>
+		<table class="form-table" role="presentation">
+			<tbody>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Abilita Telegram', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[telegram_enabled]" value="1" <?php checked( ! empty( $settings['telegram_enabled'] ) ); ?>> <?php echo esc_html__( 'Accetta messaggi dal bot e crea idee/bozze.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Token bot / Secret', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<span class="<?php echo $wpai_tg_token_present ? 'wpai-badge wpai-badge--ok' : 'wpai-badge wpai-badge--info'; ?>"><?php echo $wpai_tg_token_present ? esc_html__( 'Token configurato', 'wp-ai-publisher' ) : esc_html__( 'Token mancante', 'wp-ai-publisher' ); ?></span>
+						<span class="<?php echo $wpai_tg_secret_present ? 'wpai-badge wpai-badge--ok' : 'wpai-badge wpai-badge--info'; ?>"><?php echo $wpai_tg_secret_present ? esc_html__( 'Secret configurato', 'wp-ai-publisher' ) : esc_html__( 'Secret mancante', 'wp-ai-publisher' ); ?></span>
+						<p class="description"><?php echo wp_kses( __( 'Per sicurezza non si salvano nel database. Aggiungi in <code>wp-config.php</code>:<br><code>define( \'WPAIP_TELEGRAM_BOT_TOKEN\', \'123456:ABC...\' );</code><br><code>define( \'WPAIP_TELEGRAM_SECRET\', \'una-stringa-casuale\' );</code>', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array() ) ); ?></p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-tg-chats"><?php echo esc_html__( 'Chat ID autorizzate', 'wp-ai-publisher' ); ?></label></th>
+					<td><textarea id="wpai-tg-chats" name="wpai_publisher_settings[telegram_allowed_chat_ids]" rows="2" class="large-text code" placeholder="123456789, -1009876543210"><?php echo esc_textarea( (string) ( $settings['telegram_allowed_chat_ids'] ?? '' ) ); ?></textarea><p class="description"><?php echo esc_html__( 'Solo i messaggi da queste chat creano idee (separa con virgola/spazio/a capo). Lascia vuoto per accettare qualsiasi chat (sconsigliato).', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-tg-type"><?php echo esc_html__( 'Tipologia articolo', 'wp-ai-publisher' ); ?></label></th>
+					<td>
+						<select id="wpai-tg-type" name="wpai_publisher_settings[telegram_article_type_id]">
+							<option value="0"><?php echo esc_html__( '— Nessuna / predefinita —', 'wp-ai-publisher' ); ?></option>
+							<?php foreach ( $wpai_tg_article_types as $wpai_tg_type ) : ?>
+								<option value="<?php echo esc_attr( (string) ( $wpai_tg_type['id'] ?? 0 ) ); ?>" <?php selected( (int) ( $settings['telegram_article_type_id'] ?? 0 ), (int) ( $wpai_tg_type['id'] ?? 0 ) ); ?>><?php echo esc_html( (string) ( $wpai_tg_type['name'] ?? '' ) ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<p class="description"><?php echo esc_html__( 'Tipologia usata per le bozze create da Telegram.', 'wp-ai-publisher' ); ?></p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-tg-lang"><?php echo esc_html__( 'Lingua', 'wp-ai-publisher' ); ?></label></th>
+					<td>
+						<select id="wpai-tg-lang" name="wpai_publisher_settings[telegram_language]">
+							<?php foreach ( array( 'it', 'en', 'fr', 'es', 'de' ) as $wpai_tg_lang ) : ?>
+								<option value="<?php echo esc_attr( $wpai_tg_lang ); ?>" <?php selected( (string) ( $settings['telegram_language'] ?? 'it' ), $wpai_tg_lang ); ?>><?php echo esc_html( strtoupper( $wpai_tg_lang ) ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Risposta su Telegram', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[telegram_reply_enabled]" value="1" <?php checked( ! empty( $settings['telegram_reply_enabled'] ) ); ?>> <?php echo esc_html__( 'Invia un messaggio di conferma con il link alla bozza.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'URL webhook', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<code><?php echo esc_html( $wpai_tg_webhook_url ); ?></code>
+						<p class="description"><?php echo wp_kses( __( 'Registra il webhook del bot (una sola volta) con:<br><code>curl "https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook?url=&lt;URL_WEBHOOK&gt;&amp;secret_token=&lt;SECRET&gt;"</code>', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array() ) ); ?></p>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
 		<h2><?php echo esc_html__( 'Profilo sito', 'wp-ai-publisher' ); ?></h2>
 		<p><?php echo esc_html__( 'Contesto generale del sito. Le Tipologie Articolo restano la fonte principale per tono, struttura, tag e istruzioni specifiche.', 'wp-ai-publisher' ); ?></p>
 

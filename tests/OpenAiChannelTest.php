@@ -37,4 +37,19 @@ final class OpenAiChannelTest extends TestCase {
 		} );
 		$this->assertSame( 'sk-test-123', wpai_publisher_get_openai_api_key() );
 	}
+
+	public function test_telegram_chat_ids_parsing() {
+		$this->assertSame(
+			array( '123456789', '-1009876543210' ),
+			wpai_publisher_get_telegram_allowed_chat_ids( "123456789, -1009876543210\nnot-an-id 123456789" )
+		);
+		$this->assertSame( array(), wpai_publisher_get_telegram_allowed_chat_ids( '   ' ) );
+	}
+
+	public function test_telegram_secret_from_filter() {
+		add_filter( 'wpai_publisher_telegram_secret_token', static function () {
+			return '  s3cr3t  ';
+		} );
+		$this->assertSame( 's3cr3t', wpai_publisher_get_telegram_secret_token() );
+	}
 }
