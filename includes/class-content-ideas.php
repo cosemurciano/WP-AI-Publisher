@@ -543,8 +543,10 @@ class Content_Ideas {
 		}
 
 		$this->logger->info( __( 'Bozza creata da idea + tipologia.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'draft_created', 'step' => 'draft_created', 'post_id' => absint( $post_id ) ) );
-		$this->maybe_generate_inline_images( absint( $post_id ), $idea_id, $article_type );
+		// Featured image first (independent, most visible asset) so it is set
+		// even if the slower inline-image phase is interrupted.
 		$this->maybe_generate_featured_image( absint( $post_id ), $idea_id, $article_type, $output['featured_image_alt'] );
+		$this->maybe_generate_inline_images( absint( $post_id ), $idea_id, $article_type );
 		return array( 'success' => true, 'idea_id' => $idea_id, 'post_id' => absint( $post_id ), 'status' => 'draft_created', 'message' => __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) );
 	}
 
@@ -600,6 +602,8 @@ class Content_Ideas {
 			return;
 		}
 
+		$this->raise_runtime_limits_for_images();
+
 		$style  = trim( (string) ( $article_type['image_prompt'] ?? '' ) );
 		$title  = get_the_title( $post_id );
 		$count  = 0;
@@ -607,54 +611,71 @@ class Content_Ideas {
 
 		$this->logger->info( __( 'Generazione immagini nel corpo avviata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'inline_images_started' ) );
 
-		$result = preg_replace_callback(
-			$pattern,
-			function ( $matches ) use ( &$count, &$placed, $max, $style, $title, $post_id, $idea_id ) {
-				$count++;
-				if ( $count > $max ) {
-					return '';
-				}
-				$description = trim( (string) ( $matches[1] ?? '' ) );
-				$prompt      = '' !== $description ? $description : sprintf( __( 'Illustrazione editoriale pertinente per un articolo intitolato: %s.', 'wp-ai-publisher' ), $title );
-				if ( '' !== $style ) {
-					$prompt = $style . "\n" . $prompt;
-				}
-				$prompt .= "\n" . __( 'Senza testo nell’immagine.', 'wp-ai-publisher' );
+		// Process markers one at a time and PERSIST the post after each image, so
+		// a slow/failed later image cannot roll back the images already inserted
+		// (image generation is slow and a request timeout would otherwise lose
+		// every replacement done in memory).
+		$current = $content;
+		while ( $count < $max && preg_match( $pattern, $current, $m ) ) {
+			$count++;
+			$marker      = (string) $m[0];
+			$pos         = strpos( $current, $marker );
+			$description = trim( (string) ( $m[1] ?? '' ) );
+			$prompt      = '' !== $description ? $description : sprintf( __( 'Illustrazione editoriale pertinente per un articolo intitolato: %s.', 'wp-ai-publisher' ), $title );
+			if ( '' !== $style ) {
+				$prompt = $style . "\n" . $prompt;
+			}
+			$prompt .= "\n" . __( 'Senza testo nell’immagine.', 'wp-ai-publisher' );
 
-				$image = $this->ai_provider->generate_image( $prompt );
-				if ( is_wp_error( $image ) ) {
-					$this->logger->warning( __( 'Immagine nel corpo non generata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'inline_image_failed', 'error_code' => $image->get_error_code(), 'message' => $image->get_error_message() ) );
-					return '';
-				}
+			$replacement = '';
+			$image       = $this->ai_provider->generate_image( $prompt );
+			if ( is_wp_error( $image ) ) {
+				$this->logger->warning( __( 'Immagine nel corpo non generata.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'inline_image_failed', 'error_code' => $image->get_error_code(), 'message' => $image->get_error_message() ) );
+			} else {
 				// The marker description is the image's own title/alt: it drives
 				// the file name and media title (not the article title).
-				$image_title = '' !== $description ? $description : $title;
+				$image_title   = '' !== $description ? $description : $title;
 				$attachment_id = $this->import_image_attachment( $post_id, $image, absint( $idea_id ), $image_title, $image_title );
-				if ( $attachment_id <= 0 ) {
-					return '';
+				if ( $attachment_id > 0 ) {
+					$src = wp_get_attachment_image_url( $attachment_id, 'full' );
+					if ( ! $src ) {
+						$src = wp_get_attachment_url( $attachment_id );
+					}
+					if ( $src ) {
+						$replacement = $this->build_inline_figure_markup( (string) $src, $image_title );
+						$placed++;
+					}
 				}
-				$src = wp_get_attachment_image_url( $attachment_id, 'full' );
-				if ( ! $src ) {
-					$src = wp_get_attachment_url( $attachment_id );
-				}
-				if ( ! $src ) {
-					return '';
-				}
-				$placed++;
-				return $this->build_inline_figure_markup( (string) $src, $image_title );
-			},
-			$content
-		);
+			}
 
-		if ( null === $result ) {
-			// Defensive: ensure no leftover markers remain even if callback failed.
-			$result = (string) preg_replace( $pattern, '', $content );
+			if ( false !== $pos ) {
+				$current = substr_replace( $current, $replacement, $pos, strlen( $marker ) );
+				wp_update_post( array( 'ID' => $post_id, 'post_content' => $current ) );
+			}
 		}
 
-		if ( $result !== (string) $post->post_content ) {
-			wp_update_post( array( 'ID' => $post_id, 'post_content' => $result ) );
+		// Remove any remaining markers (beyond the limit or not processed).
+		$cleaned = (string) preg_replace( $pattern, '', $current );
+		if ( $cleaned !== $current ) {
+			$current = $cleaned;
+			wp_update_post( array( 'ID' => $post_id, 'post_content' => $current ) );
 		}
+
 		$this->logger->info( __( 'Immagini nel corpo inserite.', 'wp-ai-publisher' ), array( 'source' => 'ai_generation', 'idea_id' => absint( $idea_id ), 'post_id' => $post_id, 'event' => 'inline_images_done', 'placed' => $placed, 'detected' => $count ) );
+	}
+
+	/**
+	 * Raise PHP time/memory limits for the (slow, synchronous) image phase.
+	 *
+	 * @return void
+	 */
+	private function raise_runtime_limits_for_images() {
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.DiscouragedPHPFunctions.runtime_configuration_set_time_limit
+		}
+		if ( function_exists( 'wp_raise_memory_limit' ) ) {
+			wp_raise_memory_limit( 'image' );
+		}
 	}
 
 	/**
@@ -756,6 +777,8 @@ class Content_Ideas {
 		if ( ! method_exists( $this->ai_provider, 'generate_image' ) ) {
 			return;
 		}
+
+		$this->raise_runtime_limits_for_images();
 
 		$image_prompt = trim( (string) ( $article_type['image_prompt'] ?? '' ) );
 		$title        = get_the_title( $post_id );

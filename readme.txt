@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.36
+Stable tag: 0.5.37
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,10 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.37 =
+* Fix inserimento immagini nel corpo e immagine in evidenza: la generazione delle immagini (lenta) poteva interrompere la richiesta prima che il post venisse salvato, lasciando i segnaposto e saltando l'immagine in evidenza. Ora l'immagine in evidenza viene generata per prima e ogni immagine del corpo viene salvata subito nel post (salvataggio incrementale), così un'eventuale interruzione non annulla il lavoro già fatto.
+* Limiti di runtime alzati durante la fase immagini (set_time_limit, memoria) per ridurre i timeout su immagini multiple.
 
 = 0.5.36 =
 * Titolo e permalink generati dall'AI: il titolo non è più la prima parte dell'idea ma viene riscritto dall'AI (SEO-oriented) e lo slug/permalink è proposto dall'AI. Nuovi campi JSON "title" e "slug" nel contratto di generazione.
