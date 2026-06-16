@@ -94,6 +94,31 @@ class Admin {
 		add_action( 'admin_post_wpai_publisher_save_article_type', array( $this, 'handle_save_article_type' ) );
 		add_action( 'admin_post_wpai_publisher_delete_article_type', array( $this, 'handle_delete_article_type' ) );
 		add_action( 'admin_post_wpai_publisher_toggle_article_type', array( $this, 'handle_toggle_article_type' ) );
+		add_action( 'admin_post_wpai_publisher_test_openai_file_search', array( $this, 'handle_test_openai_file_search' ) );
+	}
+
+	/**
+	 * Admin action: test the OpenAI file_search / vector store connectivity.
+	 *
+	 * @return void
+	 */
+	public function handle_test_openai_file_search() {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+		check_admin_referer( 'wpai_publisher_test_openai_file_search' );
+
+		$result = method_exists( $this->ai_provider, 'test_openai_file_search' )
+			? $this->ai_provider->test_openai_file_search()
+			: array( 'ok' => false, 'message' => __( 'Funzione non disponibile.', 'wp-ai-publisher' ) );
+
+		set_transient(
+			'wpai_publisher_openai_fs_notice_' . get_current_user_id(),
+			array( 'ok' => ! empty( $result['ok'] ), 'message' => sanitize_text_field( (string) ( $result['message'] ?? '' ) ) ),
+			60
+		);
+		wp_safe_redirect( add_query_arg( 'wpai_notice', 'openai_file_search', admin_url( 'admin.php?page=wp-ai-publisher-settings' ) ) );
+		exit;
 	}
 
 	/**

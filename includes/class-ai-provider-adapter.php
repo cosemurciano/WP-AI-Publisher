@@ -1025,16 +1025,7 @@ class AI_Provider_Adapter {
 		}
 
 		$params = $this->get_ai_generation_params();
-		$model  = sanitize_text_field( (string) ( $settings['openai_responses_model'] ?? '' ) );
-		if ( '' === $model ) {
-			$model = '' !== $params['model'] ? $params['model'] : 'gpt-4.1-mini';
-		}
-		/**
-		 * Filter the model used by the OpenAI Responses channel.
-		 *
-		 * @param string $model Model id.
-		 */
-		$model = (string) apply_filters( 'wpai_publisher_openai_model', $model );
+		$model  = $this->resolve_openai_model( $settings, $params );
 
 		$system = __( 'Sei un assistente editoriale WordPress. Usa i documenti recuperati come fonte autorevole. Restituisci esclusivamente l\'oggetto JSON richiesto.', 'wp-ai-publisher' );
 
@@ -1135,6 +1126,153 @@ class AI_Provider_Adapter {
 		}
 
 		return trim( implode( "\n", $parts ) );
+	}
+
+	/**
+	 * Resolve the model id used by the OpenAI Responses channel.
+	 *
+	 * @param array<string,mixed> $settings Plugin settings.
+	 * @param array<string,mixed> $params AI generation params.
+	 * @return string
+	 */
+	private function resolve_openai_model( $settings, $params ) {
+		$model = sanitize_text_field( (string) ( $settings['openai_responses_model'] ?? '' ) );
+		if ( '' === $model ) {
+			$model = '' !== (string) ( $params['model'] ?? '' ) ? (string) $params['model'] : 'gpt-4.1-mini';
+		}
+		/**
+		 * Filter the model used by the OpenAI Responses channel.
+		 *
+		 * @param string $model Model id.
+		 */
+		return (string) apply_filters( 'wpai_publisher_openai_model', $model );
+	}
+
+	/**
+	 * Test that the configured OpenAI vector stores are reachable and usable.
+	 *
+	 * Performs two checks: (1) reads each configured vector store via the API
+	 * (proves the key works and the store exists, with indexed file counts);
+	 * (2) runs a small Responses call with file_search to confirm the model can
+	 * actually retrieve from the store.
+	 *
+	 * @return array{ok:bool,message:string}
+	 */
+	public function test_openai_file_search() {
+		$settings = wpai_publisher_get_settings();
+		$api_key  = wpai_publisher_get_openai_api_key();
+		if ( '' === $api_key ) {
+			return array( 'ok' => false, 'message' => __( 'Chiave API OpenAI non configurata (costante WPAIP_OPENAI_API_KEY o filtro).', 'wp-ai-publisher' ) );
+		}
+		$vector_store_ids = wpai_publisher_get_openai_vector_store_ids( (string) ( $settings['openai_vector_store_ids'] ?? '' ) );
+		if ( empty( $vector_store_ids ) ) {
+			return array( 'ok' => false, 'message' => __( 'Nessun Vector Store ID configurato.', 'wp-ai-publisher' ) );
+		}
+
+		$timeout      = max( 15, (int) ( $this->get_ai_generation_params()['http_timeout'] ?? 60 ) );
+		$headers      = array( 'Authorization' => 'Bearer ' . $api_key, 'OpenAI-Beta' => 'assistants=v2' );
+		$total_files  = 0;
+		$reached      = 0;
+		$store_errors = array();
+
+		// (1) Reachability: read each vector store.
+		foreach ( $vector_store_ids as $vs_id ) {
+			$response = wp_remote_get(
+				'https://api.openai.com/v1/vector_stores/' . rawurlencode( $vs_id ),
+				array( 'timeout' => $timeout, 'headers' => $headers )
+			);
+			if ( is_wp_error( $response ) ) {
+				$store_errors[] = sprintf( '%s: %s', $vs_id, $response->get_error_message() );
+				continue;
+			}
+			$code = (int) wp_remote_retrieve_response_code( $response );
+			$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+			if ( 200 !== $code || ! is_array( $body ) ) {
+				$detail = is_array( $body ) && isset( $body['error']['message'] ) ? (string) $body['error']['message'] : ( 'HTTP ' . $code );
+				$store_errors[] = sprintf( '%s: %s', $vs_id, $detail );
+				continue;
+			}
+			$reached++;
+			$total_files += (int) ( $body['file_counts']['completed'] ?? 0 );
+		}
+
+		if ( 0 === $reached ) {
+			return array( 'ok' => false, 'message' => sprintf( __( 'Nessun Vector Store raggiungibile. Dettagli: %s', 'wp-ai-publisher' ), implode( ' | ', $store_errors ) ) );
+		}
+
+		// (2) Usability: a small Responses call with file_search.
+		$params = $this->get_ai_generation_params();
+		$model  = $this->resolve_openai_model( $settings, $params );
+		$body   = array(
+			'model'             => $model,
+			'instructions'      => __( 'Usa lo strumento file_search per consultare i documenti disponibili.', 'wp-ai-publisher' ),
+			'input'             => __( 'In una frase, di che cosa parlano i documenti disponibili?', 'wp-ai-publisher' ),
+			'tools'             => array( array( 'type' => 'file_search', 'vector_store_ids' => array_values( $vector_store_ids ) ) ),
+			'max_output_tokens' => 300,
+		);
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/responses',
+			array(
+				'timeout' => $timeout,
+				'headers' => array( 'Authorization' => 'Bearer ' . $api_key, 'Content-Type' => 'application/json' ),
+				'body'    => (string) wp_json_encode( $body ),
+			)
+		);
+
+		$reach_msg = sprintf( __( 'Vector store raggiunti: %1$d/%2$d, file indicizzati: %3$d.', 'wp-ai-publisher' ), $reached, count( $vector_store_ids ), $total_files );
+
+		if ( is_wp_error( $response ) ) {
+			return array( 'ok' => false, 'message' => $reach_msg . ' ' . sprintf( __( 'Test file_search fallito: %s', 'wp-ai-publisher' ), $response->get_error_message() ) );
+		}
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$raw  = (string) wp_remote_retrieve_body( $response );
+		if ( $code < 200 || $code >= 300 ) {
+			$decoded = json_decode( $raw, true );
+			$detail  = is_array( $decoded ) && isset( $decoded['error']['message'] ) ? (string) $decoded['error']['message'] : ( 'HTTP ' . $code );
+			return array( 'ok' => false, 'message' => $reach_msg . ' ' . sprintf( __( 'Test file_search fallito: %s', 'wp-ai-publisher' ), $detail ) );
+		}
+
+		$invoked = $this->openai_response_used_file_search( $raw );
+		$answer  = wp_trim_words( $this->extract_openai_responses_text( $raw ), 40, '…' );
+
+		if ( $invoked ) {
+			return array( 'ok' => true, 'message' => sprintf( __( '✅ Connessione OK. %1$s Il modello ha usato file_search. Risposta di prova: “%2$s”', 'wp-ai-publisher' ), $reach_msg, $answer ) );
+		}
+		// Reached the stores but the model did not call file_search this time.
+		return array( 'ok' => $total_files > 0, 'message' => sprintf( __( '%1$s Connessione allo storage OK, ma in questa prova il modello non ha invocato file_search%2$s. Con file indicizzati verrà comunque usato durante la generazione.', 'wp-ai-publisher' ), $reach_msg, 0 === $total_files ? __( ' (nessun file indicizzato nei vector store)', 'wp-ai-publisher' ) : '' ) );
+	}
+
+	/**
+	 * Detect whether an OpenAI Responses payload used the file_search tool.
+	 *
+	 * @param string $raw Raw JSON response body.
+	 * @return bool
+	 */
+	private function openai_response_used_file_search( $raw ) {
+		$data = json_decode( (string) $raw, true );
+		if ( ! is_array( $data ) || empty( $data['output'] ) || ! is_array( $data['output'] ) ) {
+			return false;
+		}
+		foreach ( $data['output'] as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			if ( isset( $item['type'] ) && 'file_search_call' === $item['type'] ) {
+				return true;
+			}
+			// Citations attached to message content also prove retrieval.
+			$content = isset( $item['content'] ) && is_array( $item['content'] ) ? $item['content'] : array();
+			foreach ( $content as $chunk ) {
+				if ( is_array( $chunk ) && ! empty( $chunk['annotations'] ) && is_array( $chunk['annotations'] ) ) {
+					foreach ( $chunk['annotations'] as $annotation ) {
+						if ( is_array( $annotation ) && isset( $annotation['type'] ) && false !== strpos( (string) $annotation['type'], 'file_citation' ) ) {
+							return true;
+						}
+					}
+				}
+			}
+		}
+		return false;
 	}
 
 	private function try_generate_with_php_ai_client( $prompt, $generation_context, Classic_Content_Builder $builder, $tolerant = true ) {

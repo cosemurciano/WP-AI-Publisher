@@ -34,6 +34,17 @@ $language_options = array(
 			);
 		}
 	}
+	if ( isset( $_GET['wpai_notice'] ) && 'openai_file_search' === sanitize_key( wp_unslash( $_GET['wpai_notice'] ) ) ) {
+		$wpai_fs_notice = get_transient( 'wpai_publisher_openai_fs_notice_' . get_current_user_id() );
+		if ( is_array( $wpai_fs_notice ) ) {
+			delete_transient( 'wpai_publisher_openai_fs_notice_' . get_current_user_id() );
+			printf(
+				'<div class="notice %1$s is-dismissible"><p>%2$s</p></div>',
+				! empty( $wpai_fs_notice['ok'] ) ? 'notice-success' : 'notice-error',
+				esc_html( (string) ( $wpai_fs_notice['message'] ?? '' ) )
+			);
+		}
+	}
 	?>
 	<p class="wpai-lead"><?php echo esc_html__( 'Configura le impostazioni operative del plugin. Le chiamate AI useranno esclusivamente il sistema AI di WordPress già configurato sul sito; non vengono gestite chiavi OpenAI personalizzate.', 'wp-ai-publisher' ); ?></p>
 
@@ -167,6 +178,14 @@ $language_options = array(
 							<span class="wpai-badge wpai-badge--info"><?php echo esc_html__( 'Non configurata', 'wp-ai-publisher' ); ?></span>
 							<p class="description"><?php echo wp_kses( __( 'Per sicurezza la chiave non si salva nel database. Aggiungi in <code>wp-config.php</code>:<br><code>define( \'WPAIP_OPENAI_API_KEY\', \'sk-...\' );</code>', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array() ) ); ?></p>
 						<?php endif; ?>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Verifica connessione', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<?php $wpai_fs_test_url = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_test_openai_file_search' ), 'wpai_publisher_test_openai_file_search' ); ?>
+						<a href="<?php echo esc_url( $wpai_fs_test_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Testa accesso allo storage OpenAI', 'wp-ai-publisher' ); ?></a>
+						<p class="description"><?php echo esc_html__( 'Verifica che la chiave raggiunga i Vector store configurati (con numero di file indicizzati) e che il modello riesca a usarli tramite file_search. Salva prima le impostazioni.', 'wp-ai-publisher' ); ?></p>
 					</td>
 				</tr>
 			</tbody>

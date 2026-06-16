@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.40**
+Versione corrente: **0.5.41**
 
 ## Integrazione Telegram 0.5.38
 
@@ -559,6 +559,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.41
+- Knowledge base OpenAI: pulsante "Testa accesso allo storage OpenAI" (raggiungibilità vector store + file indicizzati + verifica uso file_search). L'uso dei documenti è automatico con la spunta file_search attiva.
 
 ### 0.5.40
 - Telegram: pulsante "Invia istruzioni su Telegram" (recapita le istruzioni d'uso alle chat autorizzate) e riquadro istruzioni di configurazione/uso nelle Impostazioni.
