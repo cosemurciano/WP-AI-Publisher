@@ -280,6 +280,7 @@ class System_Status {
 
 		$channels = array();
 		if ( ! empty( $diag['channel_filter'] ) ) { $channels[] = 'filter'; }
+		if ( ! empty( $diag['channel_openai_responses'] ) ) { $channels[] = 'openai_responses'; }
 		if ( ! empty( $diag['channel_php_ai_client'] ) ) { $channels[] = 'php_ai_client'; }
 		if ( ! empty( $diag['channel_abilities_api'] ) ) { $channels[] = 'abilities_api'; }
 		if ( ! empty( $diag['channel_ai_services'] ) ) { $channels[] = 'ai_services'; }

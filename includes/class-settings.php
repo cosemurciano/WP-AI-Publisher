@@ -68,6 +68,9 @@ class Settings {
 		$output['generate_featured_image']       = ! empty( $input['generate_featured_image'] );
 		$output['generate_inline_images']        = ! empty( $input['generate_inline_images'] );
 		$output['max_inline_images']             = isset( $input['max_inline_images'] ) ? max( 0, min( 10, absint( $input['max_inline_images'] ) ) ) : $defaults['max_inline_images'];
+		$output['use_openai_file_search']        = ! empty( $input['use_openai_file_search'] );
+		$output['openai_vector_store_ids']       = isset( $input['openai_vector_store_ids'] ) ? sanitize_textarea_field( (string) $input['openai_vector_store_ids'] ) : $defaults['openai_vector_store_ids'];
+		$output['openai_responses_model']        = isset( $input['openai_responses_model'] ) ? sanitize_text_field( (string) $input['openai_responses_model'] ) : $defaults['openai_responses_model'];
 		$output['site_context']                  = $this->sanitize_site_context( $input['site_context'] ?? array() );
 
 		return $output;
