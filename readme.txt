@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.29
+Stable tag: 0.5.30
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.30 =
+* Escissione profonda dell'adapter AI: rimosso il vecchio motore dry-run/strutturato e il probing speculativo non più usato (generazione locale di fallback, registry e client ipotetici, validazione strutturata). L'adapter passa da ~3380 a ~1890 righe.
+* Rimossa la classe Structured_Output_Validator e gli helper privati di Content_Ideas legati al vecchio flusso. Restano intatti il flusso a chiamata singola (php_ai_client, abilities API, AI Services, filtro), la generazione immagini e la diagnostica.
+* Nessuna modifica funzionale al percorso attivo: creazione bozza, immagine in evidenza, Parametri AI e Diagnostica invariati.
 
 = 0.5.29 =
 * Test: aggiunti test unitari per Classic_Content_Builder (validazione pubblicabilità, normalizzazione HTML, rilevamento placeholder), per i parametri AI e la decodifica immagini dell'adapter, e per la normalizzazione delle impostazioni. Bootstrap di test ampliato con stub WordPress; i test girano in CI via composer test.

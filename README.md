@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.29**
+Versione corrente: **0.5.30**
+
+## Escissione profonda adapter 0.5.30
+
+Rimosso il vecchio motore **dry-run/strutturato** e il **probing speculativo** non più usato (generazione locale di fallback, registry/client AI ipotetici, validazione strutturata): `class-ai-provider-adapter.php` passa da **~3380 a ~1890 righe**. Eliminata la classe `Structured_Output_Validator` e gli helper privati di `Content_Ideas` legati al vecchio flusso. **Restano intatti** il flusso a chiamata singola (filtro → `php_ai_client` → Abilities API → AI Services → `wp_ai_generate_text`), la generazione immagini e la diagnostica. Nessuna modifica funzionale al percorso attivo. Codebase più pulita e stabile per i prossimi sviluppi.
 
 ## Test e CI 0.5.29
 
