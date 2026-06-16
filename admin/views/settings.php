@@ -125,6 +125,39 @@ $language_options = array(
 			</tbody>
 		</table>
 
+		<h2><?php echo esc_html__( 'Knowledge base OpenAI (file_search)', 'wp-ai-publisher' ); ?></h2>
+		<p><?php echo esc_html__( 'Permette all’AI di ancorare gli articoli ai documenti caricati nel tuo storage OpenAI (Vector store) tramite la Responses API. Quando attivo e configurato, questo canale viene tentato per primo, con fallback automatico al canale AI di WordPress.', 'wp-ai-publisher' ); ?></p>
+
+		<?php $wpai_openai_key_present = '' !== wpai_publisher_get_openai_api_key(); ?>
+		<table class="form-table" role="presentation">
+			<tbody>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Usa knowledge base', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[use_openai_file_search]" value="1" <?php checked( ! empty( $settings['use_openai_file_search'] ) ); ?>> <?php echo esc_html__( 'Genera gli articoli usando file_search sui Vector store OpenAI configurati.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-openai-vs"><?php echo esc_html__( 'Vector Store ID', 'wp-ai-publisher' ); ?></label></th>
+					<td><textarea id="wpai-openai-vs" name="wpai_publisher_settings[openai_vector_store_ids]" rows="2" class="large-text code" placeholder="vs_abc123..."><?php echo esc_textarea( (string) ( $settings['openai_vector_store_ids'] ?? '' ) ); ?></textarea><p class="description"><?php echo esc_html__( 'Uno o più ID di Vector store (separati da virgola, spazio o a capo). Li trovi su platform.openai.com/storage → Vector stores.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-openai-model"><?php echo esc_html__( 'Modello Responses API', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="text" id="wpai-openai-model" name="wpai_publisher_settings[openai_responses_model]" class="regular-text" value="<?php echo esc_attr( (string) ( $settings['openai_responses_model'] ?? '' ) ); ?>" placeholder="gpt-4.1-mini"><p class="description"><?php echo esc_html__( 'Modello OpenAI per la Responses API. Se vuoto, usa il modello dei Parametri AI o un valore predefinito.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Chiave API OpenAI', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<?php if ( $wpai_openai_key_present ) : ?>
+							<span class="wpai-badge wpai-badge--ok"><?php echo esc_html__( 'Configurata', 'wp-ai-publisher' ); ?></span>
+							<p class="description"><?php echo esc_html__( 'Rilevata dalla costante WPAIP_OPENAI_API_KEY (o dal filtro wpai_publisher_openai_api_key).', 'wp-ai-publisher' ); ?></p>
+						<?php else : ?>
+							<span class="wpai-badge wpai-badge--info"><?php echo esc_html__( 'Non configurata', 'wp-ai-publisher' ); ?></span>
+							<p class="description"><?php echo wp_kses( __( 'Per sicurezza la chiave non si salva nel database. Aggiungi in <code>wp-config.php</code>:<br><code>define( \'WPAIP_OPENAI_API_KEY\', \'sk-...\' );</code>', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array() ) ); ?></p>
+						<?php endif; ?>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
 		<h2><?php echo esc_html__( 'Profilo sito', 'wp-ai-publisher' ); ?></h2>
 		<p><?php echo esc_html__( 'Contesto generale del sito. Le Tipologie Articolo restano la fonte principale per tono, struttura, tag e istruzioni specifiche.', 'wp-ai-publisher' ); ?></p>
 

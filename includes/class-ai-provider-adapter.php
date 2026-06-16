@@ -823,6 +823,13 @@ class AI_Provider_Adapter {
 			$diagnostics['channel_attempts']['filter'] = $diagnostics['channel_filter'] ? 'filtro registrato ma ha restituito null' : 'nessun filtro registrato';
 		}
 
+		$openai_candidate = $this->try_generate_with_openai_responses( $prompt, $generation_context, $builder, true );
+		if ( ! is_wp_error( $openai_candidate ) ) {
+			$openai_candidate['channel'] = 'openai_responses';
+			return $openai_candidate;
+		}
+		$diagnostics['channel_attempts']['openai_responses'] = $openai_candidate->get_error_message();
+
 		$client_candidate = $this->try_generate_with_php_ai_client( $prompt, $generation_context, $builder, true );
 		if ( ! is_wp_error( $client_candidate ) ) {
 			$client_candidate['channel'] = 'php_ai_client';
@@ -925,6 +932,7 @@ class AI_Provider_Adapter {
 			'present_classes'             => array_values( array_unique( $present_classes ) ),
 			'present_functions'           => array_values( array_unique( $present_functions ) ),
 			'channel_filter'              => (bool) ( function_exists( 'has_filter' ) ? has_filter( 'wpai_publisher_generate_article_from_idea' ) : false ),
+			'channel_openai_responses'    => $this->is_openai_responses_channel_ready(),
 			'channel_php_ai_client'       => class_exists( '\\WordPress\\AiClient\\AiClient' ),
 			'channel_abilities_api'       => function_exists( 'wp_get_abilities' ) && function_exists( 'wp_get_ability' ),
 			'channel_ai_services'         => function_exists( 'ai_services' ),
@@ -967,6 +975,166 @@ class AI_Provider_Adapter {
 			'max_output_tokens' => max( 0, $max_tokens ),
 			'temperature'       => ( null === $temperature ) ? null : (float) $temperature,
 		);
+	}
+
+	/**
+	 * Generate the article via the OpenAI Responses API with file_search (RAG).
+	 *
+	 * Opt-in channel: active only when the setting is enabled, an API key is
+	 * available (constant/filter) and at least one Vector Store ID is set. The
+	 * AI grounds the article on the documents stored in the OpenAI vector
+	 * store(s). Returns a WP_Error (so the caller falls back) when not
+	 * configured or on any failure.
+	 *
+	 * @param string                  $prompt Prompt text.
+	 * @param array<string,mixed>     $generation_context Generation context.
+	 * @param Classic_Content_Builder $builder Builder/validator.
+	 * @param bool                    $tolerant Tolerant normalization.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	/**
+	 * Whether the OpenAI Responses (file_search) channel is fully configured.
+	 *
+	 * @return bool
+	 */
+	private function is_openai_responses_channel_ready() {
+		$settings = wpai_publisher_get_settings();
+		if ( empty( $settings['use_openai_file_search'] ) ) {
+			return false;
+		}
+		if ( '' === wpai_publisher_get_openai_api_key() ) {
+			return false;
+		}
+		return ! empty( wpai_publisher_get_openai_vector_store_ids( (string) ( $settings['openai_vector_store_ids'] ?? '' ) ) );
+	}
+
+	private function try_generate_with_openai_responses( $prompt, $generation_context, Classic_Content_Builder $builder, $tolerant = true ) {
+		$settings = wpai_publisher_get_settings();
+		if ( empty( $settings['use_openai_file_search'] ) ) {
+			return new WP_Error( 'wpai_openai_responses_disabled', __( 'Knowledge base OpenAI non attiva.', 'wp-ai-publisher' ) );
+		}
+
+		$api_key = wpai_publisher_get_openai_api_key();
+		if ( '' === $api_key ) {
+			return new WP_Error( 'wpai_openai_responses_no_key', __( 'Chiave API OpenAI non configurata (costante WPAIP_OPENAI_API_KEY o filtro).', 'wp-ai-publisher' ) );
+		}
+
+		$vector_store_ids = wpai_publisher_get_openai_vector_store_ids( (string) ( $settings['openai_vector_store_ids'] ?? '' ) );
+		if ( empty( $vector_store_ids ) ) {
+			return new WP_Error( 'wpai_openai_responses_no_vector_store', __( 'Nessun Vector Store ID configurato per file_search.', 'wp-ai-publisher' ) );
+		}
+
+		$params = $this->get_ai_generation_params();
+		$model  = sanitize_text_field( (string) ( $settings['openai_responses_model'] ?? '' ) );
+		if ( '' === $model ) {
+			$model = '' !== $params['model'] ? $params['model'] : 'gpt-4.1-mini';
+		}
+		/**
+		 * Filter the model used by the OpenAI Responses channel.
+		 *
+		 * @param string $model Model id.
+		 */
+		$model = (string) apply_filters( 'wpai_publisher_openai_model', $model );
+
+		$system = __( 'Sei un assistente editoriale WordPress. Usa i documenti recuperati come fonte autorevole. Restituisci esclusivamente l\'oggetto JSON richiesto.', 'wp-ai-publisher' );
+
+		$body = array(
+			'model'        => $model,
+			'instructions' => $system,
+			'input'        => $prompt,
+			'tools'        => array(
+				array(
+					'type'             => 'file_search',
+					'vector_store_ids' => array_values( $vector_store_ids ),
+				),
+			),
+		);
+		if ( $params['max_output_tokens'] > 0 ) {
+			$body['max_output_tokens'] = (int) $params['max_output_tokens'];
+		}
+		if ( null !== $params['temperature'] ) {
+			$body['temperature'] = (float) $params['temperature'];
+		}
+
+		/**
+		 * Filter the OpenAI Responses API request body before sending.
+		 *
+		 * @param array<string,mixed> $body               Request body.
+		 * @param array<string,mixed> $generation_context Generation context.
+		 */
+		$body = (array) apply_filters( 'wpai_publisher_openai_responses_body', $body, $generation_context );
+
+		$encoded = wp_json_encode( $body );
+		if ( false === $encoded ) {
+			return new WP_Error( 'wpai_openai_responses_encode_failed', __( 'Impossibile codificare la richiesta OpenAI.', 'wp-ai-publisher' ) );
+		}
+
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/responses',
+			array(
+				'timeout' => max( 15, (int) $params['http_timeout'] ),
+				'headers' => array(
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
+				),
+				'body'    => $encoded,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return new WP_Error( 'wpai_openai_responses_http_error', $response->get_error_message() );
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$raw  = (string) wp_remote_retrieve_body( $response );
+		if ( $code < 200 || $code >= 300 ) {
+			$decoded = json_decode( $raw, true );
+			$detail  = is_array( $decoded ) && isset( $decoded['error']['message'] ) ? (string) $decoded['error']['message'] : '';
+			return new WP_Error( 'wpai_openai_responses_status_' . $code, sprintf( __( 'OpenAI Responses ha risposto HTTP %1$d. %2$s', 'wp-ai-publisher' ), $code, $detail ) );
+		}
+
+		$text = $this->extract_openai_responses_text( $raw );
+		if ( '' === trim( $text ) ) {
+			return new WP_Error( 'wpai_openai_responses_empty', __( 'OpenAI Responses non ha restituito testo.', 'wp-ai-publisher' ) );
+		}
+
+		return $this->normalize_article_candidate( $text, 'openai_responses', $builder, $generation_context, $tolerant );
+	}
+
+	/**
+	 * Extract the assistant text from an OpenAI Responses API JSON payload.
+	 *
+	 * Handles both the aggregated "output_text" convenience field and the
+	 * structured "output[].content[].text" form.
+	 *
+	 * @param string $raw Raw JSON response body.
+	 * @return string
+	 */
+	private function extract_openai_responses_text( $raw ) {
+		$data = json_decode( (string) $raw, true );
+		if ( ! is_array( $data ) ) {
+			return '';
+		}
+		if ( isset( $data['output_text'] ) && is_string( $data['output_text'] ) && '' !== trim( $data['output_text'] ) ) {
+			return (string) $data['output_text'];
+		}
+
+		$parts = array();
+		if ( isset( $data['output'] ) && is_array( $data['output'] ) ) {
+			foreach ( $data['output'] as $item ) {
+				if ( ! is_array( $item ) || ( isset( $item['type'] ) && 'message' !== $item['type'] ) ) {
+					continue;
+				}
+				$content = isset( $item['content'] ) && is_array( $item['content'] ) ? $item['content'] : array();
+				foreach ( $content as $chunk ) {
+					if ( is_array( $chunk ) && isset( $chunk['text'] ) && is_string( $chunk['text'] ) ) {
+						$parts[] = $chunk['text'];
+					}
+				}
+			}
+		}
+
+		return trim( implode( "\n", $parts ) );
 	}
 
 	private function try_generate_with_php_ai_client( $prompt, $generation_context, Classic_Content_Builder $builder, $tolerant = true ) {

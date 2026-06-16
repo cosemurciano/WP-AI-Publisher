@@ -1,6 +1,18 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.34**
+Versione corrente: **0.5.35**
+
+## Knowledge base OpenAI — file_search / RAG 0.5.35
+
+Funzione **opt-in** ("Knowledge base OpenAI" in Impostazioni). Quando attiva, gli articoli vengono generati tramite la **Responses API di OpenAI** con il tool **file_search**, **ancorandoli ai documenti caricati nei Vector store** del tuo storage OpenAI (`platform.openai.com/storage`). Questo canale, quando configurato, viene **tentato per primo**; in caso di errore o assenza di configurazione c'è il **fallback automatico** al canale AI di WordPress (php_ai_client) e agli altri.
+
+Per sicurezza la **chiave API non si salva nel database**: definiscila in `wp-config.php`
+
+```php
+define( 'WPAIP_OPENAI_API_KEY', 'sk-...' );
+```
+
+oppure forniscila con il filtro `wpai_publisher_openai_api_key`. Imposta poi uno o più **Vector Store ID** e, facoltativamente, il **Modello Responses API** (se vuoto usa il modello dei Parametri AI o un default). Filtri disponibili: `wpai_publisher_openai_model`, `wpai_publisher_openai_responses_body`. Lo **Stato sistema** mostra il canale `openai_responses` quando è pronto.
 
 ## Immagini reali nel corpo dell'articolo 0.5.34
 
@@ -521,6 +533,11 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.35
+- Canale opt-in OpenAI Responses API con file_search: articoli ancorati ai Vector store dello storage OpenAI (RAG), con fallback automatico ai canali esistenti.
+- Chiave API letta da costante `WPAIP_OPENAI_API_KEY` o filtro `wpai_publisher_openai_api_key` (mai salvata nel DB).
+- Nuove impostazioni: knowledge base on/off, Vector Store ID, modello Responses API. Filtri `wpai_publisher_openai_model`, `wpai_publisher_openai_responses_body`.
 
 ### 0.5.34
 - Immagini reali nel corpo dell'articolo: segnaposto `[[wpai-image: descrizione]]` generati dall'AI e sostituiti con immagini vere caricate in Libreria media.

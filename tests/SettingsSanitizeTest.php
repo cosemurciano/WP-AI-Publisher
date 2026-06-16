@@ -44,4 +44,20 @@ final class SettingsSanitizeTest extends TestCase {
 
 		$this->assertSame( 0, wpai_publisher_normalize_settings( array( 'max_inline_images' => -4 ) )['max_inline_images'] );
 	}
+
+	public function test_openai_file_search_settings() {
+		$defaults = wpai_publisher_normalize_settings( array() );
+		$this->assertFalse( $defaults['use_openai_file_search'] );
+		$this->assertSame( '', $defaults['openai_vector_store_ids'] );
+		$this->assertSame( '', $defaults['openai_responses_model'] );
+
+		$normalized = wpai_publisher_normalize_settings( array(
+			'use_openai_file_search' => '1',
+			'openai_vector_store_ids' => 'vs_a vs_b',
+			'openai_responses_model'  => 'gpt-4.1-mini',
+		) );
+		$this->assertTrue( $normalized['use_openai_file_search'] );
+		$this->assertSame( 'vs_a vs_b', $normalized['openai_vector_store_ids'] );
+		$this->assertSame( 'gpt-4.1-mini', $normalized['openai_responses_model'] );
+	}
 }

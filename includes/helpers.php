@@ -60,6 +60,9 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'generate_featured_image'       => false,
 			'generate_inline_images'        => false,
 			'max_inline_images'             => 3,
+			'use_openai_file_search'        => false,
+			'openai_vector_store_ids'       => '',
+			'openai_responses_model'        => '',
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -112,6 +115,9 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['generate_featured_image']       = ! empty( $settings['generate_featured_image'] );
 		$settings['generate_inline_images']        = ! empty( $settings['generate_inline_images'] );
 		$settings['max_inline_images']             = max( 0, min( 10, (int) ( $settings['max_inline_images'] ?? 3 ) ) );
+		$settings['use_openai_file_search']        = ! empty( $settings['use_openai_file_search'] );
+		$settings['openai_vector_store_ids']       = sanitize_textarea_field( (string) ( $settings['openai_vector_store_ids'] ?? '' ) );
+		$settings['openai_responses_model']        = sanitize_text_field( (string) ( $settings['openai_responses_model'] ?? '' ) );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );
@@ -468,6 +474,61 @@ if ( ! function_exists( 'wpai_publisher_get_site_generation_context' ) ) {
 		}
 
 		return array( 'tags' => $tags, 'categories' => $categories, 'internal_links' => $internal_links );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_get_openai_api_key' ) ) {
+	/**
+	 * Resolve the OpenAI API key for the direct Responses API channel.
+	 *
+	 * The key is never stored in the plugin settings/DB: it is read from the
+	 * WPAIP_OPENAI_API_KEY constant (define it in wp-config.php) or supplied via
+	 * the wpai_publisher_openai_api_key filter.
+	 *
+	 * @return string API key or empty string.
+	 */
+	function wpai_publisher_get_openai_api_key() {
+		$key = defined( 'WPAIP_OPENAI_API_KEY' ) ? (string) WPAIP_OPENAI_API_KEY : '';
+
+		/**
+		 * Filter the OpenAI API key used by the direct Responses API channel.
+		 *
+		 * @param string $key API key.
+		 */
+		$key = (string) apply_filters( 'wpai_publisher_openai_api_key', $key );
+
+		return trim( $key );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_get_openai_vector_store_ids' ) ) {
+	/**
+	 * Parse the configured OpenAI vector store IDs into a clean list.
+	 *
+	 * Accepts comma/space/newline separated values; keeps only plausible
+	 * identifiers (alphanumeric, underscore, dash).
+	 *
+	 * @param string $raw Raw setting value (optional; reads settings when null).
+	 * @return array<int,string>
+	 */
+	function wpai_publisher_get_openai_vector_store_ids( $raw = null ) {
+		if ( null === $raw ) {
+			$settings = wpai_publisher_get_settings();
+			$raw      = (string) ( $settings['openai_vector_store_ids'] ?? '' );
+		}
+		$parts = preg_split( '/[\s,]+/', (string) $raw );
+		$ids   = array();
+		foreach ( (array) $parts as $part ) {
+			$part = trim( (string) $part );
+			if ( '' === $part ) {
+				continue;
+			}
+			if ( preg_match( '/^[A-Za-z0-9_\-]+$/', $part ) ) {
+				$ids[] = $part;
+			}
+		}
+
+		return array_values( array_unique( $ids ) );
 	}
 }
 

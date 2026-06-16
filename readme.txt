@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.34
+Stable tag: 0.5.35
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.35 =
+* Knowledge base OpenAI (file_search): nuovo canale opt-in che genera gli articoli tramite la Responses API di OpenAI ancorandoli ai documenti caricati nei Vector store (RAG). Quando attivo e configurato viene tentato per primo, con fallback automatico al canale AI di WordPress.
+* La chiave API OpenAI non viene salvata nel database: si legge dalla costante WPAIP_OPENAI_API_KEY (wp-config.php) o dal filtro wpai_publisher_openai_api_key.
+* Nuove impostazioni: "Usa knowledge base", "Vector Store ID" (uno o più) e "Modello Responses API". Nuovi filtri wpai_publisher_openai_model e wpai_publisher_openai_responses_body. Lo Stato sistema mostra il canale openai_responses quando pronto.
 
 = 0.5.34 =
 * Immagini reali nel corpo dell'articolo: l'AI indica i punti adatti con un segnaposto [[wpai-image: descrizione]] e il plugin genera l'immagine, la carica nella Libreria media e sostituisce il segnaposto con un'immagine vera (mai un placeholder). I segnaposto non elaborati o in eccesso vengono rimossi.
