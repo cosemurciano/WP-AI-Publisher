@@ -63,6 +63,130 @@ class Telegram_Integration {
 	public function register() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 		add_action( self::CRON_HOOK, array( $this, 'process_idea_async' ), 10, 2 );
+		add_action( 'admin_post_wpai_publisher_telegram_set_webhook', array( $this, 'handle_set_webhook' ) );
+		add_action( 'admin_post_wpai_publisher_telegram_webhook_info', array( $this, 'handle_webhook_info' ) );
+	}
+
+	/**
+	 * The public REST URL Telegram should POST updates to.
+	 *
+	 * @return string
+	 */
+	public function get_webhook_url() {
+		return esc_url_raw( rest_url( self::REST_NAMESPACE . self::REST_ROUTE ) );
+	}
+
+	/**
+	 * Admin action: register the webhook on Telegram (setWebhook).
+	 *
+	 * @return void
+	 */
+	public function handle_set_webhook() {
+		$this->guard_admin_action( 'wpai_publisher_telegram_set_webhook' );
+
+		$token  = wpai_publisher_get_telegram_bot_token();
+		$secret = wpai_publisher_get_telegram_secret_token();
+		if ( '' === $token || '' === $secret ) {
+			$this->finish_admin_action( __( 'Configura prima il token bot e il secret (costanti WPAIP_TELEGRAM_BOT_TOKEN e WPAIP_TELEGRAM_SECRET).', 'wp-ai-publisher' ), false );
+		}
+
+		$response = wp_remote_post(
+			'https://api.telegram.org/bot' . $token . '/setWebhook',
+			array(
+				'timeout' => 20,
+				'body'    => array(
+					'url'          => $this->get_webhook_url(),
+					'secret_token' => $secret,
+				),
+			)
+		);
+		$this->finish_admin_action_from_response( $response, __( 'Webhook registrato correttamente.', 'wp-ai-publisher' ) );
+	}
+
+	/**
+	 * Admin action: read the current webhook status (getWebhookInfo).
+	 *
+	 * @return void
+	 */
+	public function handle_webhook_info() {
+		$this->guard_admin_action( 'wpai_publisher_telegram_webhook_info' );
+
+		$token = wpai_publisher_get_telegram_bot_token();
+		if ( '' === $token ) {
+			$this->finish_admin_action( __( 'Token bot non configurato (costante WPAIP_TELEGRAM_BOT_TOKEN).', 'wp-ai-publisher' ), false );
+		}
+
+		$response = wp_remote_get(
+			'https://api.telegram.org/bot' . $token . '/getWebhookInfo',
+			array( 'timeout' => 20 )
+		);
+		if ( is_wp_error( $response ) ) {
+			$this->finish_admin_action( $response->get_error_message(), false );
+		}
+		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $body ) || empty( $body['ok'] ) ) {
+			$this->finish_admin_action( __( 'Risposta non valida da Telegram.', 'wp-ai-publisher' ), false );
+		}
+		$info       = is_array( $body['result'] ?? null ) ? $body['result'] : array();
+		$url        = (string) ( $info['url'] ?? '' );
+		$pending    = (int) ( $info['pending_update_count'] ?? 0 );
+		$last_error = (string) ( $info['last_error_message'] ?? '' );
+		$message    = '' === $url
+			? __( 'Nessun webhook impostato.', 'wp-ai-publisher' )
+			: sprintf( __( 'Webhook attivo su %1$s — update in attesa: %2$d.', 'wp-ai-publisher' ), $url, $pending );
+		if ( '' !== $last_error ) {
+			$message .= ' ' . sprintf( __( 'Ultimo errore: %s', 'wp-ai-publisher' ), $last_error );
+		}
+		$this->finish_admin_action( $message, '' !== $url && '' === $last_error );
+	}
+
+	/**
+	 * Capability + nonce guard for the admin webhook actions.
+	 *
+	 * @param string $action Nonce action.
+	 * @return void
+	 */
+	private function guard_admin_action( $action ) {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+		check_admin_referer( $action );
+	}
+
+	/**
+	 * Turn a Telegram HTTP response into an admin notice and redirect back.
+	 *
+	 * @param array|WP_Error $response Response.
+	 * @param string         $success_message Message on success.
+	 * @return void
+	 */
+	private function finish_admin_action_from_response( $response, $success_message ) {
+		if ( is_wp_error( $response ) ) {
+			$this->finish_admin_action( $response->get_error_message(), false );
+		}
+		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		if ( is_array( $body ) && ! empty( $body['ok'] ) ) {
+			$this->finish_admin_action( $success_message, true );
+		}
+		$detail = is_array( $body ) ? (string) ( $body['description'] ?? '' ) : '';
+		$this->finish_admin_action( '' !== $detail ? $detail : __( 'Operazione non riuscita.', 'wp-ai-publisher' ), false );
+	}
+
+	/**
+	 * Store the result in a per-user transient and redirect to the settings page.
+	 *
+	 * @param string $message Human-readable result.
+	 * @param bool   $ok Whether the action succeeded.
+	 * @return void
+	 */
+	private function finish_admin_action( $message, $ok ) {
+		set_transient(
+			'wpai_publisher_telegram_notice_' . get_current_user_id(),
+			array( 'ok' => (bool) $ok, 'message' => sanitize_text_field( (string) $message ) ),
+			60
+		);
+		wp_safe_redirect( add_query_arg( 'wpai_notice', 'telegram_webhook', admin_url( 'admin.php?page=wp-ai-publisher-settings' ) ) );
+		exit;
 	}
 
 	/**

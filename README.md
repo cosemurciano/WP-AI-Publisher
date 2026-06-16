@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.38**
+Versione corrente: **0.5.39**
 
 ## Integrazione Telegram 0.5.38
 
@@ -12,8 +12,8 @@ Invia un messaggio al **bot Telegram** per creare automaticamente un'**idea cont
 
 Setup:
 1. In `wp-config.php`: `define( 'WPAIP_TELEGRAM_BOT_TOKEN', '123456:ABC...' );` e `define( 'WPAIP_TELEGRAM_SECRET', 'stringa-casuale' );`
-2. Registra il webhook (una volta): `curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<URL_WEBHOOK>&secret_token=<SECRET>"`
-3. In Impostazioni abilita Telegram, aggiungi le chat ID autorizzate e scegli la Tipologia.
+2. In Impostazioni abilita Telegram, aggiungi le chat ID autorizzate e scegli la Tipologia.
+3. Registra il webhook con il pulsante **"Registra webhook"** in Impostazioni (oppure via terminale: `curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<URL_WEBHOOK>&secret_token=<SECRET>"`). Usa **"Verifica stato webhook"** per controllare che sia attivo.
 
 ## Fix inserimento immagini (corpo + in evidenza) 0.5.37
 
@@ -559,6 +559,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.39
+- Telegram: pulsanti "Registra webhook" e "Verifica stato webhook" in Impostazioni (nessun terminale necessario); esito mostrato come avviso.
 
 ### 0.5.38
 - Integrazione Telegram: messaggio al bot → idea + bozza (async via WP-Cron) con risposta e link alla bozza.
