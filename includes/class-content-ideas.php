@@ -118,6 +118,14 @@ class Content_Ideas {
 		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) {
 			$this->db->ensure_content_ideas_article_type_column();
 		}
+		if ( method_exists( $this->db, 'ensure_content_ideas_scheduled_column' ) ) {
+			$this->db->ensure_content_ideas_scheduled_column();
+		}
+
+		// Optional scheduling: a future date moves the idea to the 'scheduled' state
+		// until the cron picks it up.
+		$scheduled_at = $this->normalize_scheduled_at( $data['scheduled_at'] ?? '' );
+		$status       = ( '' !== $scheduled_at ) ? 'scheduled' : 'new';
 
 		$table_name = $this->get_table_name();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -132,7 +140,8 @@ class Content_Ideas {
 			array(
 				'created_at'      => current_time( 'mysql' ),
 				'updated_at'      => null,
-				'status'          => 'new',
+				'status'          => $status,
+				'scheduled_at'    => '' !== $scheduled_at ? $scheduled_at : null,
 				'topic'           => $topic,
 				'keyword'         => sanitize_text_field( (string) ( $data['keyword'] ?? '' ) ),
 				'language'        => $language,
@@ -141,7 +150,7 @@ class Content_Ideas {
 				'article_type_id' => $article_type_id,
 				'notes'           => '',
 			),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
 		);
 
 		if ( false === $inserted ) {
@@ -182,6 +191,45 @@ class Content_Ideas {
 				"SELECT * FROM {$this->get_table_name()} ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d",
 				$per_page,
 				$offset
+			)
+		);
+	}
+
+	/**
+	 * Normalize a scheduling datetime (e.g. from a datetime-local field) to MySQL.
+	 *
+	 * @param string $value Raw datetime.
+	 * @return string MySQL datetime or '' if empty/invalid.
+	 */
+	private function normalize_scheduled_at( $value ) {
+		$value = trim( (string) $value );
+		if ( '' === $value ) {
+			return '';
+		}
+		$ts = strtotime( str_replace( 'T', ' ', $value ) );
+		if ( false === $ts ) {
+			return '';
+		}
+		return gmdate( 'Y-m-d H:i:s', $ts );
+	}
+
+	/**
+	 * Get scheduled ideas whose time is due (status 'scheduled', scheduled_at <= now).
+	 *
+	 * @param int $limit Max rows.
+	 * @return array<int,object>
+	 */
+	public function get_due_scheduled_ideas( $limit = 20 ) {
+		global $wpdb;
+		if ( method_exists( $this->db, 'ensure_content_ideas_scheduled_column' ) ) {
+			$this->db->ensure_content_ideas_scheduled_column();
+		}
+		$limit = min( 50, max( 1, absint( $limit ) ) );
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$this->get_table_name()} WHERE status = 'scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= %s ORDER BY scheduled_at ASC, id ASC LIMIT %d",
+				gmdate( 'Y-m-d H:i:s' ),
+				$limit
 			)
 		);
 	}
@@ -625,6 +673,7 @@ class Content_Ideas {
 			'processing'      => __( 'In lavorazione', 'wp-ai-publisher' ),
 			'timeout'         => __( 'Scaduto', 'wp-ai-publisher' ),
 			'full_article_ready' => __( 'Articolo pronto', 'wp-ai-publisher' ),
+			'scheduled'          => __( 'Programmata', 'wp-ai-publisher' ),
 		);
 
 		$status = sanitize_key( (string) $status );
@@ -638,7 +687,7 @@ class Content_Ideas {
 	 * @return array<int,string>
 	 */
 	public function get_allowed_statuses() {
-		return array( 'new', 'processing', 'timeout', 'dry_run_ready', 'dry_run_failed', 'full_article_ready', 'approved', 'rejected', 'draft_created', 'draft_failed' );
+		return array( 'new', 'scheduled', 'processing', 'timeout', 'dry_run_ready', 'dry_run_failed', 'full_article_ready', 'approved', 'rejected', 'draft_created', 'draft_failed' );
 	}
 
 

@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.31
+Stable tag: 0.5.32
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.32 =
+* Programmazione idee: ora puoi impostare data e ora e usare il pulsante "Programma" per generare la bozza automaticamente in seguito. Nuovo stato "Programmata", colonna database scheduled_at (schema 9) e cron ogni 5 minuti che accoda le idee scadute. Resta possibile forzare subito la generazione.
 
 = 0.5.31 =
 * Dashboard WordPress: nuovo widget "WP AI Publisher — Idee contenuto" con contatori per stato, ultime idee con link e collegamento rapido alla pagina Idee.

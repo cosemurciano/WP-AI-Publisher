@@ -190,12 +190,16 @@ class Admin {
 
 		check_admin_referer( 'wpai_publisher_create_content_idea' );
 
+		$creation_mode = sanitize_key( wp_unslash( $_POST['wpai_creation_mode'] ?? '' ) );
+		$scheduled_at  = ( 'schedule' === $creation_mode ) ? sanitize_text_field( wp_unslash( $_POST['wpai_scheduled_at'] ?? '' ) ) : '';
+
 		$idea_id = $this->content_ideas->create_idea(
 			array(
 				'topic'           => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
 				'keyword'         => sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) ),
 				'language'        => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
 				'article_type_id' => absint( $_POST['article_type_id'] ?? 0 ),
+				'scheduled_at'    => $scheduled_at,
 				'_wpnonce'        => sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ?? '' ) ),
 			)
 		);
@@ -210,7 +214,14 @@ class Admin {
 			$this->redirect_content_ideas( $args );
 		}
 
-		$creation_mode = sanitize_key( wp_unslash( $_POST['wpai_creation_mode'] ?? '' ) );
+		// Scheduled idea: the recurring cron will enqueue the draft job when due.
+		if ( 'schedule' === $creation_mode ) {
+			if ( wpai_publisher_article_types_enabled() && ! wpai_publisher_is_active_article_type_safe( absint( $_POST['article_type_id'] ?? 0 ) ) ) {
+				$this->redirect_content_ideas( array( 'wpai_notice' => 'missing_article_type', 'idea_id' => absint( $idea_id ) ) );
+			}
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_scheduled', 'idea_id' => absint( $idea_id ) ) );
+		}
+
 		$settings      = wpai_publisher_get_settings();
 		if ( 'create_draft' === $creation_mode && wpai_publisher_article_types_enabled() && ! wpai_publisher_is_active_article_type_safe( absint( $_POST['article_type_id'] ?? 0 ) ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'missing_article_type', 'idea_id' => absint( $idea_id ) ) );
@@ -427,6 +438,36 @@ class Admin {
 		$this->job_queue->fail_job( $job_id, $message, $result );
 		$this->logger->warning( __( 'Job creazione bozza fallito.', 'wp-ai-publisher' ), array( 'source' => 'job_queue', 'event' => 'job_failed', 'idea_id' => $idea_id, 'job_id' => absint( $job_id ), 'step_failed' => sanitize_key( (string) ( $result['step_failed'] ?? '' ) ), 'message' => $message ) );
 		return $result;
+	}
+
+	/**
+	 * Cron callback: enqueue draft jobs for scheduled ideas that are now due.
+	 *
+	 * @return void
+	 */
+	public function process_scheduled_ideas() {
+		if ( ! method_exists( $this->content_ideas, 'get_due_scheduled_ideas' ) ) {
+			return;
+		}
+		$due       = $this->content_ideas->get_due_scheduled_ideas( 10 );
+		$processed = false;
+		foreach ( (array) $due as $idea ) {
+			$idea_id = absint( $idea->id ?? 0 );
+			if ( $idea_id <= 0 ) {
+				continue;
+			}
+			$job_id = $this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => $idea_id, 'mode' => 'scheduled' ), 5 );
+			if ( ! $job_id ) {
+				continue;
+			}
+			$this->content_ideas->attach_job_to_idea( $idea_id, absint( $job_id ) );
+			$this->content_ideas->update_idea_status( $idea_id, 'processing' );
+			$this->logger->info( __( 'Idea programmata accodata.', 'wp-ai-publisher' ), array( 'source' => 'job_queue', 'event' => 'scheduled_idea_enqueued', 'idea_id' => $idea_id, 'job_id' => absint( $job_id ) ) );
+			$processed = true;
+		}
+		if ( $processed ) {
+			$this->schedule_job_processor();
+		}
 	}
 
 	private function schedule_job_processor() {

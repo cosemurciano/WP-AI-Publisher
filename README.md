@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.31**
+Versione corrente: **0.5.32**
+
+## Programmazione creazione bozze 0.5.32
+
+Nella pagina **Idee contenuto** puoi impostare **data e ora** e usare il pulsante **“Programma”**: l'idea passa allo stato *Programmata* (`scheduled_at`, schema DB 9) e un **cron ogni 5 minuti** accoda la generazione della bozza quando l'orario è raggiunto. Puoi comunque forzare subito la generazione con “Genera bozza”.
 
 ## Dashboard widget + elenco idee paginato 0.5.31
 
