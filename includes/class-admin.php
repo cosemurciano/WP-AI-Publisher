@@ -190,12 +190,16 @@ class Admin {
 
 		check_admin_referer( 'wpai_publisher_create_content_idea' );
 
+		$creation_mode = sanitize_key( wp_unslash( $_POST['wpai_creation_mode'] ?? '' ) );
+		$scheduled_at  = ( 'schedule' === $creation_mode ) ? sanitize_text_field( wp_unslash( $_POST['wpai_scheduled_at'] ?? '' ) ) : '';
+
 		$idea_id = $this->content_ideas->create_idea(
 			array(
 				'topic'           => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
 				'keyword'         => sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) ),
 				'language'        => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
 				'article_type_id' => absint( $_POST['article_type_id'] ?? 0 ),
+				'scheduled_at'    => $scheduled_at,
 				'_wpnonce'        => sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ?? '' ) ),
 			)
 		);
@@ -210,7 +214,14 @@ class Admin {
 			$this->redirect_content_ideas( $args );
 		}
 
-		$creation_mode = sanitize_key( wp_unslash( $_POST['wpai_creation_mode'] ?? '' ) );
+		// Scheduled idea: the recurring cron will enqueue the draft job when due.
+		if ( 'schedule' === $creation_mode ) {
+			if ( wpai_publisher_article_types_enabled() && ! wpai_publisher_is_active_article_type_safe( absint( $_POST['article_type_id'] ?? 0 ) ) ) {
+				$this->redirect_content_ideas( array( 'wpai_notice' => 'missing_article_type', 'idea_id' => absint( $idea_id ) ) );
+			}
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_scheduled', 'idea_id' => absint( $idea_id ) ) );
+		}
+
 		$settings      = wpai_publisher_get_settings();
 		if ( 'create_draft' === $creation_mode && wpai_publisher_article_types_enabled() && ! wpai_publisher_is_active_article_type_safe( absint( $_POST['article_type_id'] ?? 0 ) ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'missing_article_type', 'idea_id' => absint( $idea_id ) ) );
@@ -429,6 +440,36 @@ class Admin {
 		return $result;
 	}
 
+	/**
+	 * Cron callback: enqueue draft jobs for scheduled ideas that are now due.
+	 *
+	 * @return void
+	 */
+	public function process_scheduled_ideas() {
+		if ( ! method_exists( $this->content_ideas, 'get_due_scheduled_ideas' ) ) {
+			return;
+		}
+		$due       = $this->content_ideas->get_due_scheduled_ideas( 10 );
+		$processed = false;
+		foreach ( (array) $due as $idea ) {
+			$idea_id = absint( $idea->id ?? 0 );
+			if ( $idea_id <= 0 ) {
+				continue;
+			}
+			$job_id = $this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => $idea_id, 'mode' => 'scheduled' ), 5 );
+			if ( ! $job_id ) {
+				continue;
+			}
+			$this->content_ideas->attach_job_to_idea( $idea_id, absint( $job_id ) );
+			$this->content_ideas->update_idea_status( $idea_id, 'processing' );
+			$this->logger->info( __( 'Idea programmata accodata.', 'wp-ai-publisher' ), array( 'source' => 'job_queue', 'event' => 'scheduled_idea_enqueued', 'idea_id' => $idea_id, 'job_id' => absint( $job_id ) ) );
+			$processed = true;
+		}
+		if ( $processed ) {
+			$this->schedule_job_processor();
+		}
+	}
+
 	private function schedule_job_processor() {
 		if ( function_exists( 'wp_schedule_single_event' ) && ! wp_next_scheduled( 'wpai_publisher_process_jobs' ) ) {
 			wp_schedule_single_event( time() + 10, 'wpai_publisher_process_jobs' );
@@ -451,7 +492,12 @@ class Admin {
 		$active_article_types = $article_types_enabled ? wpai_publisher_get_active_article_types_safe() : array();
 		$article_types_url = admin_url( 'admin.php?page=wp-ai-publisher-article-types' );
 		$this->content_ideas->mark_stale_processing_ideas( 15 );
-		$ideas         = $content_ideas->get_recent_ideas( 20 );
+		$ideas_per_page = (int) apply_filters( 'wpai_publisher_ideas_per_page', 20 );
+		$ideas_per_page = min( 100, max( 5, $ideas_per_page ) );
+		$ideas_total    = $content_ideas->count_all();
+		$ideas_pages    = max( 1, (int) ceil( $ideas_total / $ideas_per_page ) );
+		$ideas_page     = min( $ideas_pages, max( 1, absint( $_GET['paged'] ?? 1 ) ) );
+		$ideas          = $content_ideas->get_ideas_paginated( $ideas_page, $ideas_per_page );
 		$selected_idea = null;
 		$dry_run_data  = array();
 		$notes_data    = array();
@@ -596,6 +642,44 @@ class Admin {
 		$status_counts = $job_queue->count_by_status();
 		$jobs          = $job_queue->get_recent_jobs( 20 );
 		include WPAIP_PLUGIN_DIR . 'admin/views/jobs.php';
+	}
+
+	/**
+	 * Register the WordPress dashboard widget.
+	 *
+	 * @return void
+	 */
+	public function register_dashboard_widget() {
+		if ( ! current_user_can( wpai_publisher_capability() ) || ! function_exists( 'wp_add_dashboard_widget' ) ) {
+			return;
+		}
+		wp_add_dashboard_widget(
+			'wpai_publisher_dashboard_widget',
+			esc_html__( 'WP AI Publisher — Idee contenuto', 'wp-ai-publisher' ),
+			array( $this, 'render_dashboard_widget' )
+		);
+	}
+
+	/**
+	 * Render the dashboard widget: status counts, recent ideas and quick links.
+	 *
+	 * @return void
+	 */
+	public function render_dashboard_widget() {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
+			return;
+		}
+		$counts        = $this->content_ideas->count_by_status();
+		$total         = $this->content_ideas->count_all();
+		$recent        = $this->content_ideas->get_recent_ideas( 5 );
+		$ideas_url     = admin_url( 'admin.php?page=wp-ai-publisher-content-ideas' );
+		$summary       = array(
+			'draft_created' => __( 'Bozze create', 'wp-ai-publisher' ),
+			'processing'    => __( 'In lavorazione', 'wp-ai-publisher' ),
+			'draft_failed'  => __( 'In errore', 'wp-ai-publisher' ),
+			'new'           => __( 'Nuove', 'wp-ai-publisher' ),
+		);
+		include WPAIP_PLUGIN_DIR . 'admin/views/dashboard-widget.php';
 	}
 
 	/**

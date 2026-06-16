@@ -118,6 +118,14 @@ class Content_Ideas {
 		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) {
 			$this->db->ensure_content_ideas_article_type_column();
 		}
+		if ( method_exists( $this->db, 'ensure_content_ideas_scheduled_column' ) ) {
+			$this->db->ensure_content_ideas_scheduled_column();
+		}
+
+		// Optional scheduling: a future date moves the idea to the 'scheduled' state
+		// until the cron picks it up.
+		$scheduled_at = $this->normalize_scheduled_at( $data['scheduled_at'] ?? '' );
+		$status       = ( '' !== $scheduled_at ) ? 'scheduled' : 'new';
 
 		$table_name = $this->get_table_name();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -132,7 +140,8 @@ class Content_Ideas {
 			array(
 				'created_at'      => current_time( 'mysql' ),
 				'updated_at'      => null,
-				'status'          => 'new',
+				'status'          => $status,
+				'scheduled_at'    => '' !== $scheduled_at ? $scheduled_at : null,
 				'topic'           => $topic,
 				'keyword'         => sanitize_text_field( (string) ( $data['keyword'] ?? '' ) ),
 				'language'        => $language,
@@ -141,7 +150,7 @@ class Content_Ideas {
 				'article_type_id' => $article_type_id,
 				'notes'           => '',
 			),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
 		);
 
 		if ( false === $inserted ) {
@@ -150,6 +159,79 @@ class Content_Ideas {
 		}
 
 		return (int) $wpdb->insert_id;
+	}
+
+	/**
+	 * Count all content ideas.
+	 *
+	 * @return int
+	 */
+	public function count_all() {
+		global $wpdb;
+		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->get_table_name()}" );
+	}
+
+	/**
+	 * Get a page of content ideas.
+	 *
+	 * @param int $page Page number (1-based).
+	 * @param int $per_page Items per page.
+	 * @return array<int,object>
+	 */
+	public function get_ideas_paginated( $page = 1, $per_page = 20 ) {
+		global $wpdb;
+		$per_page = min( 100, max( 1, absint( $per_page ) ) );
+		$page     = max( 1, absint( $page ) );
+		$offset   = ( $page - 1 ) * $per_page;
+		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) {
+			$this->db->ensure_content_ideas_article_type_column();
+		}
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$this->get_table_name()} ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d",
+				$per_page,
+				$offset
+			)
+		);
+	}
+
+	/**
+	 * Normalize a scheduling datetime (e.g. from a datetime-local field) to MySQL.
+	 *
+	 * @param string $value Raw datetime.
+	 * @return string MySQL datetime or '' if empty/invalid.
+	 */
+	private function normalize_scheduled_at( $value ) {
+		$value = trim( (string) $value );
+		if ( '' === $value ) {
+			return '';
+		}
+		$ts = strtotime( str_replace( 'T', ' ', $value ) );
+		if ( false === $ts ) {
+			return '';
+		}
+		return gmdate( 'Y-m-d H:i:s', $ts );
+	}
+
+	/**
+	 * Get scheduled ideas whose time is due (status 'scheduled', scheduled_at <= now).
+	 *
+	 * @param int $limit Max rows.
+	 * @return array<int,object>
+	 */
+	public function get_due_scheduled_ideas( $limit = 20 ) {
+		global $wpdb;
+		if ( method_exists( $this->db, 'ensure_content_ideas_scheduled_column' ) ) {
+			$this->db->ensure_content_ideas_scheduled_column();
+		}
+		$limit = min( 50, max( 1, absint( $limit ) ) );
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$this->get_table_name()} WHERE status = 'scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= %s ORDER BY scheduled_at ASC, id ASC LIMIT %d",
+				gmdate( 'Y-m-d H:i:s' ),
+				$limit
+			)
+		);
 	}
 
 	/**
@@ -591,6 +673,7 @@ class Content_Ideas {
 			'processing'      => __( 'In lavorazione', 'wp-ai-publisher' ),
 			'timeout'         => __( 'Scaduto', 'wp-ai-publisher' ),
 			'full_article_ready' => __( 'Articolo pronto', 'wp-ai-publisher' ),
+			'scheduled'          => __( 'Programmata', 'wp-ai-publisher' ),
 		);
 
 		$status = sanitize_key( (string) $status );
@@ -604,7 +687,7 @@ class Content_Ideas {
 	 * @return array<int,string>
 	 */
 	public function get_allowed_statuses() {
-		return array( 'new', 'processing', 'timeout', 'dry_run_ready', 'dry_run_failed', 'full_article_ready', 'approved', 'rejected', 'draft_created', 'draft_failed' );
+		return array( 'new', 'scheduled', 'processing', 'timeout', 'dry_run_ready', 'dry_run_failed', 'full_article_ready', 'approved', 'rejected', 'draft_created', 'draft_failed' );
 	}
 
 
@@ -738,92 +821,9 @@ class Content_Ideas {
 	}
 
 
-	/**
-	 * Normalize dry-run output so all expected keys exist before storage.
-	 *
-	 * @param array<string,mixed> $output Dry-run output.
-	 * @return array<string,mixed>
-	 */
-	private function normalize_dry_run_output( $output ) {
-		$defaults = array(
-			'title'                  => '',
-			'slug'                   => '',
-			'excerpt'                => '',
-			'content_outline'        => array(),
-			'category_ids'            => array(),
-			'categories'             => array(),
-			'tags'                   => array(),
-			'meta_title'             => '',
-			'meta_description'       => '',
-			'open_graph_title'       => '',
-			'open_graph_description' => '',
-			'twitter_title'          => '',
-			'twitter_description'    => '',
-			'featured_image_prompt'  => '',
-			'internal_image_prompts' => array(),
-			'image_alt_texts'        => array(),
-			'image_captions'         => array(),
-			'internal_link_targets'  => array(),
-			'knowledge_summary'      => '',
-			'entities'               => array(),
-			'search_intent'          => '',
-			'tutorial_level'         => '',
-			'cluster_topic'          => '',
-			'subtopic'               => '',
-			'validation_notes'       => array(),
-			'classic_editor_preview' => array(
-				'html'               => '',
-				'plain_text_summary' => '',
-				'validation_notes'   => array(),
-			),
-			'full_article' => array(),
-		);
+	
 
-		if ( ! is_array( $output ) ) {
-			return $defaults;
-		}
-
-		return wp_parse_args( $output, $defaults );
-	}
-
-	/**
-	 * Validate dry-run output minimum schema.
-	 *
-	 * @param mixed $output AI output.
-	 * @return array{valid:bool,notes:array<int,string>}
-	 */
-	private function validate_dry_run_output( $output ) {
-		$notes = array();
-
-		if ( ! is_array( $output ) ) {
-			return array(
-				'valid' => false,
-				'notes' => array( __( 'Output dry-run gravemente invalido: il risultato non è un array.', 'wp-ai-publisher' ) ),
-			);
-		}
-
-		$required_strings = array( 'title', 'slug', 'excerpt', 'meta_title', 'meta_description' );
-		foreach ( $required_strings as $field ) {
-			if ( empty( $output[ $field ] ) || ! is_string( $output[ $field ] ) ) {
-				$notes[] = sprintf( __( 'Campo obbligatorio mancante o vuoto: %s.', 'wp-ai-publisher' ), $field );
-			}
-		}
-
-		if ( empty( $output['content_outline'] ) || ! is_array( $output['content_outline'] ) ) {
-			$notes[] = __( 'La struttura articolo deve essere un array non vuoto.', 'wp-ai-publisher' );
-		}
-
-		foreach ( array( 'category_ids', 'categories', 'tags' ) as $array_field ) {
-			if ( ! isset( $output[ $array_field ] ) || ! is_array( $output[ $array_field ] ) ) {
-				$notes[] = sprintf( __( 'Il campo %s deve essere un array.', 'wp-ai-publisher' ), $array_field );
-			}
-		}
-
-		return array(
-			'valid' => empty( $notes ),
-			'notes' => $notes,
-		);
-	}
+	
 
 	/**
 	 * Sanitize structured output recursively.
@@ -862,176 +862,11 @@ class Content_Ideas {
 		return null;
 	}
 
-	/**
-	 * Remove legacy generic placeholder notes so the standalone word passaggio is not a false positive.
-	 *
-	 * @param mixed $notes Preview notes.
-	 * @return array<int,string>
-	 */
-	private function remove_generic_placeholder_preview_notes( $notes ) {
-		$filtered = array();
-		foreach ( (array) $notes as $note ) {
-			$note_text = strtolower( remove_accents( (string) $note ) );
-			if ( false !== strpos( $note_text, 'placeholder' ) ) {
-				continue;
-			}
-			$filtered[] = (string) $note;
-		}
+	
 
-		return array_values( array_unique( array_filter( $filtered ) ) );
-	}
+	
 
-	/**
-	 * Return non-blocking quality notes for editorial review.
-	 *
-	 * @param array<string,mixed> $output Normalized dry-run output.
-	 * @return array<int,string>
-	 */
-	private function get_quality_review_notes( $output ) {
-		$notes  = array();
-		$checks = array(
-			'title'            => array( 70, __( 'Nota lieve: title supera 70 caratteri. Da revisionare.', 'wp-ai-publisher' ) ),
-			'meta_title'       => array( 60, __( 'Nota lieve: meta_title supera 60 caratteri. Da revisionare.', 'wp-ai-publisher' ) ),
-			'meta_description' => array( 160, __( 'Nota lieve: meta_description supera 160 caratteri. Da revisionare.', 'wp-ai-publisher' ) ),
-			'slug'             => array( 75, __( 'Nota lieve: slug supera 75 caratteri. Da revisionare.', 'wp-ai-publisher' ) ),
-			'excerpt'          => array( 300, __( 'Nota lieve: excerpt supera 300 caratteri. Da revisionare.', 'wp-ai-publisher' ) ),
-		);
+	
 
-		foreach ( $checks as $field => $check ) {
-			$value  = isset( $output[ $field ] ) ? (string) $output[ $field ] : '';
-			$length = function_exists( 'mb_strlen' ) ? mb_strlen( $value ) : strlen( $value );
-			if ( $length > $check[0] ) {
-				$notes[] = $check[1];
-			}
-		}
-
-		if ( isset( $output['tags'] ) && is_array( $output['tags'] ) && count( $output['tags'] ) > 12 ) {
-			$notes[] = __( 'Nota lieve: sono presenti più di 12 tag. Da revisionare.', 'wp-ai-publisher' );
-		}
-
-		if ( isset( $output['categories'] ) && is_array( $output['categories'] ) && count( $output['categories'] ) > 4 ) {
-			$notes[] = __( 'Nota lieve: sono presenti più di 4 categorie. Da revisionare.', 'wp-ai-publisher' );
-		}
-
-		return $notes;
-	}
-
-	/**
-	 * Validate the Classic Editor preview contract.
-	 *
-	 * @param mixed $preview Preview array.
-	 * @return array{valid:bool,notes:array<int,string>}
-	 */
-	private function validate_classic_editor_preview( $preview ) {
-		$notes       = array();
-		$grave_notes = array();
-
-		if ( ! is_array( $preview ) ) {
-			return array(
-				'valid' => false,
-				'notes' => array( __( 'Anteprima Classic Editor mancante o non valida.', 'wp-ai-publisher' ) ),
-			);
-		}
-
-		$html = (string) ( $preview['html'] ?? '' );
-		if ( '' === trim( wp_strip_all_tags( $html ) ) ) {
-			$grave_notes[] = __( 'Nota grave: classic_editor_preview.html è vuoto.', 'wp-ai-publisher' );
-		}
-
-		$grave_checks = array(
-			'<!-- wp:' => __( 'Nota grave: classic_editor_preview contiene markup Gutenberg.', 'wp-ai-publisher' ),
-			'wp-block' => __( 'Nota grave: classic_editor_preview contiene classi o stringhe Gutenberg.', 'wp-ai-publisher' ),
-			'<script'  => __( 'Nota grave: classic_editor_preview contiene script non consentiti.', 'wp-ai-publisher' ),
-			'<iframe'  => __( 'Nota grave: classic_editor_preview contiene iframe non consentiti.', 'wp-ai-publisher' ),
-			' style='  => __( 'Nota grave: classic_editor_preview contiene style inline non consentiti.', 'wp-ai-publisher' ),
-		);
-		$light_checks = array(
-			'descrivere in modo pratico',
-			'descrivere in modo verificabile',
-			'descrivere il passaggio',
-			'nel contesto di',
-			'evitando dettagli tecnici non confermati',
-			'passaggio “',
-			'passaggio "',
-			'la sezione “',
-			'la sezione "',
-			'introduce gli aspetti pratici più importanti',
-			'indica cosa controllare',
-			'aiuta a mantenere il risultato coerente',
-		);
-
-		$lower_html = function_exists( 'mb_strtolower' ) ? mb_strtolower( $html ) : strtolower( $html );
-		foreach ( $grave_checks as $needle => $message ) {
-			$needle = function_exists( 'mb_strtolower' ) ? mb_strtolower( $needle ) : strtolower( $needle );
-			if ( false !== strpos( $lower_html, $needle ) ) {
-				$grave_notes[] = $message;
-			}
-		}
-
-		foreach ( $light_checks as $needle ) {
-			$needle = function_exists( 'mb_strtolower' ) ? mb_strtolower( $needle ) : strtolower( $needle );
-			if ( false !== strpos( $lower_html, $needle ) ) {
-				$notes[] = __( 'Nota lieve: l’anteprima contiene frasi placeholder e resta dry-run ready, ma è da revisionare.', 'wp-ai-publisher' );
-				break;
-			}
-		}
-
-		$notes = array_merge( $grave_notes, $notes );
-
-		return array(
-			'valid' => empty( $grave_notes ),
-			'notes' => array_values( array_unique( array_filter( $notes ) ) ),
-		);
-	}
-
-	/**
-	 * Optionally record a completed job for audit only. Never blocks dry-run.
-	 *
-	 * @param int                 $idea_id Idea ID.
-	 * @param array<string,mixed> $payload Dry-run payload.
-	 * @param array<string,mixed> $output Dry-run output.
-	 * @return void
-	 */
-	private function maybe_create_completed_job_record( $idea_id, $payload, $output ) {
-		global $wpdb;
-
-		$tables = $this->db->check_tables();
-		if ( empty( $tables['jobs'] ) ) {
-			return;
-		}
-
-		$payload_json = wp_json_encode( $payload );
-		$output_json  = wp_json_encode( $output );
-
-		if ( false === $payload_json || false === $output_json ) {
-			return;
-		}
-
-		$inserted = $wpdb->insert(
-			$this->db->get_jobs_table_name(),
-			array(
-				'job_type'    => 'create_content_idea',
-				'status'      => 'completed',
-				'priority'    => 10,
-				'payload'     => $payload_json,
-				'attempts'    => 1,
-				'created_at'  => current_time( 'mysql' ),
-				'finished_at' => current_time( 'mysql' ),
-				'output'      => $output_json,
-			),
-			array( '%s', '%s', '%d', '%s', '%d', '%s', '%s', '%s' )
-		);
-
-		if ( false === $inserted ) {
-			return;
-		}
-
-		$wpdb->update(
-			$this->get_table_name(),
-			array( 'job_id' => (int) $wpdb->insert_id ),
-			array( 'id' => absint( $idea_id ) ),
-			array( '%d' ),
-			array( '%d' )
-		);
-	}
+	
 }

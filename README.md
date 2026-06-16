@@ -1,6 +1,18 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.29**
+Versione corrente: **0.5.32**
+
+## Programmazione creazione bozze 0.5.32
+
+Nella pagina **Idee contenuto** puoi impostare **data e ora** e usare il pulsante **“Programma”**: l'idea passa allo stato *Programmata* (`scheduled_at`, schema DB 9) e un **cron ogni 5 minuti** accoda la generazione della bozza quando l'orario è raggiunto. Puoi comunque forzare subito la generazione con “Genera bozza”.
+
+## Dashboard widget + elenco idee paginato 0.5.31
+
+Aggiunto un **widget nella dashboard WordPress** ("WP AI Publisher — Idee contenuto") con contatori per stato, ultime idee con link e accesso rapido. L'**elenco "Ultime idee"** è ora a tutta larghezza, con righe più compatte e **paginazione** (filtro `wpai_publisher_ideas_per_page`, default 20).
+
+## Escissione profonda adapter 0.5.30
+
+Rimosso il vecchio motore **dry-run/strutturato** e il **probing speculativo** non più usato (generazione locale di fallback, registry/client AI ipotetici, validazione strutturata): `class-ai-provider-adapter.php` passa da **~3380 a ~1890 righe**. Eliminata la classe `Structured_Output_Validator` e gli helper privati di `Content_Ideas` legati al vecchio flusso. **Restano intatti** il flusso a chiamata singola (filtro → `php_ai_client` → Abilities API → AI Services → `wp_ai_generate_text`), la generazione immagini e la diagnostica. Nessuna modifica funzionale al percorso attivo. Codebase più pulita e stabile per i prossimi sviluppi.
 
 ## Test e CI 0.5.29
 

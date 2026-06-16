@@ -34,6 +34,7 @@ $notices    = array(
 	'missing_article_type'      => array( 'warning', __( 'Assegna una Tipologia articolo prima di generare la bozza.', 'wp-ai-publisher' ) ),
 	'article_type_assigned'     => array( 'success', __( 'Tipologia articolo assegnata.', 'wp-ai-publisher' ) ),
 	'article_type_assign_failed' => array( 'error', __( 'Impossibile assegnare la tipologia articolo.', 'wp-ai-publisher' ) ),
+	'idea_scheduled'            => array( 'success', __( 'Idea programmata: la bozza verrà generata alla data impostata.', 'wp-ai-publisher' ) ),
 	'idea_deleted'              => array( 'success', __( 'Idea contenuto eliminata.', 'wp-ai-publisher' ) ),
 	'idea_delete_failed'        => array( 'error', __( 'Impossibile eliminare l’idea contenuto.', 'wp-ai-publisher' ) ),
 );
@@ -134,12 +135,20 @@ $render_list = static function ( $items ) {
 							</td>
 						</tr>
 					<?php endif; ?>
+					<tr>
+						<th scope="row"><label for="wpai-content-scheduled-at"><?php echo esc_html__( 'Programma creazione (opzionale)', 'wp-ai-publisher' ); ?></label></th>
+						<td>
+							<input type="datetime-local" id="wpai-content-scheduled-at" name="wpai_scheduled_at" value="" />
+							<p class="description"><?php echo esc_html__( 'Imposta data e ora e usa il pulsante “Programma” per generare la bozza automaticamente in seguito.', 'wp-ai-publisher' ); ?></p>
+						</td>
+					</tr>
 				</tbody>
 			</table>
 
 			<?php if ( $article_types_enabled && empty( $active_article_types ) ) : ?><div class="notice notice-warning inline"><p><?php echo esc_html__( 'Crea almeno una Tipologia articolo prima di generare bozze.', 'wp-ai-publisher' ); ?> <a href="<?php echo esc_url( $article_types_url ); ?>"><?php echo esc_html__( 'Crea Tipologia articolo', 'wp-ai-publisher' ); ?></a></p></div><?php endif; ?>
 			<p class="submit">
 				<button type="submit" name="wpai_creation_mode" value="create_draft" class="button button-primary" <?php disabled( $article_types_enabled && empty( $active_article_types ) ); ?>><?php echo esc_html__( 'Crea bozza', 'wp-ai-publisher' ); ?></button>
+				<button type="submit" name="wpai_creation_mode" value="schedule" class="button" <?php disabled( $article_types_enabled && empty( $active_article_types ) ); ?>><?php echo esc_html__( 'Programma', 'wp-ai-publisher' ); ?></button>
 				<button type="submit" name="wpai_creation_mode" value="save_only" class="button"><?php echo esc_html__( 'Salva solo idea', 'wp-ai-publisher' ); ?></button>
 			</p>
 		</form>
@@ -148,10 +157,31 @@ $render_list = static function ( $items ) {
 	<h2><?php echo esc_html__( 'Ultime idee', 'wp-ai-publisher' ); ?></h2>
 	<?php if ( empty( $ideas ) ) : ?>
 		<div class="notice notice-info inline">
-			<p><?php echo esc_html__( 'Nessuna idea contenuto presente. Inserisci un argomento per iniziare un dry-run sicuro.', 'wp-ai-publisher' ); ?></p>
+			<p><?php echo esc_html__( 'Nessuna idea contenuto presente. Inserisci un argomento per crearne una.', 'wp-ai-publisher' ); ?></p>
 		</div>
 	<?php else : ?>
-		<table class="widefat striped wpai-status-table">
+		<?php
+		$ideas_total      = isset( $ideas_total ) ? (int) $ideas_total : count( $ideas );
+		$ideas_page       = isset( $ideas_page ) ? (int) $ideas_page : 1;
+		$ideas_pages      = isset( $ideas_pages ) ? (int) $ideas_pages : 1;
+		$ideas_page_base  = remove_query_arg( array( 'view_idea', '_wpnonce', 'wpai_notice', 'wpai_step', 'wpai_error', 'wpai_debug' ) );
+		$render_ideas_nav = static function () use ( $ideas_total, $ideas_page, $ideas_pages, $ideas_page_base ) {
+			if ( $ideas_pages < 2 ) { return; }
+			echo '<div class="tablenav"><div class="tablenav-pages">';
+			echo '<span class="displaying-num">' . esc_html( sprintf( _n( '%s idea', '%s idee', $ideas_total, 'wp-ai-publisher' ), number_format_i18n( $ideas_total ) ) ) . '</span> ';
+			echo wp_kses_post( paginate_links( array(
+				'base'      => add_query_arg( 'paged', '%#%', $ideas_page_base ),
+				'format'    => '',
+				'current'   => $ideas_page,
+				'total'     => $ideas_pages,
+				'prev_text' => '‹',
+				'next_text' => '›',
+			) ) );
+			echo '</div></div>';
+		};
+		$render_ideas_nav();
+		?>
+		<table class="widefat striped wpai-status-table wpai-ideas-table">
 			<thead>
 				<tr>
 					<th scope="col"><?php echo esc_html__( 'ID', 'wp-ai-publisher' ); ?></th>
@@ -189,7 +219,11 @@ $render_list = static function ( $items ) {
 					?>
 					<tr>
 						<td><?php echo esc_html( (string) $idea->id ); ?></td>
-						<td><span class="<?php echo esc_attr( wpai_publisher_badge_class( $idea_status_display ) ); ?>"><?php echo esc_html( $idea_status_label ); ?></span></td>
+						<td><span class="<?php echo esc_attr( wpai_publisher_badge_class( $idea_status_display ) ); ?>"><?php echo esc_html( $idea_status_label ); ?></span>
+							<?php if ( 'scheduled' === $idea_status_display && ! empty( $idea->scheduled_at ) ) : ?>
+								<p class="description"><?php echo esc_html( sprintf( __( 'Per: %s', 'wp-ai-publisher' ), (string) $idea->scheduled_at ) ); ?></p>
+							<?php endif; ?>
+						</td>
 						<td><?php echo esc_html( wp_trim_words( (string) $idea->topic, 18, '…' ) ); ?></td>
 						<td><?php echo '' !== (string) $idea->keyword ? esc_html( (string) $idea->keyword ) : esc_html__( '—', 'wp-ai-publisher' ); ?></td>
 						<td><?php echo esc_html( $language_labels[ $idea->language ] ?? (string) $idea->language ); ?></td>
@@ -248,14 +282,14 @@ $render_list = static function ( $items ) {
 							?>
 							<?php if ( $draft_exists && $draft_edit_url ) : ?>
 								<a class="button button-primary button-small" href="<?php echo esc_url( $draft_edit_url ); ?>"><?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
-							<?php elseif ( in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) && ( ! $article_types_enabled || wpai_publisher_is_active_article_type_safe( absint( $idea->article_type_id ?? 0 ) ) ) ) : ?>
+							<?php elseif ( in_array( $status, array( 'new', 'scheduled', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) && ( ! $article_types_enabled || wpai_publisher_is_active_article_type_safe( absint( $idea->article_type_id ?? 0 ) ) ) ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
 									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
 									<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
 									<?php submit_button( in_array( $status, array( 'draft_failed', 'timeout' ), true ) ? __( 'Riprova', 'wp-ai-publisher' ) : __( 'Genera bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
 								</form>
-							<?php elseif ( $article_types_enabled && in_array( $status, array( 'new', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) ) : ?><span class="description"><?php echo esc_html__( 'Assegna prima una Tipologia articolo.', 'wp-ai-publisher' ); ?></span>
+							<?php elseif ( $article_types_enabled && in_array( $status, array( 'new', 'scheduled', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) ) : ?><span class="description"><?php echo esc_html__( 'Assegna prima una Tipologia articolo.', 'wp-ai-publisher' ); ?></span>
 							<?php elseif ( $has_full_article ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
@@ -286,6 +320,7 @@ $render_list = static function ( $items ) {
 				<?php endforeach; ?>
 			</tbody>
 		</table>
+		<?php $render_ideas_nav(); ?>
 	<?php endif; ?>
 
 	<?php if ( $selected_idea && ! empty( $dry_run_data ) ) : ?>

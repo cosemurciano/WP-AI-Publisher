@@ -111,8 +111,38 @@ final class Plugin {
 		add_action( 'admin_init', array( $this->settings, 'register' ) );
 		add_action( 'admin_init', array( $this, 'maybe_create_default_article_types' ) );
 		add_action( 'admin_menu', array( $this->admin, 'register_menu' ) );
+		add_action( 'wp_dashboard_setup', array( $this->admin, 'register_dashboard_widget' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'wpai_publisher_process_jobs', array( $this->admin, 'process_next_job' ) );
+
+		// Scheduled ideas: recurring cron that enqueues due ideas.
+		add_filter( 'cron_schedules', array( $this, 'register_cron_schedules' ) );
+		add_action( 'wpai_publisher_run_scheduled_ideas', array( $this->admin, 'process_scheduled_ideas' ) );
+		add_action( 'init', array( $this, 'maybe_schedule_scheduled_ideas_cron' ) );
+	}
+
+	/**
+	 * Add a 5-minute cron schedule used to process scheduled ideas.
+	 *
+	 * @param array<string,array<string,mixed>> $schedules Existing schedules.
+	 * @return array<string,array<string,mixed>>
+	 */
+	public function register_cron_schedules( $schedules ) {
+		if ( ! isset( $schedules['wpai_publisher_5min'] ) ) {
+			$schedules['wpai_publisher_5min'] = array( 'interval' => 5 * MINUTE_IN_SECONDS, 'display' => __( 'Ogni 5 minuti (WP AI Publisher)', 'wp-ai-publisher' ) );
+		}
+		return $schedules;
+	}
+
+	/**
+	 * Ensure the scheduled-ideas cron event is registered.
+	 *
+	 * @return void
+	 */
+	public function maybe_schedule_scheduled_ideas_cron() {
+		if ( function_exists( 'wp_next_scheduled' ) && ! wp_next_scheduled( 'wpai_publisher_run_scheduled_ideas' ) ) {
+			wp_schedule_event( time() + MINUTE_IN_SECONDS, 'wpai_publisher_5min', 'wpai_publisher_run_scheduled_ideas' );
+		}
 	}
 
 	/**

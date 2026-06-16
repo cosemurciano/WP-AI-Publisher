@@ -119,6 +119,7 @@ class DB {
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NULL,
 			status VARCHAR(30) NOT NULL DEFAULT 'new',
+			scheduled_at DATETIME NULL,
 			topic TEXT NOT NULL,
 			keyword VARCHAR(255) NULL,
 			language VARCHAR(20) NOT NULL DEFAULT 'it',
@@ -177,7 +178,25 @@ class DB {
 		dbDelta( $article_types_sql );
 		$this->ensure_content_ideas_draft_columns();
 		$this->ensure_content_ideas_article_type_column();
+		$this->ensure_content_ideas_scheduled_column();
 		$this->ensure_article_types_image_prompt_column();
+	}
+
+	/**
+	 * Ensure schema 9 scheduled_at column exists on the content ideas table.
+	 *
+	 * @return void
+	 */
+	public function ensure_content_ideas_scheduled_column() {
+		global $wpdb;
+		$table = $this->get_content_ideas_table_name();
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+			return;
+		}
+		$columns = (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+		if ( ! in_array( 'scheduled_at', $columns, true ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN scheduled_at DATETIME NULL AFTER status" );
+		}
 	}
 
 	/**
