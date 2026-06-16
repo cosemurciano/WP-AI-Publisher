@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.32**
+Versione corrente: **0.5.33**
+
+## Contesto del sito, link interni e SEO 0.5.33
+
+La generazione dell'articolo ora riceve il **contesto reale del sito**: i **tag esistenti** (che l'AI riusa quando pertinenti), le **categorie disponibili** (l'AI sceglie quelle coerenti scegliendo tra gli `category_ids` forniti) e gli **URL degli ultimi articoli pubblicati**, così da inserire **link interni** reali nel corpo del testo. L'AI restituisce un **oggetto JSON strutturato** (`html`, `tags`, `category_ids`, `meta_title`, `meta_description`) con fallback robusto all'HTML semplice. In fase di creazione bozza vengono scritti **Meta title e Meta description per All in One SEO Pack** (modello AIOSEO v4 con fallback su post meta `_aioseo_title`/`_aioseo_description`), in modo non bloccante. Filtri: `wpai_publisher_context_max_tags`, `wpai_publisher_context_max_links`, `wpai_publisher_seo_meta`.
 
 ## Programmazione creazione bozze 0.5.32
 
@@ -511,6 +515,12 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.33
+- Contesto del sito passato all'AI: tag esistenti da riusare, categorie disponibili (scelta per ID) e URL reali degli articoli pubblicati per i link interni.
+- Output AI strutturato in JSON (`html`, `tags`, `category_ids`, `meta_title`, `meta_description`) con fallback all'HTML semplice.
+- Scrittura Meta title/description per All in One SEO Pack (modello AIOSEO v4 + fallback post meta), non bloccante.
+- Nuovi filtri: `wpai_publisher_context_max_tags`, `wpai_publisher_context_max_links`, `wpai_publisher_seo_meta`.
 
 ### 0.5.7
 - Semplificata la pagina Impostazioni per separare contesto globale e istruzioni delle Tipologie Articolo.

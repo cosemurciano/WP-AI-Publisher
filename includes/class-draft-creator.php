@@ -159,6 +159,7 @@ class Draft_Creator {
 
 		$post_id = absint( $post_id );
 		$this->assign_categories_and_tags( $post_id, $dry_run );
+		$this->maybe_write_seo_meta( $post_id, $dry_run );
 		$this->update_idea_after_draft_created( (int) $idea->id, $post_id, (string) $post_data['post_status'] );
 		$this->logger->info( __( 'Bozza creata da full_article.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'idea_id' => (int) $idea->id, 'step' => 'draft_created', 'error_code' => '', 'message' => __( 'Bozza creata correttamente.', 'wp-ai-publisher' ), 'word_count' => (int) ( $validation['word_count'] ?? 0 ), 'h2_count' => (int) ( $validation['h2_count'] ?? 0 ) ) );
 
@@ -380,6 +381,63 @@ class Draft_Creator {
 		$tags = array_slice( array_values( array_unique( array_merge( $preferred, $tags ) ) ), 0, 12 );
 		$tag_ids = $this->create_or_get_terms( 'post_tag', $tags );
 		if ( ! empty( $tag_ids ) ) { wp_set_post_terms( $post_id, $tag_ids, 'post_tag', false ); }
+	}
+
+	/**
+	 * Write SEO meta title/description (All in One SEO Pack) when provided by the AI.
+	 *
+	 * Non-blocking: any failure is logged and swallowed so it cannot break draft creation.
+	 *
+	 * @param int                 $post_id Post ID.
+	 * @param array<string,mixed> $dry_run Generation data.
+	 * @return void
+	 */
+	private function maybe_write_seo_meta( $post_id, $dry_run ) {
+		$post_id = absint( $post_id );
+		if ( 0 === $post_id ) { return; }
+
+		$meta_title       = sanitize_text_field( (string) ( $dry_run['meta_title'] ?? '' ) );
+		$meta_description = sanitize_text_field( (string) ( $dry_run['meta_description'] ?? '' ) );
+		if ( '' === $meta_title && '' === $meta_description ) { return; }
+
+		/**
+		 * Filter the SEO meta values before they are written.
+		 *
+		 * @param array{title:string,description:string} $meta    Meta values.
+		 * @param int                                     $post_id Post ID.
+		 * @param array<string,mixed>                     $dry_run Generation data.
+		 */
+		$meta = apply_filters( 'wpai_publisher_seo_meta', array( 'title' => $meta_title, 'description' => $meta_description ), $post_id, $dry_run );
+		$meta_title       = sanitize_text_field( (string) ( $meta['title'] ?? '' ) );
+		$meta_description = sanitize_text_field( (string) ( $meta['description'] ?? '' ) );
+		if ( '' === $meta_title && '' === $meta_description ) { return; }
+
+		$written = false;
+
+		// Preferred path: AIOSEO v4 model API.
+		if ( class_exists( '\AIOSEO\Plugin\Common\Models\Post' ) ) {
+			try {
+				$aioseo_post = \AIOSEO\Plugin\Common\Models\Post::getPost( $post_id );
+				if ( is_object( $aioseo_post ) ) {
+					if ( '' !== $meta_title ) { $aioseo_post->title = $meta_title; }
+					if ( '' !== $meta_description ) { $aioseo_post->description = $meta_description; }
+					if ( method_exists( $aioseo_post, 'save' ) ) {
+						$aioseo_post->save();
+						$written = true;
+					}
+				}
+			} catch ( \Throwable $e ) {
+				$this->logger->warning( __( 'Scrittura meta AIOSEO via modello fallita; uso fallback su post meta.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'post_id' => $post_id, 'error_code' => 'aioseo_model_error', 'message' => $e->getMessage() ) );
+			}
+		}
+
+		// Fallback: raw AIOSEO post meta keys (also honored by older AIOSEO versions).
+		if ( ! $written ) {
+			if ( '' !== $meta_title ) { update_post_meta( $post_id, '_aioseo_title', $meta_title ); }
+			if ( '' !== $meta_description ) { update_post_meta( $post_id, '_aioseo_description', $meta_description ); }
+		}
+
+		$this->logger->info( __( 'Meta SEO scritti.', 'wp-ai-publisher' ), array( 'source' => 'draft_creator', 'post_id' => $post_id, 'step' => 'seo_meta_written', 'error_code' => '', 'message' => $written ? __( 'Meta scritti tramite modello AIOSEO.', 'wp-ai-publisher' ) : __( 'Meta scritti tramite post meta AIOSEO.', 'wp-ai-publisher' ) ) );
 	}
 
 	/**

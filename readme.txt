@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.32
+Stable tag: 0.5.33
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,12 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.33 =
+* Contesto del sito passato all'AI: la generazione riceve i tag esistenti (da riusare), le categorie disponibili (l'AI sceglie quelle coerenti tramite ID) e gli URL reali degli articoli pubblicati per inserire link interni pertinenti nel corpo dell'articolo.
+* Output AI strutturato: l'AI restituisce un oggetto JSON (html, tags, category_ids, meta_title, meta_description) con fallback robusto all'HTML semplice se il modello non rispetta il formato.
+* SEO All in One SEO Pack: in fase di creazione della bozza vengono scritti Meta title e Meta description (modello AIOSEO v4 con fallback su post meta _aioseo_title/_aioseo_description). Operazione non bloccante.
+* Nuovi filtri: wpai_publisher_context_max_tags, wpai_publisher_context_max_links, wpai_publisher_seo_meta.
 
 = 0.5.32 =
 * Programmazione idee: ora puoi impostare data e ora e usare il pulsante "Programma" per generare la bozza automaticamente in seguito. Nuovo stato "Programmata", colonna database scheduled_at (schema 9) e cron ogni 5 minuti che accoda le idee scadute. Resta possibile forzare subito la generazione.
