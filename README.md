@@ -1,6 +1,13 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.36**
+Versione corrente: **0.5.37**
+
+## Fix inserimento immagini (corpo + in evidenza) 0.5.37
+
+La generazione delle immagini è lenta e sincrona: con più immagini la richiesta poteva andare in timeout **prima** del salvataggio del post, lasciando i segnaposto `[[wpai-image: ...]]` nell'articolo e saltando l'immagine in evidenza. Ora:
+- l'**immagine in evidenza** viene generata **per prima** (asset indipendente e più visibile), quindi viene impostata anche se la fase delle immagini nel corpo si interrompe;
+- ogni **immagine nel corpo** viene **salvata subito** nel post (salvataggio incrementale per immagine), così un'interruzione non annulla quelle già inserite;
+- i **limiti di runtime** (tempo di esecuzione, memoria) vengono alzati durante la fase immagini.
 
 ## Titolo/permalink dall'AI, immagini nel corpo e nomi file 0.5.36
 
@@ -539,6 +546,10 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.37
+- Immagine in evidenza generata per prima; immagini nel corpo salvate in modo incrementale per evitare la perdita del lavoro in caso di timeout.
+- Limiti di runtime alzati durante la generazione immagini.
 
 ### 0.5.36
 - Titolo e permalink generati dall'AI (campi JSON `title`/`slug`); il titolo non deriva più dal testo grezzo dell'idea.
