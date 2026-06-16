@@ -21,6 +21,20 @@ $language_options = array(
 ?>
 <div class="wrap wpai-admin">
 	<h1><?php echo esc_html__( 'Impostazioni WP AI Publisher', 'wp-ai-publisher' ); ?></h1>
+
+	<?php
+	if ( isset( $_GET['wpai_notice'] ) && 'telegram_webhook' === sanitize_key( wp_unslash( $_GET['wpai_notice'] ) ) ) {
+		$wpai_tg_notice = get_transient( 'wpai_publisher_telegram_notice_' . get_current_user_id() );
+		if ( is_array( $wpai_tg_notice ) ) {
+			delete_transient( 'wpai_publisher_telegram_notice_' . get_current_user_id() );
+			printf(
+				'<div class="notice %1$s is-dismissible"><p>%2$s</p></div>',
+				! empty( $wpai_tg_notice['ok'] ) ? 'notice-success' : 'notice-error',
+				esc_html( (string) ( $wpai_tg_notice['message'] ?? '' ) )
+			);
+		}
+	}
+	?>
 	<p class="wpai-lead"><?php echo esc_html__( 'Configura le impostazioni operative del plugin. Le chiamate AI useranno esclusivamente il sistema AI di WordPress già configurato sul sito; non vengono gestite chiavi OpenAI personalizzate.', 'wp-ai-publisher' ); ?></p>
 
 	<div class="notice notice-info inline">
@@ -215,7 +229,15 @@ $language_options = array(
 					<th scope="row"><?php echo esc_html__( 'URL webhook', 'wp-ai-publisher' ); ?></th>
 					<td>
 						<code><?php echo esc_html( $wpai_tg_webhook_url ); ?></code>
-						<p class="description"><?php echo wp_kses( __( 'Registra il webhook del bot (una sola volta) con:<br><code>curl "https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook?url=&lt;URL_WEBHOOK&gt;&amp;secret_token=&lt;SECRET&gt;"</code>', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array() ) ); ?></p>
+						<?php
+						$wpai_tg_set_url  = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_telegram_set_webhook' ), 'wpai_publisher_telegram_set_webhook' );
+						$wpai_tg_info_url = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_telegram_webhook_info' ), 'wpai_publisher_telegram_webhook_info' );
+						?>
+						<p style="margin-top:8px;">
+							<a href="<?php echo esc_url( $wpai_tg_set_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Registra webhook', 'wp-ai-publisher' ); ?></a>
+							<a href="<?php echo esc_url( $wpai_tg_info_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Verifica stato webhook', 'wp-ai-publisher' ); ?></a>
+						</p>
+						<p class="description"><?php echo esc_html__( 'I pulsanti usano il token e il secret configurati nelle costanti, senza terminale. Registra il webhook dopo aver salvato le impostazioni e definito le costanti.', 'wp-ai-publisher' ); ?></p>
 					</td>
 				</tr>
 			</tbody>
