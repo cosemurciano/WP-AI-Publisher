@@ -85,12 +85,10 @@ class Admin {
 		$this->article_type_repository = $article_type_repository;
 
 		add_action( 'admin_post_wpai_publisher_create_content_idea', array( $this, 'handle_create_content_idea' ) );
-		add_action( 'admin_post_wpai_publisher_run_content_idea_dry_run', array( $this, 'handle_run_content_idea_dry_run' ) );
 		add_action( 'admin_post_wpai_publisher_approve_content_idea', array( $this, 'handle_approve_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_reject_content_idea', array( $this, 'handle_reject_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_create_draft_from_idea', array( $this, 'handle_create_draft_from_idea' ) );
 		add_action( 'admin_post_wpai_publisher_process_idea_job_now', array( $this, 'handle_process_idea_job_now' ) );
-		add_action( 'admin_post_wpai_publisher_generate_full_article', array( $this, 'handle_generate_full_article' ) );
 		add_action( 'admin_post_wpai_publisher_assign_article_type_to_idea', array( $this, 'handle_assign_article_type_to_idea' ) );
 		add_action( 'admin_post_wpai_publisher_delete_content_idea', array( $this, 'handle_delete_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_save_article_type', array( $this, 'handle_save_article_type' ) );
@@ -238,43 +236,6 @@ class Admin {
 		);
 	}
 
-	/**
-	 * Handle dry-run execution.
-	 *
-	 * @return void
-	 */
-	public function handle_run_content_idea_dry_run() {
-		if ( ! current_user_can( wpai_publisher_capability() ) ) {
-			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
-		}
-
-		check_admin_referer( 'wpai_publisher_run_content_idea_dry_run' );
-
-		$idea_id = absint( $_POST['idea_id'] ?? 0 );
-		if ( 0 === $idea_id || ! $this->content_ideas->get_idea( $idea_id ) ) {
-			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_not_found' ) );
-		}
-
-		$result = $this->content_ideas->run_dry_run( $idea_id );
-		if ( is_wp_error( $result ) || empty( $result['valid'] ) ) {
-			$this->redirect_content_ideas(
-				array(
-					'wpai_notice' => is_wp_error( $result ) && 'wpai_content_idea_missing_article_type' === $result->get_error_code() ? 'missing_article_type' : 'dry_run_failed',
-					'view_idea'   => $idea_id,
-					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
-				)
-			);
-		}
-
-		$this->redirect_content_ideas(
-			array(
-				'wpai_notice' => 'dry_run_completed',
-				'view_idea'   => $idea_id,
-				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
-			)
-		);
-	}
-
 	public function handle_delete_content_idea() {
 		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
@@ -305,29 +266,6 @@ class Admin {
 		);
 	}
 
-
-	/**
-	 * Handle full article generation.
-	 *
-	 * @return void
-	 */
-	public function handle_generate_full_article() {
-		if ( ! current_user_can( wpai_publisher_capability() ) ) {
-			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
-		}
-
-		$idea_id = absint( $_POST['idea_id'] ?? 0 );
-		check_admin_referer( 'wpai_publisher_generate_full_article_' . $idea_id );
-
-		$result = $this->content_ideas->generate_full_article( $idea_id );
-		$this->redirect_content_ideas(
-			array(
-				'wpai_notice' => is_wp_error( $result ) ? 'full_article_failed' : 'full_article_generated',
-				'view_idea'   => $idea_id,
-				'_wpnonce'    => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ),
-			)
-		);
-	}
 
 	/**
 	 * Handle dry-run approval.

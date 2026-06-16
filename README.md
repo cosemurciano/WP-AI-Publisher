@@ -1,6 +1,22 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.25**
+Versione corrente: **0.5.29**
+
+## Test e CI 0.5.29
+
+Aggiunti test unitari per `Classic_Content_Builder` (validazione pubblicabilità, normalizzazione HTML, placeholder), per i parametri AI e la decodifica immagini di `AI_Provider_Adapter`, e per la normalizzazione delle impostazioni. Il bootstrap di test (`tests/bootstrap.php`) è stato ampliato con stub WordPress; i test girano in CI tramite `composer test`.
+
+## Snellimento workflow 0.5.28
+
+Rimossa la **modalità avanzata** e il vecchio flusso **dry-run** dall'interfaccia: eliminati l'impostazione `workflow_mode`, i pulsanti *Esegui dry-run* / *Genera articolo completo*, i relativi handler e i metodi `run_dry_run` / `generate_full_article` / `save_full_article_output` (non più usati dal flusso a chiamata singola), più dead code in `Draft_Creator`. La creazione bozza resta interamente sul flusso single-call. L'escissione profonda del probing speculativo nell'adapter è rinviata a un passo dedicato e testabile (ancora intrecciata con Diagnostica AI e filtri pubblici legacy).
+
+## Tipologie a prompt unico 0.5.27
+
+La generazione dell'articolo è ora guidata dal solo **“Prompt principale”** della Tipologia. I campi legacy (tono, lunghezza, intento, livello lettore, sezioni obbligatorie, pattern vietati, checklist) sono usati **solo come fallback** per le tipologie create prima del prompt unico — nessuna migrazione distruttiva. Le 5 tipologie default per le nuove installazioni includono già un prompt unico pronto all'uso.
+
+## Pulizia configurazione 0.5.26
+
+Rimosse impostazioni legacy mai usate (limiti di costo giornaliero/mensile, `default_text_model`, `ai_provider_preference`) e alleggerita la pagina **Impostazioni**. La scelta del modello AI resta in **Impostazioni → Parametri AI → “Modello AI”**.
 
 ## Immagine in evidenza con l'AI 0.5.25
 

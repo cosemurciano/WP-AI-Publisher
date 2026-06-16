@@ -88,16 +88,7 @@ class Draft_Creator {
 
 		$dry_run['_draft_candidate_source'] = 'full_article';
 		if ( empty( $dry_run['full_article']['html'] ) || ! is_string( $dry_run['full_article']['html'] ) ) {
-			if ( $automatic && ! empty( $args['content_ideas'] ) && is_object( $args['content_ideas'] ) && method_exists( $args['content_ideas'], 'generate_full_article' ) ) {
-				$generated = $args['content_ideas']->generate_full_article( (int) $idea->id );
-				if ( ! is_wp_error( $generated ) ) {
-					$refreshed = method_exists( $args['content_ideas'], 'get_idea' ) ? $args['content_ideas']->get_idea( (int) $idea->id ) : null;
-					if ( $refreshed && ! empty( $refreshed->dry_run_output ) ) {
-						$idea = $refreshed;
-						$dry_run = json_decode( (string) $idea->dry_run_output, true );
-					}
-				}
-			}
+			// full_article mancante: ricostruisci dalla struttura o dall'anteprima.
 			if ( empty( $dry_run['full_article']['html'] ) || ! is_string( $dry_run['full_article']['html'] ) ) {
 				$fallback_html = '';
 				$fallback_source = 'unknown';
@@ -439,15 +430,5 @@ class Draft_Creator {
 			array( '%s', '%s', '%s' ),
 			array( '%d' )
 		);
-	}
-
-	/**
-	 * Detect Gutenberg block markers.
-	 *
-	 * @param string $html HTML.
-	 * @return bool
-	 */
-	private function contains_gutenberg_blocks( $html ) {
-		return false !== stripos( $html, '<!-- wp:' ) || false !== stripos( $html, 'wp-block' );
 	}
 }

@@ -47,16 +47,11 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 	 */
 	function wpai_publisher_default_settings() {
 		return array(
-			'ai_provider_preference'        => 'wordpress_ai_client_only',
-			'default_text_model'            => '',
 			'enable_logging'                => true,
 			'log_retention_days'            => 30,
-			'monthly_cost_limit'            => '',
-			'daily_cost_limit'              => '',
 			'safe_ai_ability_names'         => '',
 			'allow_unverified_ai_abilities' => false,
 			'auto_create_draft_from_idea'   => true,
-			'workflow_mode'                 => 'simple',
 			'delete_data_on_uninstall'      => false,
 			'ai_model'                      => '',
 			'ai_http_timeout'               => 180,
@@ -98,9 +93,8 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings = is_array( $settings ) ? $settings : array();
 		$settings = wp_parse_args( $settings, wpai_publisher_default_settings() );
 
-		// Migrazione leggera: da 0.3.5 il plugin usa solo il sistema AI di WordPress.
-		$settings['ai_provider_preference'] = 'wordpress_ai_client_only';
-		unset( $settings['fallback_to_openai_direct'], $settings['default_image_model'] );
+		// Legacy keys non più usate (provider fisso al sistema AI di WordPress, modelli/limiti costo legacy).
+		unset( $settings['fallback_to_openai_direct'], $settings['default_image_model'], $settings['ai_provider_preference'], $settings['default_text_model'], $settings['monthly_cost_limit'], $settings['daily_cost_limit'] );
 
 		$defaults                                  = wpai_publisher_default_settings();
 		$settings['site_context']                  = wpai_publisher_normalize_site_context( $settings['site_context'] ?? array() );
@@ -108,7 +102,6 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['allow_unverified_ai_abilities'] = ! empty( $settings['allow_unverified_ai_abilities'] );
 		$settings['auto_create_draft_from_idea']   = ! empty( $settings['auto_create_draft_from_idea'] );
 		$settings['delete_data_on_uninstall']      = ! empty( $settings['delete_data_on_uninstall'] );
-		$settings['workflow_mode']                 = in_array( sanitize_key( (string) ( $settings['workflow_mode'] ?? 'simple' ) ), array( 'simple', 'advanced' ), true ) ? sanitize_key( (string) $settings['workflow_mode'] ) : 'simple';
 		$settings['ai_model']                      = sanitize_text_field( (string) ( $settings['ai_model'] ?? '' ) );
 		$settings['ai_http_timeout']               = max( 15, min( 600, (int) ( $settings['ai_http_timeout'] ?? 180 ) ) );
 		$settings['ai_max_output_tokens']          = max( 0, min( 32000, (int) ( $settings['ai_max_output_tokens'] ?? 4000 ) ) );

@@ -109,11 +109,11 @@ class Article_Type_Repository {
 		global $wpdb;
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $this->get_table_name() ) ) !== $this->get_table_name() ) { return; }
 		$defaults = array(
-			'Tutorial WordPress passo passo' => array( 'search_intent' => 'tutorial', 'length' => 'lunga', 'reader_level' => 'principianti', 'tone' => 'chiaro_didattico_e_operativo', 'required_sections' => "Introduzione\nPrerequisiti\nProcedura passo passo\nVerifica finale" ),
-			'Guida informativa' => array( 'search_intent' => 'informazionale', 'length' => 'media', 'reader_level' => 'misto', 'tone' => 'divulgativo_semplice' ),
-			'Checklist operativa' => array( 'search_intent' => 'tutorial', 'length' => 'breve', 'reader_level' => 'intermedi', 'tone' => 'professionale_tecnico' ),
-			'Confronto / comparativa' => array( 'search_intent' => 'comparativo', 'length' => 'media', 'reader_level' => 'misto', 'tone' => 'commerciale_informativo' ),
-			'Articolo pillar' => array( 'search_intent' => 'informazionale', 'length' => 'pillar', 'reader_level' => 'misto', 'tone' => 'chiaro_didattico_e_operativo' ),
+			'Tutorial WordPress passo passo' => array( 'prompt' => "Scrivi un tutorial WordPress lungo e dettagliato, con tono chiaro, didattico e operativo, per lettori principianti. Struttura consigliata: Introduzione, Prerequisiti, Procedura passo passo (con passaggi numerati e chiari), Verifica finale. Evita gergo non spiegato e promesse non verificabili." ),
+			'Guida informativa' => array( 'prompt' => "Scrivi una guida informativa di lunghezza media, con tono divulgativo e semplice, per un pubblico misto. Spiega l'argomento in modo chiaro con sezioni H2 logiche, esempi pratici e una conclusione utile. Intento di ricerca informazionale." ),
+			'Checklist operativa' => array( 'prompt' => "Scrivi un articolo breve e operativo con tono professionale e tecnico, per lettori intermedi. Organizza il contenuto come checklist azionabile (liste puntate) con sezioni H2 e una breve introduzione e chiusura." ),
+			'Confronto / comparativa' => array( 'prompt' => "Scrivi un articolo comparativo di lunghezza media, con tono commerciale ma informativo, per un pubblico misto. Confronta le opzioni in modo equilibrato con sezioni H2 per criteri, pro e contro, e una conclusione con raccomandazione motivata. Non inventare dati o prezzi." ),
+			'Articolo pillar' => array( 'prompt' => "Scrivi un articolo pillar ampio e autorevole, con tono chiaro, didattico e operativo, per un pubblico misto. Copri l'argomento in modo esaustivo con molte sezioni H2/H3, collegamenti concettuali tra i temi e una conclusione che riepiloga i punti chiave. Intento di ricerca informazionale." ),
 		);
 		foreach ( $defaults as $name => $data ) { $this->create_article_type( array_merge( array( 'name' => $name, 'is_active' => 1 ), $data ) ); }
 		update_option( self::DEFAULTS_OPTION, current_time( 'mysql' ), false );

@@ -40,42 +40,11 @@ $language_options = array(
 		<table class="form-table" role="presentation">
 			<tbody>
 				<tr>
-					<th scope="row"><?php echo esc_html__( 'Provider AI', 'wp-ai-publisher' ); ?></th>
-					<td>
-						<p><strong><?php echo esc_html__( 'Sistema AI di WordPress', 'wp-ai-publisher' ); ?></strong></p>
-						<input type="hidden" name="wpai_publisher_settings[ai_provider_preference]" value="wordpress_ai_client_only">
-						<p class="description"><?php echo esc_html__( 'WP AI Publisher non usa un client OpenAI custom e non salva chiavi API proprie. Tutte le chiamate passeranno dall’adapter interno collegato al sistema AI di WordPress.', 'wp-ai-publisher' ); ?></p>
-					</td>
-				</tr>
-
-				<tr>
-					<th scope="row"><label for="wpai-default-text-model"><?php echo esc_html__( 'Versione / modello AI disponibile', 'wp-ai-publisher' ); ?></label></th>
-					<td>
-						<select id="wpai-default-text-model" name="wpai_publisher_settings[default_text_model]" class="regular-text" <?php disabled( empty( $ai_models ) ); ?>>
-							<option value=""><?php echo esc_html__( 'Usa il modello predefinito del sistema AI di WordPress', 'wp-ai-publisher' ); ?></option>
-							<?php foreach ( $ai_models as $model ) : ?>
-								<option value="<?php echo esc_attr( $model['id'] ); ?>" <?php selected( $settings['default_text_model'], $model['id'] ); ?>><?php echo esc_html( $model['label'] . ' — ' . $model['id'] ); ?></option>
-							<?php endforeach; ?>
-						</select>
-						<?php if ( empty( $ai_models ) ) : ?>
-							<p class="description"><?php echo esc_html__( 'Nessun modello è stato esposto dal sistema AI di WordPress. Il plugin può comunque usare il modello predefinito quando l’integrazione WordPress AI lo renderà disponibile.', 'wp-ai-publisher' ); ?></p>
-						<?php else : ?>
-							<p class="description"><?php echo esc_html__( 'I modelli elencati provengono dal sistema AI di WordPress o dal filtro di integrazione del sito.', 'wp-ai-publisher' ); ?></p>
-						<?php endif; ?>
-					</td>
-				</tr>
-
-
-				<tr>
 					<th colspan="2"><h2><?php echo esc_html__( 'Workflow editoriale', 'wp-ai-publisher' ); ?></h2></th>
 				</tr>
 				<tr>
-					<th scope="row"><label for="wpai-workflow-mode"><?php echo esc_html__( 'Modalità workflow', 'wp-ai-publisher' ); ?></label></th>
-					<td><select id="wpai-workflow-mode" name="wpai_publisher_settings[workflow_mode]"><option value="simple" <?php selected( $settings['workflow_mode'] ?? 'simple', 'simple' ); ?>><?php echo esc_html__( 'Semplificato', 'wp-ai-publisher' ); ?></option><option value="advanced" <?php selected( $settings['workflow_mode'] ?? 'simple', 'advanced' ); ?>><?php echo esc_html__( 'Avanzato', 'wp-ai-publisher' ); ?></option></select><p class="description"><?php echo esc_html__( 'Semplificato privilegia il flusso idea → dry-run → articolo completo → bozza. Avanzato mostra i passaggi manuali.', 'wp-ai-publisher' ); ?></p></td>
-				</tr>
-				<tr>
 					<th scope="row"><?php echo esc_html__( 'Crea automaticamente la bozza quando salvo un’idea', 'wp-ai-publisher' ); ?></th>
-					<td><label><input type="checkbox" name="wpai_publisher_settings[auto_create_draft_from_idea]" value="1" <?php checked( ! empty( $settings['auto_create_draft_from_idea'] ) ); ?>> <?php echo esc_html__( 'Quando attivo, il plugin usa il workflow completo: idea → dry-run → articolo completo → bozza WordPress.', 'wp-ai-publisher' ); ?></label></td>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[auto_create_draft_from_idea]" value="1" <?php checked( ! empty( $settings['auto_create_draft_from_idea'] ) ); ?>> <?php echo esc_html__( 'Quando attivo, salvando un’idea il plugin genera subito l’articolo e crea la bozza WordPress.', 'wp-ai-publisher' ); ?></label></td>
 				</tr>
 
 				<tr>
@@ -105,16 +74,6 @@ $language_options = array(
 				<tr>
 					<th scope="row"><?php echo esc_html__( 'Elimina i dati alla disinstallazione', 'wp-ai-publisher' ); ?></th>
 					<td><label><input type="checkbox" name="wpai_publisher_settings[delete_data_on_uninstall]" value="1" <?php checked( ! empty( $settings['delete_data_on_uninstall'] ) ); ?>> <?php echo esc_html__( 'Quando attivo, la disinstallazione del plugin elimina tabelle, impostazioni e capability dedicata. Lascia disattivo per conservare lo storico operativo.', 'wp-ai-publisher' ); ?></label></td>
-				</tr>
-
-				<tr>
-					<th scope="row"><label for="wpai-daily-cost-limit"><?php echo esc_html__( 'Limite costo giornaliero', 'wp-ai-publisher' ); ?></label></th>
-					<td><input type="number" min="0" step="0.01" id="wpai-daily-cost-limit" name="wpai_publisher_settings[daily_cost_limit]" value="<?php echo esc_attr( $settings['daily_cost_limit'] ); ?>"> <span class="description"><?php echo esc_html__( 'Opzionale, sarà usato nelle prossime fasi.', 'wp-ai-publisher' ); ?></span></td>
-				</tr>
-
-				<tr>
-					<th scope="row"><label for="wpai-monthly-cost-limit"><?php echo esc_html__( 'Limite costo mensile', 'wp-ai-publisher' ); ?></label></th>
-					<td><input type="number" min="0" step="0.01" id="wpai-monthly-cost-limit" name="wpai_publisher_settings[monthly_cost_limit]" value="<?php echo esc_attr( $settings['monthly_cost_limit'] ); ?>"> <span class="description"><?php echo esc_html__( 'Opzionale, sarà usato nelle prossime fasi.', 'wp-ai-publisher' ); ?></span></td>
 				</tr>
 
 			</tbody>

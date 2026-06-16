@@ -195,7 +195,7 @@ class AI_Provider_Adapter {
 	public function get_selected_text_model() {
 		$settings = wpai_publisher_get_settings();
 
-		return isset( $settings['default_text_model'] ) ? sanitize_text_field( (string) $settings['default_text_model'] ) : '';
+		return isset( $settings['ai_model'] ) ? sanitize_text_field( (string) $settings['ai_model'] ) : '';
 	}
 
 	/**
@@ -1634,20 +1634,19 @@ class AI_Provider_Adapter {
 	 * @return string
 	 */
 	private function build_article_from_idea_prompt( $generation_context, $site_context, $article_type ) {
+		$prompt_text = sanitize_textarea_field( (string) ( $article_type['prompt'] ?? '' ) );
+		$has_prompt  = '' !== trim( $prompt_text );
+
+		// The single "Prompt principale" is the primary instruction. Legacy fields
+		// (tone/length/required sections/etc.) are included only for older article
+		// types that were created before the single-prompt UI and have no prompt yet.
 		$required_sections = array_values( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) ( $article_type['required_sections'] ?? '' ) ) ) ) );
-		$sections_line     = ! empty( $required_sections )
+		$sections_line     = ( ! $has_prompt && ! empty( $required_sections ) )
 			? "\nUsa esattamente queste sezioni come titoli H2, nello stesso ordine: " . implode( ' | ', $required_sections ) . '.'
 			: '';
 
 		$constraints = array(
-			'article_type_prompt' => sanitize_textarea_field( (string) ( $article_type['prompt'] ?? '' ) ),
-			'tone'                => sanitize_textarea_field( (string) ( $article_type['tone'] ?? '' ) ),
-			'length'              => sanitize_textarea_field( (string) ( $article_type['length'] ?? '' ) ),
-			'search_intent'       => sanitize_textarea_field( (string) ( $article_type['search_intent'] ?? '' ) ),
-			'reader_level'        => sanitize_textarea_field( (string) ( $article_type['reader_level'] ?? '' ) ),
-			'required_sections'   => $required_sections,
-			'forbidden_patterns'  => sanitize_textarea_field( (string) ( $article_type['forbidden_patterns'] ?? '' ) ),
-			'quality_checklist'   => sanitize_textarea_field( (string) ( $article_type['quality_checklist'] ?? '' ) ),
+			'article_type_prompt' => $prompt_text,
 			'site'                => array(
 				'description'      => $site_context['site_description'],
 				'niche'            => $site_context['content_niche'],
@@ -1657,6 +1656,15 @@ class AI_Provider_Adapter {
 				'brand_terms'      => $site_context['brand_terms'],
 			),
 		);
+		if ( ! $has_prompt ) {
+			$constraints['tone']               = sanitize_textarea_field( (string) ( $article_type['tone'] ?? '' ) );
+			$constraints['length']             = sanitize_textarea_field( (string) ( $article_type['length'] ?? '' ) );
+			$constraints['search_intent']      = sanitize_textarea_field( (string) ( $article_type['search_intent'] ?? '' ) );
+			$constraints['reader_level']       = sanitize_textarea_field( (string) ( $article_type['reader_level'] ?? '' ) );
+			$constraints['required_sections']  = $required_sections;
+			$constraints['forbidden_patterns'] = sanitize_textarea_field( (string) ( $article_type['forbidden_patterns'] ?? '' ) );
+			$constraints['quality_checklist']  = sanitize_textarea_field( (string) ( $article_type['quality_checklist'] ?? '' ) );
+		}
 		$constraints_json = wp_json_encode( $constraints, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
 
 		return sprintf(

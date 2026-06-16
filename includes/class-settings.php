@@ -54,12 +54,8 @@ class Settings {
 		$input    = is_array( $input ) ? $input : array();
 		$output   = array();
 
-		$output['ai_provider_preference']        = 'wordpress_ai_client_only';
-		$output['default_text_model']            = isset( $input['default_text_model'] ) ? sanitize_text_field( $input['default_text_model'] ) : $defaults['default_text_model'];
 		$output['enable_logging']                = ! empty( $input['enable_logging'] );
 		$output['log_retention_days']            = isset( $input['log_retention_days'] ) ? max( 1, min( 365, absint( $input['log_retention_days'] ) ) ) : $defaults['log_retention_days'];
-		$output['daily_cost_limit']              = $this->sanitize_cost_limit( $input['daily_cost_limit'] ?? '' );
-		$output['monthly_cost_limit']            = $this->sanitize_cost_limit( $input['monthly_cost_limit'] ?? '' );
 		$output['safe_ai_ability_names']         = isset( $input['safe_ai_ability_names'] ) ? sanitize_textarea_field( $input['safe_ai_ability_names'] ) : $defaults['safe_ai_ability_names'];
 		$output['allow_unverified_ai_abilities'] = ! empty( $input['allow_unverified_ai_abilities'] );
 		$output['auto_create_draft_from_idea']   = ! empty( $input['auto_create_draft_from_idea'] );
@@ -70,8 +66,6 @@ class Settings {
 		$raw_temperature                         = isset( $input['ai_temperature'] ) ? trim( (string) $input['ai_temperature'] ) : '';
 		$output['ai_temperature']                = ( '' === $raw_temperature ) ? '' : (string) max( 0, min( 2, (float) $raw_temperature ) );
 		$output['generate_featured_image']       = ! empty( $input['generate_featured_image'] );
-		$workflow_mode                           = sanitize_key( (string) ( $input['workflow_mode'] ?? $defaults['workflow_mode'] ) );
-		$output['workflow_mode']                 = in_array( $workflow_mode, array( 'simple', 'advanced' ), true ) ? $workflow_mode : 'simple';
 		$output['site_context']                  = $this->sanitize_site_context( $input['site_context'] ?? array() );
 
 		return $output;
@@ -144,24 +138,4 @@ class Settings {
 		include WPAIP_PLUGIN_DIR . 'admin/views/settings.php';
 	}
 
-	/**
-	 * Sanitize numeric cost limit while allowing an empty value.
-	 *
-	 * @param mixed $value Raw value.
-	 * @return string
-	 */
-	private function sanitize_cost_limit( $value ) {
-		$value = trim( sanitize_text_field( (string) $value ) );
-
-		if ( '' === $value ) {
-			return '';
-		}
-
-		$value = preg_replace( '/[^0-9.]/', '', $value );
-		if ( null === $value || '' === $value ) {
-			return '';
-		}
-
-		return (string) max( 0, (float) $value );
-	}
 }
