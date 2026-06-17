@@ -124,6 +124,8 @@
 		}, i18n.loadingSteps || [] );
 		var lastTitle = '';
 		var lastGuideUrl = '';
+		var lastRequestId = 0;
+		var save = wpaiGuide.save || {};
 
 		function setStatus( msg, isError ) {
 			status.hidden = ! msg;
@@ -201,6 +203,7 @@
 				setStatus( '', false );
 				lastTitle = query;
 				lastGuideUrl = r.data.guide_url || '';
+				lastRequestId = r.data.request_id || 0;
 				content.innerHTML = r.data.html;
 				related.innerHTML = renderRelated( r.data.articles, i18n );
 				if ( saveNote ) {
@@ -245,11 +248,56 @@
 			} );
 		}
 
+		function showNote( html ) {
+			saveNote.innerHTML = html;
+			saveNote.hidden = false;
+			saveNote.scrollIntoView( { behavior: 'smooth', block: 'nearest' } );
+		}
+
 		if ( saveBtn && saveNote ) {
 			saveBtn.addEventListener( 'click', function () {
-				saveNote.textContent = i18n.saveNote || '';
-				saveNote.hidden = false;
-				saveNote.scrollIntoView( { behavior: 'smooth', block: 'nearest' } );
+				// Membership disabled: keep the legacy informational note.
+				if ( ! save.enabled ) {
+					saveNote.textContent = i18n.saveNote || '';
+					saveNote.hidden = false;
+					return;
+				}
+				// Not logged in: invite to register/login.
+				if ( ! save.isLoggedIn ) {
+					var link = save.loginUrl ? ' <a href="' + encodeURI( save.loginUrl ) + '">' + escapeHtml( i18n.saveLoginLink ) + '</a>' : '';
+					showNote( escapeHtml( i18n.saveLoginText ) + link );
+					return;
+				}
+				if ( ! lastRequestId ) {
+					return;
+				}
+				saveBtn.disabled = true;
+				var headers = { 'Content-Type': 'application/json' };
+				if ( wpaiGuide.restNonce ) {
+					headers['X-WP-Nonce'] = wpaiGuide.restNonce;
+				}
+				fetch( save.endpoint, {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: headers,
+					body: JSON.stringify( { request_id: lastRequestId } )
+				} ).then( function ( res ) {
+					return res.json().then( function ( data ) {
+						return { ok: res.ok, data: data };
+					} );
+				} ).then( function ( r ) {
+					saveBtn.disabled = false;
+					if ( ! r.ok || ! r.data || ! r.data.saved ) {
+						showNote( escapeHtml( i18n.saveError ) );
+						return;
+					}
+					var url = r.data.accountUrl || save.accountUrl || '';
+					var link = url ? ' <a href="' + encodeURI( url ) + '">' + escapeHtml( i18n.saveOkLink ) + '</a>' : '';
+					showNote( escapeHtml( i18n.saveOk ) + link );
+				} ).catch( function () {
+					saveBtn.disabled = false;
+					showNote( escapeHtml( i18n.saveError ) );
+				} );
 			} );
 		}
 	}

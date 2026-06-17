@@ -326,6 +326,10 @@ class Guide_Assistant {
 			'result_footer'            => '',
 			'deleted_message'          => __( 'Questa guida è stata eliminata perché sono trascorsi più dei giorni previsti. Ricrea la tua guida aggiornata qui sotto.', 'wp-ai-publisher' ),
 			'generator_page_id'        => 0,
+			'enable_membership'        => false,
+			'register_page_id'         => 0,
+			'login_page_id'            => 0,
+			'account_page_id'          => 0,
 		);
 	}
 
@@ -391,6 +395,10 @@ class Guide_Assistant {
 			'result_footer'            => sanitize_textarea_field( (string) ( $input['result_footer'] ?? '' ) ),
 			'deleted_message'          => sanitize_textarea_field( (string) ( $input['deleted_message'] ?? $defaults['deleted_message'] ) ),
 			'generator_page_id'        => absint( $input['generator_page_id'] ?? 0 ),
+			'enable_membership'        => ! empty( $input['enable_membership'] ),
+			'register_page_id'         => absint( $input['register_page_id'] ?? 0 ),
+			'login_page_id'            => absint( $input['login_page_id'] ?? 0 ),
+			'account_page_id'          => absint( $input['account_page_id'] ?? 0 ),
 		);
 	}
 
@@ -508,6 +516,8 @@ class Guide_Assistant {
 	private function enqueue_front_assets() {
 		wp_enqueue_style( 'wpai-guide', WPAIP_PLUGIN_URL . 'public/css/guide.css', array(), WPAIP_VERSION );
 		wp_enqueue_script( 'wpai-guide', WPAIP_PLUGIN_URL . 'public/js/guide.js', array(), WPAIP_VERSION, true );
+		$config = $this->get_config();
+		$login_target = absint( $config['login_page_id'] ) ?: absint( $config['register_page_id'] );
 		wp_localize_script(
 			'wpai-guide',
 			'wpaiGuide',
@@ -515,6 +525,13 @@ class Guide_Assistant {
 				'endpoint' => esc_url_raw( rest_url( self::REST_NAMESPACE . self::REST_ROUTE ) ),
 				'nonce'    => wp_create_nonce( self::NONCE_ACTION ),
 				'restNonce' => wp_create_nonce( 'wp_rest' ),
+				'save'     => array(
+					'enabled'    => ! empty( $config['enable_membership'] ),
+					'isLoggedIn' => is_user_logged_in(),
+					'endpoint'   => esc_url_raw( rest_url( self::REST_NAMESPACE . '/guide/save' ) ),
+					'loginUrl'   => $login_target ? esc_url_raw( get_permalink( $login_target ) ) : '',
+					'accountUrl' => absint( $config['account_page_id'] ) ? esc_url_raw( get_permalink( absint( $config['account_page_id'] ) ) ) : '',
+				),
 				'i18n'     => array(
 					'error'      => __( 'Si è verificato un errore. Riprova più tardi.', 'wp-ai-publisher' ),
 					'tooShort'   => __( 'Scrivi una richiesta più dettagliata.', 'wp-ai-publisher' ),
@@ -522,11 +539,17 @@ class Guide_Assistant {
 					'printTitle' => __( 'Guida', 'wp-ai-publisher' ),
 					'waText'     => __( 'Ecco la guida che ho creato:', 'wp-ai-publisher' ),
 					'saveNote'   => __( 'Presto potrai registrarti per salvare e ritrovare tutte le tue guide. Funzione in arrivo!', 'wp-ai-publisher' ),
+					'saveOk'         => __( 'Guida salvata nella tua area. ', 'wp-ai-publisher' ),
+					'saveOkLink'     => __( 'Vai alle tue guide', 'wp-ai-publisher' ),
+					'saveError'      => __( 'Non è stato possibile salvare la guida. Riprova.', 'wp-ai-publisher' ),
+					'saveLoginText'  => __( 'Registrati o accedi per salvare la guida nella tua area. ', 'wp-ai-publisher' ),
+					'saveLoginLink'  => __( 'Accedi / Registrati', 'wp-ai-publisher' ),
 					'loadingSteps' => array(
 						__( 'Sto studiando la tua richiesta…', 'wp-ai-publisher' ),
 						__( 'Ho raccolto le informazioni migliori…', 'wp-ai-publisher' ),
 						__( 'Sto selezionando gli articoli più utili…', 'wp-ai-publisher' ),
 						__( 'Creo la guida…', 'wp-ai-publisher' ),
+						__( 'Ancora un momento, grazie per la pazienza…', 'wp-ai-publisher' ),
 						__( 'Ci siamo quasi…', 'wp-ai-publisher' ),
 					),
 				),

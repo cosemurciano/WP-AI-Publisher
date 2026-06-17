@@ -147,6 +147,45 @@ $wpai_guide_selected_ct = array_map( 'absint', (array) ( $config['search_categor
 						</p>
 					</td>
 				</tr>
+			</tbody>
+		</table>
+
+		<h2><?php echo esc_html__( 'Area membri (registrazione e login)', 'wp-ai-publisher' ); ?></h2>
+		<p class="description" style="margin-bottom:10px;">
+			<?php echo esc_html__( 'Permette ai visitatori di registrarsi con un ruolo dedicato (Membro Guide) e salvare le proprie guide in un’area pubblica del sito. I membri non accedono alla bacheca di WordPress. Inserisci gli shortcode nelle pagine corrispondenti:', 'wp-ai-publisher' ); ?>
+			<code>[wpai_guide_register]</code>, <code>[wpai_guide_login]</code>, <code>[wpai_guide_account]</code>
+		</p>
+		<table class="form-table" role="presentation">
+			<tbody>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Abilita area membri', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_guide[enable_membership]" value="1" <?php checked( ! empty( $config['enable_membership'] ) ); ?>> <?php echo esc_html__( 'Attiva registrazione, login e salvataggio guide nell’area utente.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<?php
+				$wpai_guide_pages = array(
+					'register_page_id' => __( 'Pagina di registrazione', 'wp-ai-publisher' ),
+					'login_page_id'    => __( 'Pagina di login', 'wp-ai-publisher' ),
+					'account_page_id'  => __( 'Pagina “Le tue guide” (area utente)', 'wp-ai-publisher' ),
+				);
+				foreach ( $wpai_guide_pages as $wpai_key => $wpai_label ) :
+					?>
+					<tr>
+						<th scope="row"><label for="wpai-guide-<?php echo esc_attr( $wpai_key ); ?>"><?php echo esc_html( $wpai_label ); ?></label></th>
+						<td>
+							<?php
+							wp_dropdown_pages(
+								array(
+									'name'              => 'wpai_guide[' . $wpai_key . ']',
+									'id'                => 'wpai-guide-' . $wpai_key,
+									'selected'          => (int) $config[ $wpai_key ],
+									'show_option_none'  => esc_html__( '— Nessuna —', 'wp-ai-publisher' ),
+									'option_none_value' => 0,
+								)
+							);
+							?>
+						</td>
+					</tr>
+				<?php endforeach; ?>
 				<tr>
 					<th scope="row"><label for="wpai-guide-max-tokens"><?php echo esc_html__( 'Lunghezza massima (token)', 'wp-ai-publisher' ); ?></label></th>
 					<td>
