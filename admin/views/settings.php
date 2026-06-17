@@ -267,6 +267,10 @@ $language_options = array(
 					<td><label><input type="checkbox" name="wpai_publisher_settings[telegram_reply_enabled]" value="1" <?php checked( ! empty( $settings['telegram_reply_enabled'] ) ); ?>> <?php echo esc_html__( 'Invia un messaggio di conferma con il link alla bozza.', 'wp-ai-publisher' ); ?></label></td>
 				</tr>
 				<tr>
+					<th scope="row"><?php echo esc_html__( 'Scelta interattiva', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[telegram_interactive]" value="1" <?php checked( ! empty( $settings['telegram_interactive'] ) ); ?>> <?php echo esc_html__( 'Dopo il messaggio, chiedi su Telegram di scegliere Tipologia articolo e Categorie con i pulsanti, prima di generare.', 'wp-ai-publisher' ); ?></label><p class="description"><?php echo esc_html__( 'Se disattivato, la bozza viene generata subito con la Tipologia predefinita e le categorie scelte dall’AI.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
 					<th scope="row"><?php echo esc_html__( 'URL webhook', 'wp-ai-publisher' ); ?></th>
 					<td>
 						<code><?php echo esc_html( $wpai_tg_webhook_url ); ?></code>

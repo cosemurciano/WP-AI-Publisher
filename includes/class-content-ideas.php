@@ -528,12 +528,26 @@ class Content_Ideas {
 		$ai_title = sanitize_text_field( (string) ( $article['title'] ?? '' ) );
 		$title    = '' !== $ai_title ? $ai_title : wp_trim_words( wp_strip_all_tags( (string) $idea->topic ), 14, '' );
 		$slug     = sanitize_title( (string) ( $article['slug'] ?? '' ) );
+
+		// AI-chosen categories, unless a trusted caller (e.g. the Telegram
+		// inline-keyboard flow) forces a specific set for this idea.
+		$category_ids = array_values( array_filter( array_map( 'absint', (array) ( $article['category_ids'] ?? array() ) ) ) );
+		/**
+		 * Filter the category IDs to assign to the draft, overriding the AI choice.
+		 *
+		 * @param array<int,int> $forced  Forced category IDs (empty to keep AI choice).
+		 * @param int            $idea_id Idea ID.
+		 */
+		$forced_categories = array_values( array_filter( array_map( 'absint', (array) apply_filters( 'wpai_publisher_forced_category_ids', array(), $idea_id ) ) ) );
+		if ( ! empty( $forced_categories ) ) {
+			$category_ids = $forced_categories;
+		}
 		$output = array(
 			'title'              => $title,
 			'slug'               => $slug,
 			'excerpt'            => (string) ( $article['plain_text_summary'] ?? '' ),
 			'content_outline'    => array(),
-			'category_ids'       => array_values( array_filter( array_map( 'absint', (array) ( $article['category_ids'] ?? array() ) ) ) ),
+			'category_ids'       => $category_ids,
 			'categories'         => array(),
 			'tags'               => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $article['tags'] ?? array() ) ) ) ),
 			'meta_title'         => sanitize_text_field( (string) ( $article['meta_title'] ?? '' ) ),

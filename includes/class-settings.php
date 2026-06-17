@@ -77,6 +77,7 @@ class Settings {
 		$telegram_lang                           = isset( $input['telegram_language'] ) ? sanitize_key( (string) $input['telegram_language'] ) : $defaults['telegram_language'];
 		$output['telegram_language']             = in_array( $telegram_lang, array( 'it', 'en', 'fr', 'es', 'de' ), true ) ? $telegram_lang : 'it';
 		$output['telegram_reply_enabled']        = ! empty( $input['telegram_reply_enabled'] );
+		$output['telegram_interactive']          = ! empty( $input['telegram_interactive'] );
 		$output['site_context']                  = $this->sanitize_site_context( $input['site_context'] ?? array() );
 
 		return $output;
