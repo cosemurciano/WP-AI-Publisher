@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.46
+Stable tag: 0.5.47
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,13 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.47 =
+* Assistente Guide AI: nuova interfaccia in stile chat (campo arrotondato auto-espandibile, invio con Invio, pulsante con icona) più moderna e curata.
+* Durante l'attesa l'assistente mostra messaggi animati con effetto "scrittura" (Sto studiando la tua richiesta… / Ho raccolto le informazioni migliori… / Creo la guida…).
+* Gli articoli correlati sono ora mostrati come card (3 per riga, responsive) sotto il titolo "Articoli per la tua guida".
+* Nuovi pulsanti accanto a "Salva come PDF": "Invia su WhatsApp" (condivisione) e "Salva la tua guida" (anteprima della futura funzione di registrazione con ruolo dedicato per archiviare le proprie guide).
+* Lunghezza massima (token) ora a quantità libera, con stima in parole e minuti di lettura mostrata sotto il campo.
 
 = 0.5.46 =
 * Assistente Guide AI: corretto l'errore "Sessione scaduta" che compariva al primo invio per gli utenti loggati. La richiesta REST ora invia l'header X-WP-Nonce (cookie auth), mantenendo coerente l'utente tra creazione e verifica del nonce.

@@ -172,7 +172,7 @@ class Guide_Assistant {
 			'search_category_ids'      => array_values( array_unique( $cat_ids ) ),
 			'external_links_whitelist' => $this->sanitize_url_list( (string) ( $input['external_links_whitelist'] ?? '' ) ),
 			'model'                    => sanitize_text_field( (string) ( $input['model'] ?? '' ) ),
-			'max_tokens'               => min( 4000, max( 256, absint( $input['max_tokens'] ?? $defaults['max_tokens'] ) ) ),
+			'max_tokens'               => min( 32000, max( 128, absint( $input['max_tokens'] ?? $defaults['max_tokens'] ) ) ),
 			'per_ip_daily_limit'       => max( 0, absint( $input['per_ip_daily_limit'] ?? $defaults['per_ip_daily_limit'] ) ),
 			'global_daily_limit'       => max( 0, absint( $input['global_daily_limit'] ?? $defaults['global_daily_limit'] ) ),
 			'cooldown_seconds'         => max( 0, absint( $input['cooldown_seconds'] ?? $defaults['cooldown_seconds'] ) ),
@@ -252,19 +252,38 @@ class Guide_Assistant {
 				<h2 class="wpai-guide__heading"><?php echo esc_html( $atts['heading'] ); ?></h2>
 			<?php endif; ?>
 			<form class="wpai-guide__form" autocomplete="off">
-				<textarea class="wpai-guide__input" rows="3" maxlength="500" placeholder="<?php echo esc_attr( $atts['placeholder'] ); ?>" required></textarea>
-				<div class="wpai-guide__actions">
-					<button type="submit" class="wpai-guide__submit"><?php echo esc_html__( 'Genera guida', 'wp-ai-publisher' ); ?></button>
+				<div class="wpai-guide__field">
+					<textarea class="wpai-guide__input" rows="1" maxlength="500" placeholder="<?php echo esc_attr( $atts['placeholder'] ); ?>" required></textarea>
+					<button type="submit" class="wpai-guide__submit" aria-label="<?php echo esc_attr__( 'Genera guida', 'wp-ai-publisher' ); ?>">
+						<span class="wpai-guide__submit-label"><?php echo esc_html__( 'Genera guida', 'wp-ai-publisher' ); ?></span>
+						<svg class="wpai-guide__submit-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					</button>
 				</div>
 				<input type="text" class="wpai-guide__hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;" />
 			</form>
 			<div class="wpai-guide__status" aria-live="polite" hidden></div>
+			<div class="wpai-guide__loader" aria-live="polite" hidden>
+				<span class="wpai-guide__loader-dots"><span></span><span></span><span></span></span>
+				<span class="wpai-guide__loader-text"></span>
+			</div>
 			<div class="wpai-guide__result" hidden>
 				<div class="wpai-guide__content"></div>
 				<div class="wpai-guide__related"></div>
 				<div class="wpai-guide__tools">
-					<button type="button" class="wpai-guide__print"><?php echo esc_html__( 'Salva come PDF', 'wp-ai-publisher' ); ?></button>
+					<button type="button" class="wpai-guide__tool wpai-guide__print">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						<?php echo esc_html__( 'Salva come PDF', 'wp-ai-publisher' ); ?>
+					</button>
+					<button type="button" class="wpai-guide__tool wpai-guide__whatsapp">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm5.8 14.16c-.24.68-1.42 1.32-1.96 1.36-.5.05-.97.24-3.3-.69-2.78-1.1-4.56-3.95-4.7-4.13-.14-.18-1.13-1.5-1.13-2.86 0-1.36.71-2.03.97-2.31.24-.27.53-.34.71-.34.18 0 .36 0 .51.01.16.01.39-.06.6.46.24.58.81 2 .88 2.14.07.14.12.31.02.49-.09.18-.14.29-.27.45-.14.16-.29.36-.41.48-.14.14-.28.29-.12.57.16.27.71 1.17 1.52 1.9 1.05.93 1.93 1.22 2.21 1.36.27.14.43.12.59-.07.16-.18.68-.79.86-1.07.18-.27.36-.22.61-.13.24.09 1.55.73 1.81.86.27.14.45.2.51.31.07.11.07.63-.17 1.31Z"/></svg>
+						<?php echo esc_html__( 'Invia su WhatsApp', 'wp-ai-publisher' ); ?>
+					</button>
+					<button type="button" class="wpai-guide__tool wpai-guide__save">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						<?php echo esc_html__( 'Salva la tua guida', 'wp-ai-publisher' ); ?>
+					</button>
 				</div>
+				<p class="wpai-guide__save-note" hidden></p>
 			</div>
 		</div>
 		<?php
@@ -287,11 +306,19 @@ class Guide_Assistant {
 				'nonce'    => wp_create_nonce( self::NONCE_ACTION ),
 				'restNonce' => wp_create_nonce( 'wp_rest' ),
 				'i18n'     => array(
-					'loading'    => __( 'Sto creando la tua guida…', 'wp-ai-publisher' ),
 					'error'      => __( 'Si è verificato un errore. Riprova più tardi.', 'wp-ai-publisher' ),
 					'tooShort'   => __( 'Scrivi una richiesta più dettagliata.', 'wp-ai-publisher' ),
-					'related'    => __( 'Articoli consigliati', 'wp-ai-publisher' ),
+					'related'    => __( 'Articoli per la tua guida', 'wp-ai-publisher' ),
 					'printTitle' => __( 'Guida', 'wp-ai-publisher' ),
+					'waText'     => __( 'Ecco la guida che ho creato:', 'wp-ai-publisher' ),
+					'saveNote'   => __( 'Presto potrai registrarti per salvare e ritrovare tutte le tue guide. Funzione in arrivo!', 'wp-ai-publisher' ),
+					'loadingSteps' => array(
+						__( 'Sto studiando la tua richiesta…', 'wp-ai-publisher' ),
+						__( 'Ho raccolto le informazioni migliori…', 'wp-ai-publisher' ),
+						__( 'Sto selezionando gli articoli più utili…', 'wp-ai-publisher' ),
+						__( 'Creo la guida…', 'wp-ai-publisher' ),
+						__( 'Ci siamo quasi…', 'wp-ai-publisher' ),
+					),
 				),
 			)
 		);

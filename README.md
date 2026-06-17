@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.46**
+Versione corrente: **0.5.47**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.47
+- Assistente Guide AI: UI in stile chat (Claude/ChatGPT), loader con effetto scrittura, articoli correlati come card 3 per riga ("Articoli per la tua guida"), pulsanti "Invia su WhatsApp" e "Salva la tua guida" (anteprima futura registrazione), lunghezza max a quantità libera con stima parole/minuti di lettura.
 
 ### 0.5.46
 - Assistente Guide AI: fix "Sessione scaduta" al primo invio per utenti loggati (la richiesta REST ora invia l'header `X-WP-Nonce`). Gli admin ignorano limiti anti-abuso e cache per poter testare liberamente.
