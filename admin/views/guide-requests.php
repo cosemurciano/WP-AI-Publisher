@@ -64,6 +64,7 @@ $wpai_guide_notices = array(
 							?>
 						</td>
 						<td>
+							<a class="button button-small" href="<?php echo esc_url( add_query_arg( array( 'page' => 'wp-ai-publisher-guide-requests', 'view' => (int) $req->id ), admin_url( 'admin.php' ) ) ); ?>"><?php echo esc_html__( 'Visualizza', 'wp-ai-publisher' ); ?></a>
 							<?php if ( 'idea' !== $req->status ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 									<input type="hidden" name="action" value="wpai_publisher_guide_request_to_idea">

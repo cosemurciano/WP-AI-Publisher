@@ -153,6 +153,9 @@
 			result.hidden = true;
 			setStatus( '', false );
 			loader.start();
+			if ( loaderBox && loaderBox.scrollIntoView ) {
+				loaderBox.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+			}
 
 			var headers = { 'Content-Type': 'application/json' };
 			if ( wpaiGuide.restNonce ) {

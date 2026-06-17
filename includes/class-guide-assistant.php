@@ -112,7 +112,7 @@ class Guide_Assistant {
 			'search_category_ids'      => array(),
 			'external_links_whitelist' => '',
 			'model'                    => '',
-			'max_tokens'               => 1200,
+			'max_tokens'               => 1500,
 			'per_ip_daily_limit'       => 3,
 			'global_daily_limit'       => 200,
 			'cooldown_seconds'         => 20,
@@ -523,11 +523,58 @@ class Guide_Assistant {
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function search_candidates( $query, $config ) {
+		$limit = max( 6, (int) $config['max_articles'] * 2 );
+
+		// 1) Full-phrase search (WordPress applies AND across the terms).
+		$out = $this->run_search( $query, $config, $limit );
+
+		// 2) If recall is poor, broaden by querying each significant keyword and
+		// merging the unique results. WP's default search is strict (AND), so a
+		// natural-language question like "come posso creare un sito web?" often
+		// returns nothing even when relevant articles exist.
+		if ( count( $out ) < $limit ) {
+			$seen = array();
+			foreach ( $out as $c ) {
+				$seen[ (int) $c['id'] ] = true;
+			}
+			foreach ( $this->extract_keywords( $query ) as $keyword ) {
+				if ( count( $out ) >= $limit ) {
+					break;
+				}
+				foreach ( $this->run_search( $keyword, $config, $limit ) as $c ) {
+					if ( empty( $seen[ (int) $c['id'] ] ) ) {
+						$seen[ (int) $c['id'] ] = true;
+						$out[] = $c;
+						if ( count( $out ) >= $limit ) {
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Run a single WP search and return candidate stubs.
+	 *
+	 * @param string              $search Search string.
+	 * @param array<string,mixed> $config Config.
+	 * @param int                 $limit Max results.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function run_search( $search, $config, $limit ) {
+		$search = trim( (string) $search );
+		if ( '' === $search ) {
+			return array();
+		}
+
 		$args = array(
-			's'                   => $query,
+			's'                   => $search,
 			'post_type'           => (array) $config['search_post_types'],
 			'post_status'         => 'publish',
-			'posts_per_page'      => max( 6, (int) $config['max_articles'] * 2 ),
+			'posts_per_page'      => $limit,
 			'ignore_sticky_posts' => true,
 			'no_found_rows'       => true,
 		);
@@ -538,7 +585,7 @@ class Guide_Assistant {
 		$found = new WP_Query( $args );
 		$out   = array();
 		foreach ( $found->posts as $post ) {
-			$excerpt = has_excerpt( $post ) ? get_the_excerpt( $post ) : wp_trim_words( wp_strip_all_tags( (string) $post->post_content ), 40 );
+			$excerpt = has_excerpt( $post ) ? get_the_excerpt( $post ) : wp_trim_words( wp_strip_all_tags( (string) $post->post_content ), 45 );
 			$out[]   = array(
 				'id'      => (int) $post->ID,
 				'title'   => get_the_title( $post ),
@@ -548,6 +595,34 @@ class Guide_Assistant {
 		}
 		wp_reset_postdata();
 		return $out;
+	}
+
+	/**
+	 * Extract significant keywords from a natural-language query, dropping
+	 * common Italian/English stopwords.
+	 *
+	 * @param string $query Query.
+	 * @return array<int,string>
+	 */
+	private function extract_keywords( $query ) {
+		$stopwords = array(
+			'come', 'cosa', 'quale', 'quali', 'posso', 'voglio', 'vorrei', 'devo', 'puoi', 'fare',
+			'che', 'chi', 'dove', 'quando', 'perche', 'perché', 'un', 'uno', 'una', 'il', 'lo', 'la',
+			'i', 'gli', 'le', 'di', 'del', 'della', 'dei', 'delle', 'a', 'ad', 'da', 'in', 'con', 'su',
+			'per', 'tra', 'fra', 'e', 'o', 'ma', 'mi', 'ti', 'si', 'ci', 'vi', 'è', 'sono', 'ho', 'hai',
+			'the', 'a', 'an', 'how', 'what', 'can', 'i', 'to', 'do', 'my', 'of', 'in', 'on', 'for', 'and', 'or',
+		);
+		$normalized = strtolower( preg_replace( '/[^\p{L}\p{N}\s]/u', ' ', (string) $query ) );
+		$words      = preg_split( '/\s+/', trim( $normalized ) );
+		$keywords   = array();
+		foreach ( (array) $words as $word ) {
+			if ( mb_strlen( $word ) >= 3 && ! in_array( $word, $stopwords, true ) ) {
+				$keywords[ $word ] = mb_strlen( $word );
+			}
+		}
+		// Longer words first: they tend to be the most specific.
+		arsort( $keywords );
+		return array_keys( $keywords );
 	}
 
 	/**
@@ -577,7 +652,8 @@ class Guide_Assistant {
 			"%s\n\n" .
 			"Richiesta dell'utente:\n\"%s\"\n\n" .
 			"Scrivi una guida/tutorial in %s, in HTML semplice usando solo questi tag: <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <a>, <blockquote>. " .
-			"Struttura la risposta con un'introduzione, passaggi o sezioni con titoli, e una breve conclusione.\n\n" .
+			"Struttura la risposta con un'introduzione, passaggi o sezioni con titoli, e una breve conclusione.\n" .
+			"IMPORTANTE: concludi sempre la guida in modo completo. Non lasciare frasi o elenchi a metà; se lo spazio sta per esaurirsi, accorcia le sezioni e chiudi con una conclusione finita.\n\n" .
 			"REGOLE SUI LINK (tassative):\n" .
 			"- Per i link interni usa ESCLUSIVAMENTE gli URL elencati qui sotto, copiandoli esattamente. Non inventare URL.\n" .
 			"- Inserisci i link in modo naturale nel testo dove sono pertinenti.\n" .
@@ -812,8 +888,29 @@ class Guide_Assistant {
 		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
+
+		$view_id = isset( $_GET['view'] ) ? absint( $_GET['view'] ) : 0;
+		if ( $view_id > 0 ) {
+			$request  = $this->get_request( $view_id );
+			$articles = $request ? $this->build_recommended_articles( $this->ids_to_candidates( (array) json_decode( (string) $request->recommended_post_ids, true ) ), 10 ) : array();
+			require WPAIP_PLUGIN_DIR . 'admin/views/guide-request-detail.php';
+			return;
+		}
+
 		$requests = $this->get_requests( 100 );
 		require WPAIP_PLUGIN_DIR . 'admin/views/guide-requests.php';
+	}
+
+	/**
+	 * Fetch a single request row.
+	 *
+	 * @param int $id Request ID.
+	 * @return object|null
+	 */
+	public function get_request( $id ) {
+		global $wpdb;
+		$table = $this->db->get_guide_requests_table_name();
+		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", absint( $id ) ) );
 	}
 
 	/**
