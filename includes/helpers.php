@@ -68,6 +68,7 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'telegram_article_type_id'      => 0,
 			'telegram_language'             => 'it',
 			'telegram_reply_enabled'        => true,
+			'telegram_interactive'          => true,
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -129,6 +130,7 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$telegram_lang                             = sanitize_key( (string) ( $settings['telegram_language'] ?? 'it' ) );
 		$settings['telegram_language']             = in_array( $telegram_lang, array( 'it', 'en', 'fr', 'es', 'de' ), true ) ? $telegram_lang : 'it';
 		$settings['telegram_reply_enabled']        = ! empty( $settings['telegram_reply_enabled'] );
+		$settings['telegram_interactive']          = ! empty( $settings['telegram_interactive'] );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );

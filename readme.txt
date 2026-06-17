@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.41
+Stable tag: 0.5.42
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.42 =
+* Telegram interattivo: dopo l'invio del messaggio il bot mostra i pulsanti (inline keyboard) per scegliere la Tipologia articolo e poi selezionare una o più Categorie, quindi genera la bozza con quelle scelte. Le categorie scelte vengono forzate sulla bozza (filtro wpai_publisher_forced_category_ids). Nuova impostazione "Scelta interattiva" (attiva di default); se disattivata, la bozza viene generata subito come prima.
 
 = 0.5.41 =
 * Knowledge base OpenAI: nuovo pulsante "Testa accesso allo storage OpenAI" che verifica la raggiungibilità dei Vector store (con numero di file indicizzati) e che il modello sappia usarli tramite file_search. L'uso dei documenti è automatico quando la spunta file_search è attiva: non serve indicarlo nel prompt.

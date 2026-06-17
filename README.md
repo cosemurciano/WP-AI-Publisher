@@ -1,6 +1,10 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.41**
+Versione corrente: **0.5.42**
+
+## Telegram interattivo: scelta Tipologia e Categorie 0.5.42
+
+Quando la **Scelta interattiva** è attiva, dopo aver inviato il messaggio il bot risponde con dei **pulsanti** (inline keyboard): prima scegli la **Tipologia articolo**, poi selezioni una o più **Categorie** (multi-selezione con ✅), infine premi **Genera bozza**. Le categorie scelte vengono **forzate** sulla bozza (filtro `wpai_publisher_forced_category_ids`); con **Salta** le sceglie l'AI. Disattivando l'opzione, la bozza viene generata subito con la Tipologia predefinita (comportamento precedente).
 
 ## Integrazione Telegram 0.5.38
 
@@ -559,6 +563,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.42
+- Telegram interattivo: pulsanti per scegliere Tipologia articolo e Categorie (multi-selezione) prima di generare; categorie forzate sulla bozza. Nuova opzione "Scelta interattiva".
 
 ### 0.5.41
 - Knowledge base OpenAI: pulsante "Testa accesso allo storage OpenAI" (raggiungibilità vector store + file indicizzati + verifica uso file_search). L'uso dei documenti è automatico con la spunta file_search attiva.
