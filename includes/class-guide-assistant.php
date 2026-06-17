@@ -97,6 +97,76 @@ class Guide_Assistant {
 		add_filter( 'wp_robots', array( $this, 'filter_guide_robots' ) );
 		add_filter( 'the_content', array( $this, 'filter_guide_content' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'maybe_enqueue_single_guide_assets' ) );
+
+		// Scheduled cleanup of old public guide pages (retention configurable).
+		add_action( 'init', array( $this, 'maybe_schedule_cleanup' ) );
+		add_action( self::CLEANUP_HOOK, array( $this, 'run_cleanup' ) );
+	}
+
+	const CLEANUP_HOOK = 'wpai_publisher_guide_cleanup';
+
+	/**
+	 * Ensure the daily guide-cleanup cron event is scheduled.
+	 *
+	 * @return void
+	 */
+	public function maybe_schedule_cleanup() {
+		if ( function_exists( 'wp_next_scheduled' ) && ! wp_next_scheduled( self::CLEANUP_HOOK ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::CLEANUP_HOOK );
+		}
+	}
+
+	/**
+	 * Delete public guide pages older than the configured retention window.
+	 *
+	 * Request rows are kept (they hold editorial value); only their link to the
+	 * deleted page is cleared. Runs in capped batches to avoid timeouts.
+	 *
+	 * @return int Number of guide pages deleted.
+	 */
+	public function run_cleanup() {
+		$config = $this->get_config();
+		$days   = (int) $config['retention_days'];
+		if ( $days <= 0 ) {
+			return 0;
+		}
+
+		$query = new WP_Query(
+			array(
+				'post_type'      => self::CPT,
+				'post_status'    => 'any',
+				'posts_per_page' => 200,
+				'fields'         => 'ids',
+				'no_found_rows'  => true,
+				'date_query'     => array(
+					array( 'column' => 'post_date_gmt', 'before' => $days . ' days ago' ),
+				),
+			)
+		);
+
+		$deleted = 0;
+		global $wpdb;
+		$table = $this->db->get_guide_requests_table_name();
+		foreach ( (array) $query->posts as $post_id ) {
+			$post_id = absint( $post_id );
+			if ( $post_id <= 0 ) {
+				continue;
+			}
+			$wpdb->update( $table, array( 'post_id' => null ), array( 'post_id' => $post_id ), array( '%d' ), array( '%d' ) );
+			if ( wp_delete_post( $post_id, true ) ) {
+				$deleted++;
+			}
+		}
+		wp_reset_postdata();
+
+		if ( $deleted > 0 ) {
+			$this->logger->info(
+				sprintf( __( 'Pulizia guide pubbliche: eliminate %d pagine.', 'wp-ai-publisher' ), $deleted ),
+				array( 'source' => 'guide_assistant', 'event' => 'cleanup', 'deleted' => $deleted, 'retention_days' => $days )
+			);
+		}
+
+		return $deleted;
 	}
 
 	/**
@@ -215,6 +285,7 @@ class Guide_Assistant {
 			'model'                    => '',
 			'use_file_search'          => false,
 			'create_public_page'       => true,
+			'retention_days'           => 30,
 			'max_tokens'               => 1500,
 			'per_ip_daily_limit'       => 3,
 			'global_daily_limit'       => 200,
@@ -277,6 +348,7 @@ class Guide_Assistant {
 			'model'                    => sanitize_text_field( (string) ( $input['model'] ?? '' ) ),
 			'use_file_search'          => ! empty( $input['use_file_search'] ),
 			'create_public_page'       => ! empty( $input['create_public_page'] ),
+			'retention_days'           => max( 0, absint( $input['retention_days'] ?? $defaults['retention_days'] ) ),
 			'max_tokens'               => min( 32000, max( 128, absint( $input['max_tokens'] ?? $defaults['max_tokens'] ) ) ),
 			'per_ip_daily_limit'       => max( 0, absint( $input['per_ip_daily_limit'] ?? $defaults['per_ip_daily_limit'] ) ),
 			'global_daily_limit'       => max( 0, absint( $input['global_daily_limit'] ?? $defaults['global_daily_limit'] ) ),

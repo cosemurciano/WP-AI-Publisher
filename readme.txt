@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.49
+Stable tag: 0.5.50
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.50 =
+* Assistente Guide AI: cancellazione automatica delle pagine pubbliche delle guide configurabile dal pannello. Nuovo campo "Cancella le pagine guida dopo (giorni)": una pulizia giornaliera (WP-Cron) elimina le pagine più vecchie del numero di giorni impostato (0 = non cancellare mai). Le richieste restano in "Richieste guide" (viene solo scollegata la pagina eliminata).
 
 = 0.5.49 =
 * Assistente Guide AI: ogni guida può ora avere una pagina pubblica con URL permanente (nuovo tipo di contenuto "Guida AI"), impostata noindex/nofollow per non essere indicizzata dai motori di ricerca. Il pulsante "Invia su WhatsApp" condivide direttamente il link della guida. Opzione attivabile/disattivabile dalle impostazioni; eliminando una richiesta viene rimossa anche la pagina pubblica collegata.

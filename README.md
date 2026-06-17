@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.49**
+Versione corrente: **0.5.50**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.50
+- Assistente Guide AI: cancellazione automatica delle pagine pubbliche delle guide con retention configurabile dal pannello ("Cancella le pagine guida dopo (giorni)", 0 = mai), eseguita da una pulizia giornaliera WP-Cron. Le richieste restano archiviate.
 
 ### 0.5.49
 - Assistente Guide AI: pagina pubblica per ogni guida (CPT "Guida AI" noindex/nofollow) con URL permanente condivisibile (usato da WhatsApp), opzionale dalle impostazioni; toggle per usare anche lo storage OpenAI (vector store / file_search) come grounding aggiuntivo, con fallback automatico alla ricerca WP.

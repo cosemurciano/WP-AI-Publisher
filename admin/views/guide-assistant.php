@@ -111,6 +111,15 @@ $wpai_guide_selected_ct = array_map( 'absint', (array) ( $config['search_categor
 					</td>
 				</tr>
 				<tr>
+					<th scope="row"><label for="wpai-guide-retention"><?php echo esc_html__( 'Cancella le pagine guida dopo (giorni)', 'wp-ai-publisher' ); ?></label></th>
+					<td>
+						<input type="number" id="wpai-guide-retention" name="wpai_guide[retention_days]" min="0" value="<?php echo esc_attr( (string) $config['retention_days'] ); ?>">
+						<p class="description">
+							<?php echo esc_html__( 'Una pulizia automatica giornaliera elimina le pagine pubbliche delle guide più vecchie di questo numero di giorni. 0 = non cancellare mai. Le richieste restano comunque in “Richieste guide”.', 'wp-ai-publisher' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
 					<th scope="row"><label for="wpai-guide-max-tokens"><?php echo esc_html__( 'Lunghezza massima (token)', 'wp-ai-publisher' ); ?></label></th>
 					<td>
 						<input type="number" id="wpai-guide-max-tokens" name="wpai_guide[max_tokens]" min="128" step="64" value="<?php echo esc_attr( (string) $config['max_tokens'] ); ?>">
