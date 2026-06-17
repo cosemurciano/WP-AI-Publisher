@@ -94,6 +94,13 @@ final class Plugin {
 	private $facebook;
 
 	/**
+	 * Instagram integration.
+	 *
+	 * @var Instagram_Integration|null
+	 */
+	private $instagram;
+
+	/**
 	 * Return singleton instance.
 	 *
 	 * @return Plugin
@@ -144,6 +151,12 @@ final class Plugin {
 		if ( class_exists( __NAMESPACE__ . '\\Facebook_Integration' ) ) {
 			$this->facebook = new Facebook_Integration( $this->logger, $this->ai_provider );
 			$this->facebook->register();
+		}
+
+		// Instagram integration: publish the featured image on publish.
+		if ( class_exists( __NAMESPACE__ . '\\Instagram_Integration' ) ) {
+			$this->instagram = new Instagram_Integration( $this->logger, $this->ai_provider );
+			$this->instagram->register();
 		}
 	}
 

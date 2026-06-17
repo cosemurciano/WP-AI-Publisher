@@ -56,6 +56,17 @@ $language_options = array(
 			);
 		}
 	}
+	if ( isset( $_GET['wpai_notice'] ) && 'instagram_test' === sanitize_key( wp_unslash( $_GET['wpai_notice'] ) ) ) {
+		$wpai_ig_notice = get_transient( 'wpai_publisher_instagram_notice_' . get_current_user_id() );
+		if ( is_array( $wpai_ig_notice ) ) {
+			delete_transient( 'wpai_publisher_instagram_notice_' . get_current_user_id() );
+			printf(
+				'<div class="notice %1$s is-dismissible"><p>%2$s</p></div>',
+				! empty( $wpai_ig_notice['ok'] ) ? 'notice-success' : 'notice-error',
+				esc_html( (string) ( $wpai_ig_notice['message'] ?? '' ) )
+			);
+		}
+	}
 	?>
 	<p class="wpai-lead"><?php echo esc_html__( 'Configura le impostazioni operative del plugin. Le chiamate AI useranno esclusivamente il sistema AI di WordPress già configurato sul sito; non vengono gestite chiavi OpenAI personalizzate.', 'wp-ai-publisher' ); ?></p>
 
@@ -382,6 +393,69 @@ $language_options = array(
 						<?php $wpai_fb_test_url = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_facebook_test' ), 'wpai_publisher_facebook_test' ); ?>
 						<a href="<?php echo esc_url( $wpai_fb_test_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Verifica connessione Pagina', 'wp-ai-publisher' ); ?></a>
 						<p class="description"><?php echo esc_html__( 'Controlla che il token raggiunga la Pagina indicata. Salva prima le impostazioni.', 'wp-ai-publisher' ); ?></p>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<h2><?php echo esc_html__( 'Instagram', 'wp-ai-publisher' ); ?></h2>
+		<p><?php echo esc_html__( 'Pubblica automaticamente l’immagine in evidenza dell’articolo su un account Instagram Business quando viene pubblicato. Attiva la condivisione per singolo articolo dalla casella “WP AI Publisher — Instagram” nell’editor.', 'wp-ai-publisher' ); ?></p>
+
+		<details class="wpai-instagram-help" style="margin:8px 0 16px; padding:12px 16px; background:#fff; border:1px solid #dcdcde; border-radius:4px;">
+			<summary style="cursor:pointer; font-weight:600;"><?php echo esc_html__( 'Prerequisiti e come recuperare l’ID account Instagram', 'wp-ai-publisher' ); ?></summary>
+			<div style="margin-top:10px;">
+				<p><strong><?php echo esc_html__( 'Prerequisiti (una sola volta):', 'wp-ai-publisher' ); ?></strong></p>
+				<ol style="margin-left:18px;">
+					<li><?php echo esc_html__( 'L’account Instagram deve essere di tipo Business o Creator.', 'wp-ai-publisher' ); ?></li>
+					<li><?php echo wp_kses( __( 'Collega l’account Instagram alla tua <strong>Pagina Facebook</strong> (da Meta Business Suite → Impostazioni → Account Instagram).', 'wp-ai-publisher' ), array( 'strong' => array() ) ); ?></li>
+					<li><?php echo wp_kses( __( 'Il token può essere lo stesso di Facebook: se non imposti <code>WPAIP_INSTAGRAM_ACCESS_TOKEN</code>, viene usato <code>WPAIP_FACEBOOK_ACCESS_TOKEN</code>. Servono in più i permessi <code>instagram_basic</code> e <code>instagram_content_publish</code>.', 'wp-ai-publisher' ), array( 'code' => array() ) ); ?></li>
+				</ol>
+				<p><strong><?php echo esc_html__( 'Trovare l’ID account Instagram (IG User ID)', 'wp-ai-publisher' ); ?></strong></p>
+				<ul style="margin-left:18px; list-style:disc;">
+					<li><?php echo wp_kses( __( 'Nel <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a> chiama <code>{ID-Pagina}?fields=instagram_business_account</code>: il valore <code>id</code> restituito è l’ID dell’account Instagram da incollare qui sotto.', 'wp-ai-publisher' ), array( 'code' => array(), 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></li>
+				</ul>
+				<p class="description"><?php echo esc_html__( 'Note: Instagram richiede sempre un’immagine (usa l’immagine in evidenza); i link nella caption non sono cliccabili, quindi il link viene aggiunto come testo (es. “link in bio”). Come per Facebook, in produzione Meta richiede App Review e verifica del Business.', 'wp-ai-publisher' ); ?></p>
+			</div>
+		</details>
+
+		<?php
+		$wpai_ig_token_present = '' !== wpai_publisher_get_instagram_access_token();
+		?>
+		<table class="form-table" role="presentation">
+			<tbody>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Abilita Instagram', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[instagram_enabled]" value="1" <?php checked( ! empty( $settings['instagram_enabled'] ) ); ?>> <?php echo esc_html__( 'Consenti la pubblicazione automatica su Instagram.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-ig-user"><?php echo esc_html__( 'ID account Instagram', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="text" id="wpai-ig-user" name="wpai_publisher_settings[instagram_user_id]" class="regular-text" value="<?php echo esc_attr( (string) ( $settings['instagram_user_id'] ?? '' ) ); ?>" placeholder="17841400000000000"><p class="description"><?php echo esc_html__( 'L’ID numerico dell’account Instagram Business (vedi la guida sopra).', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Token di accesso', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<span class="<?php echo $wpai_ig_token_present ? 'wpai-badge wpai-badge--ok' : 'wpai-badge wpai-badge--info'; ?>"><?php echo $wpai_ig_token_present ? esc_html__( 'Configurato', 'wp-ai-publisher' ) : esc_html__( 'Non configurato', 'wp-ai-publisher' ); ?></span>
+						<p class="description"><?php echo wp_kses( __( 'Non si salva nel database. Usa lo stesso token di Facebook oppure definisci un token dedicato:<br><code>define( \'WPAIP_INSTAGRAM_ACCESS_TOKEN\', \'EAAB...\' );</code><br>con i permessi <code>instagram_basic</code> e <code>instagram_content_publish</code>.', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array() ) ); ?></p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-ig-template"><?php echo esc_html__( 'Caption', 'wp-ai-publisher' ); ?></label></th>
+					<td><textarea id="wpai-ig-template" name="wpai_publisher_settings[instagram_caption_template]" rows="4" class="large-text code"><?php echo esc_textarea( (string) ( $settings['instagram_caption_template'] ?? '' ) ); ?></textarea><p class="description"><?php echo esc_html__( 'Segnaposto disponibili: {title}, {meta_title}, {meta_description}, {excerpt}, {hashtags}, {link}. Max 2200 caratteri.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Caption AI', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[instagram_use_ai_caption]" value="1" <?php checked( ! empty( $settings['instagram_use_ai_caption'] ) ); ?>> <?php echo esc_html__( 'Genera la caption con l’AI (più ingaggiante). Se fallisce, uso il template.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Pre-spunta', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[instagram_default_share]" value="1" <?php checked( ! empty( $settings['instagram_default_share'] ) ); ?>> <?php echo esc_html__( 'Pre-attiva la condivisione per gli articoli generati dal plugin.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Verifica connessione', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<?php $wpai_ig_test_url = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_instagram_test' ), 'wpai_publisher_instagram_test' ); ?>
+						<a href="<?php echo esc_url( $wpai_ig_test_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Verifica connessione Instagram', 'wp-ai-publisher' ); ?></a>
+						<p class="description"><?php echo esc_html__( 'Controlla che il token raggiunga l’account Instagram indicato. Salva prima le impostazioni.', 'wp-ai-publisher' ); ?></p>
 					</td>
 				</tr>
 			</tbody>

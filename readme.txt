@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.43
+Stable tag: 0.5.44
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.44 =
+* Integrazione Instagram: pubblicazione automatica dell'immagine in evidenza dell'articolo su un account Instagram Business alla pubblicazione (stesso schema di Facebook). Casella "Condividi su Instagram" nell'editor (per-articolo); pubblicazione in background (WP-Cron, non bloccante, anti-duplicato) con flusso a due passi (container + media_publish) e salvataggio di media ID e permalink sul post.
+* Caption da template personalizzabile ({title}, {meta_title}, {meta_description}, {excerpt}, {hashtags}, {link}, max 2200 caratteri) oppure generata dall'AI (opzionale). Instagram richiede un'immagine: senza immagine in evidenza la condivisione viene saltata. Il link viene aggiunto come testo (non cliccabile su Instagram).
+* Token letto da WPAIP_INSTAGRAM_ACCESS_TOKEN con fallback automatico a WPAIP_FACEBOOK_ACCESS_TOKEN (o filtro), mai nel database. Impostazioni → Instagram con guida ai prerequisiti (account Business collegato alla Pagina, permessi instagram_basic/instagram_content_publish), come recuperare l'IG User ID e pulsante "Verifica connessione Instagram".
 
 = 0.5.43 =
 * Integrazione Facebook: condivisione automatica dell'articolo su una Pagina Facebook alla pubblicazione. Casella "Condividi su Facebook" nell'editor (per-articolo); la condivisione avviene in background (WP-Cron, non bloccante, anti-duplicato) e l'ID del post Facebook viene salvato sul post.
