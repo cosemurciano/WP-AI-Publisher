@@ -26,6 +26,12 @@ $wpai_back_url = add_query_arg( array( 'page' => 'wp-ai-publisher-guide-requests
 				<tr><th><?php echo esc_html__( 'Richiesta', 'wp-ai-publisher' ); ?></th><td><strong><?php echo esc_html( (string) $request->query ); ?></strong></td></tr>
 				<tr><th><?php echo esc_html__( 'Lingua', 'wp-ai-publisher' ); ?></th><td><?php echo esc_html( strtoupper( (string) $request->language ) ); ?></td></tr>
 				<tr><th><?php echo esc_html__( 'Stato', 'wp-ai-publisher' ); ?></th><td><?php echo 'idea' === $request->status ? esc_html__( 'Convertita in idea', 'wp-ai-publisher' ) : esc_html__( 'Nuova', 'wp-ai-publisher' ); ?></td></tr>
+				<?php
+				$wpai_guide_post_id = absint( $request->post_id ?? 0 );
+				if ( $wpai_guide_post_id > 0 && get_post_status( $wpai_guide_post_id ) ) :
+					?>
+					<tr><th><?php echo esc_html__( 'Pagina pubblica', 'wp-ai-publisher' ); ?></th><td><a href="<?php echo esc_url( (string) get_permalink( $wpai_guide_post_id ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( (string) get_permalink( $wpai_guide_post_id ) ); ?></a> <span class="description">(<?php echo esc_html__( 'noindex', 'wp-ai-publisher' ); ?>)</span></td></tr>
+				<?php endif; ?>
 			</tbody>
 		</table>
 

@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.48**
+Versione corrente: **0.5.49**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.49
+- Assistente Guide AI: pagina pubblica per ogni guida (CPT "Guida AI" noindex/nofollow) con URL permanente condivisibile (usato da WhatsApp), opzionale dalle impostazioni; toggle per usare anche lo storage OpenAI (vector store / file_search) come grounding aggiuntivo, con fallback automatico alla ricerca WP.
 
 ### 0.5.48
 - Assistente Guide AI: ricerca articoli con fallback per parole chiave (recall migliore sulle domande in linguaggio naturale), prompt anti-troncamento, stima 1 token ≈ 1 parola + costo indicativo OpenAI, azione "Visualizza" per il dettaglio completo della guida in Richieste guide, loader che scorre in vista dopo l'invio.

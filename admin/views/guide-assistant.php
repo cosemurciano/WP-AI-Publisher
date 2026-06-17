@@ -93,6 +93,24 @@ $wpai_guide_selected_ct = array_map( 'absint', (array) ( $config['search_categor
 					<td><input type="number" id="wpai-guide-max-articles" name="wpai_guide[max_articles]" min="1" max="10" value="<?php echo esc_attr( (string) $config['max_articles'] ); ?>"></td>
 				</tr>
 				<tr>
+					<th scope="row"><?php echo esc_html__( 'Knowledge base OpenAI', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<label><input type="checkbox" name="wpai_guide[use_file_search]" value="1" <?php checked( ! empty( $config['use_file_search'] ) ); ?>> <?php echo esc_html__( 'Usa anche lo storage OpenAI (vector store / file_search) come fonte di grounding.', 'wp-ai-publisher' ); ?></label>
+						<p class="description">
+							<?php echo esc_html__( 'Richiede la knowledge base OpenAI attiva e i Vector Store ID configurati in Impostazioni. Aumenta contesto, costi e latenza. Se non disponibile, l’assistente usa solo la ricerca WordPress.', 'wp-ai-publisher' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Pagina pubblica della guida', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<label><input type="checkbox" name="wpai_guide[create_public_page]" value="1" <?php checked( ! empty( $config['create_public_page'] ) ); ?>> <?php echo esc_html__( 'Crea una pagina pubblica (noindex) per ogni guida, con URL permanente condivisibile.', 'wp-ai-publisher' ); ?></label>
+						<p class="description">
+							<?php echo esc_html__( 'Le pagine guida sono impostate noindex/nofollow (non vengono indicizzate dai motori di ricerca) e usate dal pulsante “Invia su WhatsApp”.', 'wp-ai-publisher' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
 					<th scope="row"><label for="wpai-guide-max-tokens"><?php echo esc_html__( 'Lunghezza massima (token)', 'wp-ai-publisher' ); ?></label></th>
 					<td>
 						<input type="number" id="wpai-guide-max-tokens" name="wpai_guide[max_tokens]" min="128" step="64" value="<?php echo esc_attr( (string) $config['max_tokens'] ); ?>">
