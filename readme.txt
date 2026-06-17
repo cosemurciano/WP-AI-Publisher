@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.51
+Stable tag: 0.5.52
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,12 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.52 =
+* Assistente Guide AI — Area membri: nuovo ruolo dedicato "Membro Guide" e shortcode per registrazione, login e area personale ([wpai_guide_register], [wpai_guide_login], [wpai_guide_account]). I membri gestiscono tutto dal sito pubblico e NON possono accedere alla bacheca di WordPress (reindirizzati alla loro area; barra admin nascosta).
+* Il pulsante "Salva la tua guida" ora salva davvero la guida nell'area utente quando l'utente è loggato; se non lo è, invita a registrarsi/accedere. Nell'area personale le guide salvate sono consultabili (HTML completo) e rimovibili.
+* Nuova sezione impostazioni "Area membri": attivazione e selezione delle pagine di registrazione, login e area utente. Pronto per integrare l'interfaccia di accesso nel tema PoeTheme.
+* Aggiunta una nuova frase alle animazioni di attesa ("Ancora un momento, grazie per la pazienza…").
 
 = 0.5.51 =
 * Assistente Guide AI: il pulsante "Genera guida" è ora un'icona di invio circolare; durante l'attesa il pulsante mostra uno spinner e il testo animato ("Sto studiando la tua richiesta…") compare dentro il campo di input. Risolto il problema dell'icona di attesa e del cursore visibili prima dell'invio.

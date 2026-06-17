@@ -316,6 +316,110 @@
 	font-size: 0.9em;
 }
 
+/* ---- Membership: auth + account ---- */
+.wpai-guide-auth {
+	max-width: 420px;
+	margin: 2rem auto;
+}
+
+.wpai-guide-auth__form input[type="text"],
+.wpai-guide-auth__form input[type="email"],
+.wpai-guide-auth__form input[type="password"] {
+	width: 100%;
+	padding: 10px 12px;
+	border: 1px solid rgba( 17, 17, 26, 0.18 );
+	border-radius: 10px;
+	font: inherit;
+	box-sizing: border-box;
+}
+
+.wpai-guide-auth__submit,
+.wpai-guide-auth .wp-block-button__link,
+.wpai-guide-auth #wp-submit {
+	display: inline-block;
+	cursor: pointer;
+	border: 0;
+	border-radius: 10px;
+	padding: 11px 20px;
+	font: inherit;
+	font-weight: 600;
+	color: #fff;
+	background: #5b4bff;
+}
+
+.wpai-guide-auth__notice {
+	margin: 0 0 1rem;
+	padding: 12px 16px;
+	border-radius: 10px;
+	border: 1px solid rgba( 17, 17, 26, 0.12 );
+}
+
+.wpai-guide-auth__notice--error {
+	background: #fdecea;
+	color: #8a1f1b;
+	border-color: #f3c7c4;
+}
+
+.wpai-guide-auth__alt {
+	margin-top: 1rem;
+	font-size: 0.95em;
+}
+
+.wpai-guide-account {
+	max-width: 820px;
+	margin: 2rem auto;
+}
+
+.wpai-guide-account__head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding-bottom: 12px;
+	border-bottom: 1px solid rgba( 17, 17, 26, 0.12 );
+}
+
+.wpai-guide-account__list {
+	list-style: none;
+	margin: 1rem 0 0;
+	padding: 0;
+}
+
+.wpai-guide-account__item {
+	border: 1px solid rgba( 17, 17, 26, 0.12 );
+	border-radius: 12px;
+	padding: 14px 18px;
+	margin-bottom: 12px;
+}
+
+.wpai-guide-account__item summary {
+	cursor: pointer;
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	align-items: baseline;
+}
+
+.wpai-guide-account__date {
+	color: rgba( 17, 17, 26, 0.55 );
+	font-size: 0.88em;
+	flex: 0 0 auto;
+}
+
+.wpai-guide-account__item .wpai-guide__content {
+	margin-top: 14px;
+}
+
+.wpai-guide-account__remove {
+	margin-top: 10px;
+	cursor: pointer;
+	border: 1px solid rgba( 17, 17, 26, 0.18 );
+	background: transparent;
+	border-radius: 8px;
+	padding: 6px 12px;
+	font: inherit;
+	color: #8a1f1b;
+}
+
 /* ---- Responsive ---- */
 @media ( max-width: 680px ) {
 	.wpai-guide__cards {

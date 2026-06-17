@@ -108,6 +108,13 @@ final class Plugin {
 	private $guide_assistant;
 
 	/**
+	 * Guide members (front-end membership).
+	 *
+	 * @var Guide_Members|null
+	 */
+	private $guide_members;
+
+	/**
 	 * Return singleton instance.
 	 *
 	 * @return Plugin
@@ -170,6 +177,12 @@ final class Plugin {
 		// Assistente Guide AI: public shortcode + REST guide generator.
 		if ( $this->guide_assistant instanceof Guide_Assistant ) {
 			$this->guide_assistant->register();
+
+			// Front-end membership area for saving guides.
+			if ( class_exists( __NAMESPACE__ . '\\Guide_Members' ) ) {
+				$this->guide_members = new Guide_Members( $this->db, $this->guide_assistant );
+				$this->guide_members->register();
+			}
 		}
 	}
 
