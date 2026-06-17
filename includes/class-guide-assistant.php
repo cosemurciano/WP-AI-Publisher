@@ -83,12 +83,113 @@ class Guide_Assistant {
 	 *
 	 * @return void
 	 */
+	const CPT = 'wpai_guide';
+
 	public function register() {
 		add_shortcode( 'wpai_guide_generator', array( $this, 'render_shortcode' ) );
+		add_action( 'init', array( $this, 'register_guide_cpt' ) );
 		add_action( 'rest_api_init', array( $this, 'register_rest_route' ) );
 		add_action( 'admin_post_wpai_publisher_save_guide_assistant', array( $this, 'handle_save_settings' ) );
 		add_action( 'admin_post_wpai_publisher_guide_request_to_idea', array( $this, 'handle_convert_to_idea' ) );
 		add_action( 'admin_post_wpai_publisher_delete_guide_request', array( $this, 'handle_delete_request' ) );
+
+		// Keep generated guide pages out of search engines and front-end search.
+		add_filter( 'wp_robots', array( $this, 'filter_guide_robots' ) );
+		add_filter( 'the_content', array( $this, 'filter_guide_content' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'maybe_enqueue_single_guide_assets' ) );
+	}
+
+	/**
+	 * Register the public (but noindex) guide content type.
+	 *
+	 * @return void
+	 */
+	public function register_guide_cpt() {
+		register_post_type(
+			self::CPT,
+			array(
+				'labels'              => array(
+					'name'          => __( 'Guide AI', 'wp-ai-publisher' ),
+					'singular_name' => __( 'Guida AI', 'wp-ai-publisher' ),
+				),
+				'public'              => true,
+				'publicly_queryable'  => true,
+				'exclude_from_search' => true,
+				'show_ui'             => false,
+				'show_in_menu'        => false,
+				'show_in_nav_menus'   => false,
+				'show_in_rest'        => false,
+				'has_archive'         => false,
+				'rewrite'             => array( 'slug' => 'guida', 'with_front' => false ),
+				'supports'            => array( 'title', 'editor' ),
+				'capability_type'     => 'post',
+			)
+		);
+
+		// Flush rewrite rules once after the CPT is first registered so single
+		// guide permalinks resolve instead of 404'ing.
+		if ( get_option( 'wpai_guide_cpt_flushed' ) !== WPAIP_VERSION ) {
+			flush_rewrite_rules( false );
+			update_option( 'wpai_guide_cpt_flushed', WPAIP_VERSION, false );
+		}
+	}
+
+	/**
+	 * Force noindex/nofollow on single guide pages.
+	 *
+	 * @param array<string,bool> $robots Robots directives.
+	 * @return array<string,bool>
+	 */
+	public function filter_guide_robots( $robots ) {
+		if ( is_singular( self::CPT ) ) {
+			$robots['noindex']  = true;
+			$robots['nofollow'] = true;
+			$robots['index']    = false;
+		}
+		return $robots;
+	}
+
+	/**
+	 * Append the recommended-article cards to a single guide's content.
+	 *
+	 * @param string $content Post content.
+	 * @return string
+	 */
+	public function filter_guide_content( $content ) {
+		if ( ! is_singular( self::CPT ) || ! in_the_loop() || ! is_main_query() ) {
+			return $content;
+		}
+		$post_id  = get_the_ID();
+		$ids      = (array) json_decode( (string) get_post_meta( $post_id, '_wpai_guide_article_ids', true ), true );
+		$articles = $this->build_recommended_articles( $this->ids_to_candidates( $ids ), 12 );
+		if ( empty( $articles ) ) {
+			return $content;
+		}
+		$cards = '<div class="wpai-guide"><div class="wpai-guide__related"><h3 class="wpai-guide__related-title">' . esc_html__( 'Articoli per la tua guida', 'wp-ai-publisher' ) . '</h3><div class="wpai-guide__cards">';
+		foreach ( $articles as $a ) {
+			$cards .= '<a class="wpai-guide__card" href="' . esc_url( (string) $a['url'] ) . '">';
+			if ( ! empty( $a['thumb'] ) ) {
+				$cards .= '<span class="wpai-guide__card-media"><img src="' . esc_url( (string) $a['thumb'] ) . '" alt="" loading="lazy"></span>';
+			}
+			$cards .= '<span class="wpai-guide__card-body"><span class="wpai-guide__card-title">' . esc_html( (string) $a['title'] ) . '</span>';
+			if ( ! empty( $a['excerpt'] ) ) {
+				$cards .= '<span class="wpai-guide__card-excerpt">' . esc_html( (string) $a['excerpt'] ) . '</span>';
+			}
+			$cards .= '</span></a>';
+		}
+		$cards .= '</div></div></div>';
+		return $content . $cards;
+	}
+
+	/**
+	 * Load the guide stylesheet on single guide pages (for the cards).
+	 *
+	 * @return void
+	 */
+	public function maybe_enqueue_single_guide_assets() {
+		if ( is_singular( self::CPT ) ) {
+			wp_enqueue_style( 'wpai-guide', WPAIP_PLUGIN_URL . 'public/css/guide.css', array(), WPAIP_VERSION );
+		}
 	}
 
 	/* ---------------------------------------------------------------------
@@ -112,7 +213,9 @@ class Guide_Assistant {
 			'search_category_ids'      => array(),
 			'external_links_whitelist' => '',
 			'model'                    => '',
-			'max_tokens'               => 1200,
+			'use_file_search'          => false,
+			'create_public_page'       => true,
+			'max_tokens'               => 1500,
 			'per_ip_daily_limit'       => 3,
 			'global_daily_limit'       => 200,
 			'cooldown_seconds'         => 20,
@@ -172,6 +275,8 @@ class Guide_Assistant {
 			'search_category_ids'      => array_values( array_unique( $cat_ids ) ),
 			'external_links_whitelist' => $this->sanitize_url_list( (string) ( $input['external_links_whitelist'] ?? '' ) ),
 			'model'                    => sanitize_text_field( (string) ( $input['model'] ?? '' ) ),
+			'use_file_search'          => ! empty( $input['use_file_search'] ),
+			'create_public_page'       => ! empty( $input['create_public_page'] ),
 			'max_tokens'               => min( 32000, max( 128, absint( $input['max_tokens'] ?? $defaults['max_tokens'] ) ) ),
 			'per_ip_daily_limit'       => max( 0, absint( $input['per_ip_daily_limit'] ?? $defaults['per_ip_daily_limit'] ) ),
 			'global_daily_limit'       => max( 0, absint( $input['global_daily_limit'] ?? $defaults['global_daily_limit'] ) ),
@@ -415,6 +520,16 @@ class Guide_Assistant {
 		// Persist and count usage.
 		$request_id = $this->store_request( $query, $hash, $config, $generated, $articles );
 		$payload['request_id'] = $request_id;
+
+		// Optionally create a public (noindex) page for the guide so it has a
+		// permanent, shareable URL.
+		if ( ! empty( $config['create_public_page'] ) ) {
+			$guide_url = $this->create_public_guide( $request_id, $query, $generated, $articles );
+			if ( '' !== $guide_url ) {
+				$payload['guide_url'] = $guide_url;
+			}
+		}
+
 		$this->bump_usage( $config );
 
 		return new WP_REST_Response( $payload, 200 );
@@ -523,11 +638,58 @@ class Guide_Assistant {
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function search_candidates( $query, $config ) {
+		$limit = max( 6, (int) $config['max_articles'] * 2 );
+
+		// 1) Full-phrase search (WordPress applies AND across the terms).
+		$out = $this->run_search( $query, $config, $limit );
+
+		// 2) If recall is poor, broaden by querying each significant keyword and
+		// merging the unique results. WP's default search is strict (AND), so a
+		// natural-language question like "come posso creare un sito web?" often
+		// returns nothing even when relevant articles exist.
+		if ( count( $out ) < $limit ) {
+			$seen = array();
+			foreach ( $out as $c ) {
+				$seen[ (int) $c['id'] ] = true;
+			}
+			foreach ( $this->extract_keywords( $query ) as $keyword ) {
+				if ( count( $out ) >= $limit ) {
+					break;
+				}
+				foreach ( $this->run_search( $keyword, $config, $limit ) as $c ) {
+					if ( empty( $seen[ (int) $c['id'] ] ) ) {
+						$seen[ (int) $c['id'] ] = true;
+						$out[] = $c;
+						if ( count( $out ) >= $limit ) {
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Run a single WP search and return candidate stubs.
+	 *
+	 * @param string              $search Search string.
+	 * @param array<string,mixed> $config Config.
+	 * @param int                 $limit Max results.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function run_search( $search, $config, $limit ) {
+		$search = trim( (string) $search );
+		if ( '' === $search ) {
+			return array();
+		}
+
 		$args = array(
-			's'                   => $query,
+			's'                   => $search,
 			'post_type'           => (array) $config['search_post_types'],
 			'post_status'         => 'publish',
-			'posts_per_page'      => max( 6, (int) $config['max_articles'] * 2 ),
+			'posts_per_page'      => $limit,
 			'ignore_sticky_posts' => true,
 			'no_found_rows'       => true,
 		);
@@ -538,7 +700,7 @@ class Guide_Assistant {
 		$found = new WP_Query( $args );
 		$out   = array();
 		foreach ( $found->posts as $post ) {
-			$excerpt = has_excerpt( $post ) ? get_the_excerpt( $post ) : wp_trim_words( wp_strip_all_tags( (string) $post->post_content ), 40 );
+			$excerpt = has_excerpt( $post ) ? get_the_excerpt( $post ) : wp_trim_words( wp_strip_all_tags( (string) $post->post_content ), 45 );
 			$out[]   = array(
 				'id'      => (int) $post->ID,
 				'title'   => get_the_title( $post ),
@@ -548,6 +710,34 @@ class Guide_Assistant {
 		}
 		wp_reset_postdata();
 		return $out;
+	}
+
+	/**
+	 * Extract significant keywords from a natural-language query, dropping
+	 * common Italian/English stopwords.
+	 *
+	 * @param string $query Query.
+	 * @return array<int,string>
+	 */
+	private function extract_keywords( $query ) {
+		$stopwords = array(
+			'come', 'cosa', 'quale', 'quali', 'posso', 'voglio', 'vorrei', 'devo', 'puoi', 'fare',
+			'che', 'chi', 'dove', 'quando', 'perche', 'perché', 'un', 'uno', 'una', 'il', 'lo', 'la',
+			'i', 'gli', 'le', 'di', 'del', 'della', 'dei', 'delle', 'a', 'ad', 'da', 'in', 'con', 'su',
+			'per', 'tra', 'fra', 'e', 'o', 'ma', 'mi', 'ti', 'si', 'ci', 'vi', 'è', 'sono', 'ho', 'hai',
+			'the', 'a', 'an', 'how', 'what', 'can', 'i', 'to', 'do', 'my', 'of', 'in', 'on', 'for', 'and', 'or',
+		);
+		$normalized = strtolower( preg_replace( '/[^\p{L}\p{N}\s]/u', ' ', (string) $query ) );
+		$words      = preg_split( '/\s+/', trim( $normalized ) );
+		$keywords   = array();
+		foreach ( (array) $words as $word ) {
+			if ( mb_strlen( $word ) >= 3 && ! in_array( $word, $stopwords, true ) ) {
+				$keywords[ $word ] = mb_strlen( $word );
+			}
+		}
+		// Longer words first: they tend to be the most specific.
+		arsort( $keywords );
+		return array_keys( $keywords );
 	}
 
 	/**
@@ -577,7 +767,8 @@ class Guide_Assistant {
 			"%s\n\n" .
 			"Richiesta dell'utente:\n\"%s\"\n\n" .
 			"Scrivi una guida/tutorial in %s, in HTML semplice usando solo questi tag: <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <a>, <blockquote>. " .
-			"Struttura la risposta con un'introduzione, passaggi o sezioni con titoli, e una breve conclusione.\n\n" .
+			"Struttura la risposta con un'introduzione, passaggi o sezioni con titoli, e una breve conclusione.\n" .
+			"IMPORTANTE: concludi sempre la guida in modo completo. Non lasciare frasi o elenchi a metà; se lo spazio sta per esaurirsi, accorcia le sezioni e chiudi con una conclusione finita.\n\n" .
 			"REGOLE SUI LINK (tassative):\n" .
 			"- Per i link interni usa ESCLUSIVAMENTE gli URL elencati qui sotto, copiandoli esattamente. Non inventare URL.\n" .
 			"- Inserisci i link in modo naturale nel testo dove sono pertinenti.\n" .
@@ -592,7 +783,23 @@ class Guide_Assistant {
 		);
 
 		$max_tokens = (int) $config['max_tokens'];
-		$raw = $this->ai_provider->generate_short_text( $prompt, (string) $config['system_instructions'], $max_tokens );
+
+		// Optional grounding on the OpenAI vector store (file_search) in addition
+		// to the site's own articles. Falls back to the standard text channel.
+		$use_fs = ! empty( $config['use_file_search'] )
+			&& method_exists( $this->ai_provider, 'is_file_search_ready' )
+			&& $this->ai_provider->is_file_search_ready();
+
+		if ( $use_fs ) {
+			$raw = $this->ai_provider->generate_text_with_file_search( $prompt, (string) $config['system_instructions'], $max_tokens );
+			if ( is_wp_error( $raw ) ) {
+				// Graceful degradation: fall back to the plain text channel.
+				$raw = $this->ai_provider->generate_short_text( $prompt, (string) $config['system_instructions'], $max_tokens );
+			}
+		} else {
+			$raw = $this->ai_provider->generate_short_text( $prompt, (string) $config['system_instructions'], $max_tokens );
+		}
+
 		if ( is_wp_error( $raw ) ) {
 			$this->logger->warning( __( 'Generazione guida non riuscita.', 'wp-ai-publisher' ), array( 'source' => 'guide_assistant', 'event' => 'generation_failed', 'message' => $raw->get_error_message() ) );
 			return new WP_Error( 'wpai_guide_ai_failed', __( 'Non è stato possibile generare la guida. Riprova più tardi.', 'wp-ai-publisher' ), array( 'status' => 503 ) );
@@ -712,7 +919,7 @@ class Guide_Assistant {
 		$since = gmdate( 'Y-m-d H:i:s', time() - ( $ttl_days * DAY_IN_SECONDS ) );
 		$row   = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT result_html, recommended_post_ids, id FROM {$table} WHERE query_hash = %s AND result_html IS NOT NULL AND created_at >= %s ORDER BY id DESC LIMIT 1",
+				"SELECT result_html, recommended_post_ids, id, post_id FROM {$table} WHERE query_hash = %s AND result_html IS NOT NULL AND created_at >= %s ORDER BY id DESC LIMIT 1",
 				$hash,
 				$since
 			)
@@ -720,13 +927,62 @@ class Guide_Assistant {
 		if ( ! $row ) {
 			return null;
 		}
-		$ids = json_decode( (string) $row->recommended_post_ids, true );
-		return array(
+		$ids     = json_decode( (string) $row->recommended_post_ids, true );
+		$payload = array(
 			'html'       => (string) $row->result_html,
 			'articles'   => $this->build_recommended_articles( $this->ids_to_candidates( is_array( $ids ) ? $ids : array() ), 10 ),
 			'request_id' => (int) $row->id,
 			'cached'     => true,
 		);
+		$guide_post_id = absint( $row->post_id ?? 0 );
+		if ( $guide_post_id > 0 && 'publish' === get_post_status( $guide_post_id ) ) {
+			$payload['guide_url'] = (string) get_permalink( $guide_post_id );
+		}
+		return $payload;
+	}
+
+	/**
+	 * Create a public (noindex) guide page and link it to the request row.
+	 *
+	 * @param int                            $request_id Request row ID.
+	 * @param string                         $query Original query (used as title).
+	 * @param string                         $html Sanitized guide HTML.
+	 * @param array<int,array<string,mixed>> $articles Recommended articles.
+	 * @return string Permalink, or '' on failure.
+	 */
+	private function create_public_guide( $request_id, $query, $html, $articles ) {
+		$title = wp_trim_words( $query, 14, '…' );
+		$post_id = wp_insert_post(
+			array(
+				'post_type'    => self::CPT,
+				'post_status'  => 'publish',
+				'post_title'   => $title,
+				'post_content' => $html,
+			),
+			true
+		);
+		if ( is_wp_error( $post_id ) || ! $post_id ) {
+			return '';
+		}
+
+		$ids = array_map( static function ( $a ) {
+			return (int) $a['id'];
+		}, $articles );
+		update_post_meta( $post_id, '_wpai_guide_article_ids', wp_json_encode( $ids ) );
+		update_post_meta( $post_id, '_wpai_guide_request_id', (int) $request_id );
+
+		if ( $request_id > 0 ) {
+			global $wpdb;
+			$wpdb->update(
+				$this->db->get_guide_requests_table_name(),
+				array( 'post_id' => (int) $post_id ),
+				array( 'id' => (int) $request_id ),
+				array( '%d' ),
+				array( '%d' )
+			);
+		}
+
+		return (string) get_permalink( $post_id );
 	}
 
 	/**
@@ -812,8 +1068,29 @@ class Guide_Assistant {
 		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
+
+		$view_id = isset( $_GET['view'] ) ? absint( $_GET['view'] ) : 0;
+		if ( $view_id > 0 ) {
+			$request  = $this->get_request( $view_id );
+			$articles = $request ? $this->build_recommended_articles( $this->ids_to_candidates( (array) json_decode( (string) $request->recommended_post_ids, true ) ), 10 ) : array();
+			require WPAIP_PLUGIN_DIR . 'admin/views/guide-request-detail.php';
+			return;
+		}
+
 		$requests = $this->get_requests( 100 );
 		require WPAIP_PLUGIN_DIR . 'admin/views/guide-requests.php';
+	}
+
+	/**
+	 * Fetch a single request row.
+	 *
+	 * @param int $id Request ID.
+	 * @return object|null
+	 */
+	public function get_request( $id ) {
+		global $wpdb;
+		$table = $this->db->get_guide_requests_table_name();
+		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", absint( $id ) ) );
 	}
 
 	/**
@@ -898,6 +1175,13 @@ class Guide_Assistant {
 
 		global $wpdb;
 		$table = $this->db->get_guide_requests_table_name();
+
+		// Remove the linked public guide page, if any.
+		$post_id = absint( $wpdb->get_var( $wpdb->prepare( "SELECT post_id FROM {$table} WHERE id = %d", $request_id ) ) );
+		if ( $post_id > 0 && self::CPT === get_post_type( $post_id ) ) {
+			wp_delete_post( $post_id, true );
+		}
+
 		$wpdb->delete( $table, array( 'id' => $request_id ), array( '%d' ) );
 
 		wp_safe_redirect( add_query_arg( 'wpai_notice', 'guide_request_deleted', admin_url( 'admin.php?page=wp-ai-publisher-guide-requests' ) ) );

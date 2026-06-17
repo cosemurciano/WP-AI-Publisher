@@ -1008,6 +1008,92 @@ class AI_Provider_Adapter {
 		return ! empty( wpai_publisher_get_openai_vector_store_ids( (string) ( $settings['openai_vector_store_ids'] ?? '' ) ) );
 	}
 
+	/**
+	 * Whether the OpenAI file_search (vector store) channel is configured and ready.
+	 *
+	 * @return bool
+	 */
+	public function is_file_search_ready() {
+		return $this->is_openai_responses_channel_ready();
+	}
+
+	/**
+	 * Generate plain text grounded on the OpenAI vector stores (file_search / RAG).
+	 *
+	 * Mirrors {@see try_generate_with_openai_responses()} but returns free text
+	 * (not a structured article), for callers like the Guide Assistant.
+	 *
+	 * @param string $prompt Instruction.
+	 * @param string $system Optional system instruction.
+	 * @param int    $max_tokens Output token cap.
+	 * @return string|WP_Error
+	 */
+	public function generate_text_with_file_search( $prompt, $system = '', $max_tokens = 1500 ) {
+		if ( ! $this->is_openai_responses_channel_ready() ) {
+			return new WP_Error( 'wpai_openai_responses_disabled', __( 'Knowledge base OpenAI non attiva o non configurata.', 'wp-ai-publisher' ) );
+		}
+
+		$api_key  = wpai_publisher_get_openai_api_key();
+		$settings = wpai_publisher_get_settings();
+		$vector_store_ids = wpai_publisher_get_openai_vector_store_ids( (string) ( $settings['openai_vector_store_ids'] ?? '' ) );
+		$params = $this->get_ai_generation_params();
+		$model  = $this->resolve_openai_model( $settings, $params );
+
+		$body = array(
+			'model'        => $model,
+			'instructions' => '' !== trim( (string) $system ) ? (string) $system : __( 'Usa i documenti recuperati come fonte autorevole.', 'wp-ai-publisher' ),
+			'input'        => (string) $prompt,
+			'tools'        => array(
+				array(
+					'type'             => 'file_search',
+					'vector_store_ids' => array_values( $vector_store_ids ),
+				),
+			),
+		);
+		if ( (int) $max_tokens > 0 ) {
+			$body['max_output_tokens'] = max( 64, (int) $max_tokens );
+		}
+		if ( null !== $params['temperature'] ) {
+			$body['temperature'] = (float) $params['temperature'];
+		}
+
+		$encoded = wp_json_encode( $body );
+		if ( false === $encoded ) {
+			return new WP_Error( 'wpai_openai_responses_encode_failed', __( 'Impossibile codificare la richiesta OpenAI.', 'wp-ai-publisher' ) );
+		}
+
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/responses',
+			array(
+				'timeout' => max( 15, (int) $params['http_timeout'] ),
+				'headers' => array(
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
+				),
+				'body'    => $encoded,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return new WP_Error( 'wpai_openai_responses_http_error', $response->get_error_message() );
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$raw  = (string) wp_remote_retrieve_body( $response );
+		if ( $code < 200 || $code >= 300 ) {
+			$decoded = json_decode( $raw, true );
+			$detail  = is_array( $decoded ) && isset( $decoded['error']['message'] ) ? (string) $decoded['error']['message'] : '';
+			return new WP_Error( 'wpai_openai_responses_status_' . $code, sprintf( __( 'OpenAI Responses ha risposto HTTP %1$d. %2$s', 'wp-ai-publisher' ), $code, $detail ) );
+		}
+
+		$text = $this->extract_openai_responses_text( $raw );
+		if ( '' === trim( $text ) ) {
+			return new WP_Error( 'wpai_openai_responses_empty', __( 'OpenAI Responses non ha restituito testo.', 'wp-ai-publisher' ) );
+		}
+
+		return $text;
+	}
+
 	private function try_generate_with_openai_responses( $prompt, $generation_context, Classic_Content_Builder $builder, $tolerant = true ) {
 		$settings = wpai_publisher_get_settings();
 		if ( empty( $settings['use_openai_file_search'] ) ) {

@@ -116,6 +116,7 @@
 		var i18n = wpaiGuide.i18n || {};
 		var loader = createLoader( loaderBox, loaderText, i18n.loadingSteps || [] );
 		var lastTitle = '';
+		var lastGuideUrl = '';
 
 		function setStatus( msg, isError ) {
 			status.hidden = ! msg;
@@ -153,6 +154,9 @@
 			result.hidden = true;
 			setStatus( '', false );
 			loader.start();
+			if ( loaderBox && loaderBox.scrollIntoView ) {
+				loaderBox.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+			}
 
 			var headers = { 'Content-Type': 'application/json' };
 			if ( wpaiGuide.restNonce ) {
@@ -183,6 +187,7 @@
 				}
 				setStatus( '', false );
 				lastTitle = query;
+				lastGuideUrl = r.data.guide_url || '';
 				content.innerHTML = r.data.html;
 				related.innerHTML = renderRelated( r.data.articles, i18n );
 				if ( saveNote ) {
@@ -217,7 +222,8 @@
 
 		if ( waBtn ) {
 			waBtn.addEventListener( 'click', function () {
-				var text = ( i18n.waText || '' ) + ' "' + lastTitle + '"\n' + window.location.href;
+				var url = lastGuideUrl || window.location.href;
+				var text = ( i18n.waText || '' ) + ' "' + lastTitle + '"\n' + url;
 				window.open( 'https://wa.me/?text=' + encodeURIComponent( text ), '_blank', 'noopener' );
 			} );
 		}

@@ -93,26 +93,55 @@ $wpai_guide_selected_ct = array_map( 'absint', (array) ( $config['search_categor
 					<td><input type="number" id="wpai-guide-max-articles" name="wpai_guide[max_articles]" min="1" max="10" value="<?php echo esc_attr( (string) $config['max_articles'] ); ?>"></td>
 				</tr>
 				<tr>
+					<th scope="row"><?php echo esc_html__( 'Knowledge base OpenAI', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<label><input type="checkbox" name="wpai_guide[use_file_search]" value="1" <?php checked( ! empty( $config['use_file_search'] ) ); ?>> <?php echo esc_html__( 'Usa anche lo storage OpenAI (vector store / file_search) come fonte di grounding.', 'wp-ai-publisher' ); ?></label>
+						<p class="description">
+							<?php echo esc_html__( 'Richiede la knowledge base OpenAI attiva e i Vector Store ID configurati in Impostazioni. Aumenta contesto, costi e latenza. Se non disponibile, l’assistente usa solo la ricerca WordPress.', 'wp-ai-publisher' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Pagina pubblica della guida', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<label><input type="checkbox" name="wpai_guide[create_public_page]" value="1" <?php checked( ! empty( $config['create_public_page'] ) ); ?>> <?php echo esc_html__( 'Crea una pagina pubblica (noindex) per ogni guida, con URL permanente condivisibile.', 'wp-ai-publisher' ); ?></label>
+						<p class="description">
+							<?php echo esc_html__( 'Le pagine guida sono impostate noindex/nofollow (non vengono indicizzate dai motori di ricerca) e usate dal pulsante “Invia su WhatsApp”.', 'wp-ai-publisher' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
 					<th scope="row"><label for="wpai-guide-max-tokens"><?php echo esc_html__( 'Lunghezza massima (token)', 'wp-ai-publisher' ); ?></label></th>
 					<td>
 						<input type="number" id="wpai-guide-max-tokens" name="wpai_guide[max_tokens]" min="128" step="64" value="<?php echo esc_attr( (string) $config['max_tokens'] ); ?>">
 						<p class="description">
-							<?php echo esc_html__( 'Quantità libera. Più token = guida più lunga ma costi maggiori.', 'wp-ai-publisher' ); ?>
+							<?php echo esc_html__( 'Quantità libera. 1 token ≈ 1 parola. Più token = guida più lunga ma costi maggiori.', 'wp-ai-publisher' ); ?>
 							<span id="wpai-guide-token-estimate" style="display:block;margin-top:4px;font-style:italic;"></span>
+							<span id="wpai-guide-token-cost" style="display:block;margin-top:2px;font-style:italic;"></span>
 						</p>
 						<script>
 						( function () {
 							var field = document.getElementById( 'wpai-guide-max-tokens' );
 							var out = document.getElementById( 'wpai-guide-token-estimate' );
+							var cost = document.getElementById( 'wpai-guide-token-cost' );
 							if ( ! field || ! out ) { return; }
+							// Prezzi indicativi OpenAI (USD per 1M token), input/output.
+							var MODELS = [
+								{ name: 'gpt-4o-mini', input: 0.15, output: 0.60 },
+								{ name: 'gpt-4o', input: 2.50, output: 10.00 }
+							];
+							var INPUT_TOKENS = 1200; // prompt + articoli (stima).
 							function update() {
 								var tokens = parseInt( field.value, 10 ) || 0;
-								// ~0.75 parole per token; ~200 parole al minuto di lettura.
-								var words = Math.round( tokens * 0.75 );
-								var minutes = Math.max( 1, Math.round( words / 200 ) );
-								out.textContent = <?php echo wp_json_encode( __( 'Stima:', 'wp-ai-publisher' ) ); ?> + ' ≈ ' + words.toLocaleString() + ' ' +
+								var minutes = Math.max( 1, Math.round( tokens / 200 ) );
+								out.textContent = <?php echo wp_json_encode( __( 'Stima:', 'wp-ai-publisher' ) ); ?> + ' ≈ ' + tokens.toLocaleString() + ' ' +
 									<?php echo wp_json_encode( __( 'parole', 'wp-ai-publisher' ) ); ?> + ' (' + minutes + ' ' +
 									<?php echo wp_json_encode( __( 'min di lettura', 'wp-ai-publisher' ) ); ?> + ')';
+								var parts = MODELS.map( function ( m ) {
+									var c = ( INPUT_TOKENS / 1e6 ) * m.input + ( tokens / 1e6 ) * m.output;
+									return m.name + ': ~$' + c.toFixed( 4 );
+								} );
+								cost.textContent = <?php echo wp_json_encode( __( 'Costo stimato per guida (OpenAI, indicativo):', 'wp-ai-publisher' ) ); ?> + ' ' + parts.join( ' · ' );
 							}
 							field.addEventListener( 'input', update );
 							update();

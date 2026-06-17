@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.47
+Stable tag: 0.5.49
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,17 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.49 =
+* Assistente Guide AI: ogni guida può ora avere una pagina pubblica con URL permanente (nuovo tipo di contenuto "Guida AI"), impostata noindex/nofollow per non essere indicizzata dai motori di ricerca. Il pulsante "Invia su WhatsApp" condivide direttamente il link della guida. Opzione attivabile/disattivabile dalle impostazioni; eliminando una richiesta viene rimossa anche la pagina pubblica collegata.
+* Nuovo toggle "Knowledge base OpenAI": l'assistente può usare anche lo storage OpenAI (vector store / file_search) come fonte di grounding aggiuntiva, oltre alla ricerca WordPress. Se non disponibile, ricade automaticamente sulla sola ricerca WP.
+
+= 0.5.48 =
+* Assistente Guide AI: ricerca degli articoli più efficace. Se la frase completa non trova risultati, la ricerca viene ripetuta sulle singole parole chiave (ignorando le stopword) e i risultati vengono uniti: così domande in linguaggio naturale come "come posso creare un sito web?" trovano comunque articoli da consigliare e collegare.
+* Aggiunta istruzione anti-troncamento al prompt (la guida si chiude sempre in modo completo) e default token alzato a 1500.
+* Stima lunghezza ora 1 token ≈ 1 parola, con costo indicativo per guida sulle API OpenAI (gpt-4o-mini e gpt-4o) mostrato sotto il campo.
+* Nuova azione "Visualizza" in Richieste guide: apre il dettaglio con la guida completa generata e gli articoli collegati.
+* L'icona di attesa scorre in vista subito dopo l'invio della richiesta.
 
 = 0.5.47 =
 * Assistente Guide AI: nuova interfaccia in stile chat (campo arrotondato auto-espandibile, invio con Invio, pulsante con icona) più moderna e curata.
