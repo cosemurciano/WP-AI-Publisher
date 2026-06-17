@@ -285,6 +285,7 @@ class Guide_Assistant {
 			array(
 				'endpoint' => esc_url_raw( rest_url( self::REST_NAMESPACE . self::REST_ROUTE ) ),
 				'nonce'    => wp_create_nonce( self::NONCE_ACTION ),
+				'restNonce' => wp_create_nonce( 'wp_rest' ),
 				'i18n'     => array(
 					'loading'    => __( 'Sto creando la tua guida…', 'wp-ai-publisher' ),
 					'error'      => __( 'Si è verificato un errore. Riprova più tardi.', 'wp-ai-publisher' ),
@@ -360,11 +361,14 @@ class Guide_Assistant {
 			return $limit_error;
 		}
 
-		// Cache by normalized query hash.
-		$hash   = $this->query_hash( $query, (array) $config );
-		$cached = $this->get_cached( $hash, (int) $config['cache_ttl_days'] );
-		if ( null !== $cached ) {
-			return new WP_REST_Response( $cached, 200 );
+		// Cache by normalized query hash. Privileged users skip the cache so they
+		// always see a fresh result while testing/tuning the prompt.
+		$hash = $this->query_hash( $query, (array) $config );
+		if ( ! $this->is_privileged() ) {
+			$cached = $this->get_cached( $hash, (int) $config['cache_ttl_days'] );
+			if ( null !== $cached ) {
+				return new WP_REST_Response( $cached, 200 );
+			}
 		}
 
 		// Ground on real site content.
@@ -400,6 +404,11 @@ class Guide_Assistant {
 	 * @return true|WP_Error
 	 */
 	private function check_rate_limits( $config ) {
+		// Privileged users (logged-in admins) bypass limits so they can test freely.
+		if ( $this->is_privileged() ) {
+			return true;
+		}
+
 		$ip_hash = $this->client_ip_hash();
 		$date    = gmdate( 'Ymd' );
 
@@ -439,6 +448,9 @@ class Guide_Assistant {
 	 * @return void
 	 */
 	private function bump_usage( $config ) {
+		if ( $this->is_privileged() ) {
+			return;
+		}
 		$date = gmdate( 'Ymd' );
 		if ( (int) $config['per_ip_daily_limit'] > 0 ) {
 			$ip_key = 'wpai_guide_ip_' . $this->client_ip_hash() . '_' . $date;
@@ -448,6 +460,15 @@ class Guide_Assistant {
 			$g_key = 'wpai_guide_global_' . $date;
 			set_transient( $g_key, ( (int) get_transient( $g_key ) ) + 1, DAY_IN_SECONDS );
 		}
+	}
+
+	/**
+	 * Whether the current user can manage the plugin (bypasses limits/cache).
+	 *
+	 * @return bool
+	 */
+	private function is_privileged() {
+		return function_exists( 'is_user_logged_in' ) && is_user_logged_in() && current_user_can( wpai_publisher_capability() );
 	}
 
 	/**

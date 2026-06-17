@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.45**
+Versione corrente: **0.5.46**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.46
+- Assistente Guide AI: fix "Sessione scaduta" al primo invio per utenti loggati (la richiesta REST ora invia l'header `X-WP-Nonce`). Gli admin ignorano limiti anti-abuso e cache per poter testare liberamente.
 
 ### 0.5.45
 - Assistente Guide AI: shortcode pubblico che genera guide personalizzate ancorate ai contenuti del sito, con articoli consigliati reali, export PDF lato client, link interni validati (+ whitelist esterni), limiti anti-abuso/token, cache e archivio richieste convertibili in idee.
