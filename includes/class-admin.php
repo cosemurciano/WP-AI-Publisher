@@ -65,6 +65,13 @@ class Admin {
 	private $article_type_repository;
 
 	/**
+	 * Guide assistant.
+	 *
+	 * @var Guide_Assistant|null
+	 */
+	private $guide_assistant;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param DB                           $db Database service.
@@ -74,8 +81,9 @@ class Admin {
 	 * @param Job_Queue                    $job_queue Job queue service.
 	 * @param Content_Ideas                $content_ideas Content ideas service.
 	 * @param Article_Type_Repository|null $article_type_repository Article type repository.
+	 * @param Guide_Assistant|null         $guide_assistant Guide assistant.
 	 */
-	public function __construct( DB $db, Logger $logger, Settings $settings, AI_Provider_Adapter $ai_provider, Job_Queue $job_queue, Content_Ideas $content_ideas, ?Article_Type_Repository $article_type_repository = null ) {
+	public function __construct( DB $db, Logger $logger, Settings $settings, AI_Provider_Adapter $ai_provider, Job_Queue $job_queue, Content_Ideas $content_ideas, ?Article_Type_Repository $article_type_repository = null, ?Guide_Assistant $guide_assistant = null ) {
 		$this->db            = $db;
 		$this->logger        = $logger;
 		$this->settings      = $settings;
@@ -83,6 +91,7 @@ class Admin {
 		$this->job_queue     = $job_queue;
 		$this->content_ideas = $content_ideas;
 		$this->article_type_repository = $article_type_repository;
+		$this->guide_assistant = $guide_assistant;
 
 		add_action( 'admin_post_wpai_publisher_create_content_idea', array( $this, 'handle_create_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_approve_content_idea', array( $this, 'handle_approve_content_idea' ) );
@@ -181,6 +190,26 @@ class Admin {
 			'wp-ai-publisher-jobs',
 			array( $this, 'render_jobs' )
 		);
+
+		if ( $this->guide_assistant instanceof Guide_Assistant ) {
+			add_submenu_page(
+				'wp-ai-publisher',
+				esc_html__( 'Assistente Guide AI', 'wp-ai-publisher' ),
+				esc_html__( 'Assistente Guide AI', 'wp-ai-publisher' ),
+				wpai_publisher_capability(),
+				'wp-ai-publisher-guide-assistant',
+				array( $this->guide_assistant, 'render_settings_page' )
+			);
+
+			add_submenu_page(
+				'wp-ai-publisher',
+				esc_html__( 'Richieste guide', 'wp-ai-publisher' ),
+				esc_html__( 'Richieste guide', 'wp-ai-publisher' ),
+				wpai_publisher_capability(),
+				'wp-ai-publisher-guide-requests',
+				array( $this->guide_assistant, 'render_requests_page' )
+			);
+		}
 
 		// Le voci Impostazioni e Stato sistema devono restare sempre alla fine del menu.
 		add_submenu_page(

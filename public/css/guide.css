@@ -1,0 +1,115 @@
+.wpai-guide {
+	max-width: 760px;
+	margin: 2rem auto;
+}
+
+.wpai-guide__heading {
+	text-align: center;
+	margin-bottom: 1rem;
+}
+
+.wpai-guide__form {
+	position: relative;
+	border: 1px solid rgba( 127, 127, 127, 0.35 );
+	border-radius: 14px;
+	padding: 14px;
+	background: rgba( 127, 127, 127, 0.04 );
+}
+
+.wpai-guide__input {
+	width: 100%;
+	border: 0;
+	background: transparent;
+	resize: vertical;
+	font: inherit;
+	outline: none;
+	min-height: 64px;
+}
+
+.wpai-guide__actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 8px;
+}
+
+.wpai-guide__submit,
+.wpai-guide__print {
+	cursor: pointer;
+	border: 0;
+	border-radius: 10px;
+	padding: 10px 18px;
+	font: inherit;
+	font-weight: 600;
+	color: #fff;
+	background: #5b4bff;
+}
+
+.wpai-guide__submit:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.wpai-guide__status {
+	margin: 14px 0;
+	text-align: center;
+	opacity: 0.85;
+}
+
+.wpai-guide__status.is-error {
+	color: #b32d2e;
+}
+
+.wpai-guide__result {
+	margin-top: 1.5rem;
+}
+
+.wpai-guide__content {
+	line-height: 1.7;
+}
+
+.wpai-guide__related {
+	margin-top: 2rem;
+	padding-top: 1rem;
+	border-top: 1px solid rgba( 127, 127, 127, 0.25 );
+}
+
+.wpai-guide__related-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpai-guide__related-item {
+	display: flex;
+	gap: 14px;
+	align-items: flex-start;
+	margin-bottom: 16px;
+}
+
+.wpai-guide__related-thumb img {
+	width: 110px;
+	height: auto;
+	border-radius: 8px;
+	display: block;
+}
+
+.wpai-guide__related-text p {
+	margin: 4px 0 0;
+	opacity: 0.8;
+	font-size: 0.92em;
+}
+
+.wpai-guide__tools {
+	margin-top: 1.5rem;
+	text-align: center;
+}
+
+.wpai-guide__print {
+	background: #2a2a2a;
+}
+
+.wpai-guide__footer {
+	margin-top: 1.5rem;
+	opacity: 0.7;
+	font-size: 0.9em;
+}

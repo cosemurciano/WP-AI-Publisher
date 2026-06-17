@@ -1156,9 +1156,10 @@ class AI_Provider_Adapter {
 	 *
 	 * @param string $prompt Instruction.
 	 * @param string $system Optional system instruction.
+	 * @param int    $max_tokens Optional output token cap (default 400).
 	 * @return string|WP_Error
 	 */
-	public function generate_short_text( $prompt, $system = '' ) {
+	public function generate_short_text( $prompt, $system = '', $max_tokens = 400 ) {
 		$class = '\\WordPress\\AiClient\\AiClient';
 		if ( ! class_exists( $class ) ) {
 			return new WP_Error( 'wpai_short_text_unavailable', __( 'PHP AI Client non disponibile.', 'wp-ai-publisher' ) );
@@ -1185,7 +1186,7 @@ class AI_Provider_Adapter {
 			}
 			if ( method_exists( $request, 'usingMaxTokens' ) ) {
 				try {
-					$request = $request->usingMaxTokens( 400 );
+					$request = $request->usingMaxTokens( max( 64, (int) $max_tokens ) );
 				} catch ( Throwable $error ) {
 					unset( $error );
 				}

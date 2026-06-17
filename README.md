@@ -1,6 +1,16 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.44**
+Versione corrente: **0.5.45**
+
+## Assistente Guide AI 0.5.45
+
+Modulo pubblico (shortcode `[wpai_guide_generator]`) che trasforma la richiesta di un visitatore in una **guida personalizzata** ancorata ai contenuti del sito. Sotto il testo generato dall'AI compaiono gli **articoli consigliati** (risultati reali della ricerca) e un pulsante per **salvare in PDF** (stampa lato browser). È **one-shot**, non una chat.
+
+- **Link sotto controllo**: l'AI riceve solo URL reali del sito + una **whitelist** opzionale di link esterni; qualsiasi link non interno e non in whitelist viene rimosso automaticamente (niente link inventati). L'HTML è ripulito con `wp_kses`.
+- **Limite token/abuso**: limite giornaliero **per IP** e **globale**, attesa minima tra richieste, **honeypot** e **cache** delle richieste identiche (riusa il risultato salvato).
+- **Configurazione**: pagina *Assistente Guide AI* (prompt di sistema, lingua, tipi di contenuto e categorie in cui cercare, whitelist, lunghezza massima, limiti). Pagina *Richieste guide* con l'elenco di tutte le richieste, **convertibili in Idea contenuto**. L'IP è salvato solo come **hash**.
+
+## Pubblicazione automatica su Instagram 0.5.44
 
 ## Pubblicazione automatica su Instagram 0.5.44
 
@@ -582,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.45
+- Assistente Guide AI: shortcode pubblico che genera guide personalizzate ancorate ai contenuti del sito, con articoli consigliati reali, export PDF lato client, link interni validati (+ whitelist esterni), limiti anti-abuso/token, cache e archivio richieste convertibili in idee.
 
 ### 0.5.44
 - Integrazione Instagram: pubblicazione automatica dell'immagine in evidenza su account Business alla pubblicazione (casella per-articolo, background, anti-duplicato, flusso container + media_publish). Caption da template o AI; immagine obbligatoria; link come testo. Token via costante (fallback a quello di Facebook). Guida ai prerequisiti e pulsante di verifica connessione.
