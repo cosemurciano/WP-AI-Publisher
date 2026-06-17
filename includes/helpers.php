@@ -75,6 +75,11 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'facebook_message_template'     => "{title}\n\n{meta_description}\n\n{hashtags}\n👉 {link}",
 			'facebook_use_ai_caption'       => false,
 			'facebook_default_share'        => false,
+			'instagram_enabled'             => false,
+			'instagram_user_id'             => '',
+			'instagram_caption_template'    => "{title}\n\n{meta_description}\n\n{hashtags}\n\n🔗 {link}",
+			'instagram_use_ai_caption'      => false,
+			'instagram_default_share'       => false,
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -144,6 +149,11 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['facebook_message_template']     = (string) ( $settings['facebook_message_template'] ?? '' );
 		$settings['facebook_use_ai_caption']       = ! empty( $settings['facebook_use_ai_caption'] );
 		$settings['facebook_default_share']        = ! empty( $settings['facebook_default_share'] );
+		$settings['instagram_enabled']             = ! empty( $settings['instagram_enabled'] );
+		$settings['instagram_user_id']             = sanitize_text_field( (string) ( $settings['instagram_user_id'] ?? '' ) );
+		$settings['instagram_caption_template']    = (string) ( $settings['instagram_caption_template'] ?? '' );
+		$settings['instagram_use_ai_caption']      = ! empty( $settings['instagram_use_ai_caption'] );
+		$settings['instagram_default_share']       = ! empty( $settings['instagram_default_share'] );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );
@@ -619,6 +629,31 @@ if ( ! function_exists( 'wpai_publisher_get_facebook_access_token' ) ) {
 		 * @param string $token Access token.
 		 */
 		return trim( (string) apply_filters( 'wpai_publisher_facebook_access_token', $token ) );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_get_instagram_access_token' ) ) {
+	/**
+	 * Resolve the access token used for Instagram publishing.
+	 *
+	 * Reads WPAIP_INSTAGRAM_ACCESS_TOKEN, then falls back to the Facebook token
+	 * (the same Page/System User token usually works for a linked IG account).
+	 * Never stored in the DB.
+	 *
+	 * @return string
+	 */
+	function wpai_publisher_get_instagram_access_token() {
+		$token = defined( 'WPAIP_INSTAGRAM_ACCESS_TOKEN' ) ? (string) WPAIP_INSTAGRAM_ACCESS_TOKEN : '';
+		if ( '' === trim( $token ) ) {
+			$token = wpai_publisher_get_facebook_access_token();
+		}
+
+		/**
+		 * Filter the Instagram access token.
+		 *
+		 * @param string $token Access token.
+		 */
+		return trim( (string) apply_filters( 'wpai_publisher_instagram_access_token', $token ) );
 	}
 }
 

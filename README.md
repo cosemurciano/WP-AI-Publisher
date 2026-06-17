@@ -1,6 +1,15 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.43**
+Versione corrente: **0.5.44**
+
+## Pubblicazione automatica su Instagram 0.5.44
+
+Alla **pubblicazione** di un articolo, WP AI Publisher può pubblicare l'**immagine in evidenza** su un account **Instagram Business** (stesso schema di Facebook). La condivisione è **per-articolo** (casella "Condividi su Instagram" nell'editor) e avviene in **background** (WP-Cron, non bloccante, anti-duplicato) con il flusso a due passi della Graph API (creazione del *media container* + `media_publish`); media ID e permalink vengono salvati sul post.
+
+- **Immagine obbligatoria**: Instagram richiede un'immagine; senza immagine in evidenza la condivisione viene saltata (con errore registrato).
+- **Caption**: template personalizzabile (`{title}`, `{meta_title}`, `{meta_description}`, `{excerpt}`, `{hashtags}`, `{link}`, max 2200 caratteri) o **generata dall'AI** (opzionale). Su Instagram i link non sono cliccabili: il link viene aggiunto come testo.
+- **Token**: `WPAIP_INSTAGRAM_ACCESS_TOKEN` con fallback automatico a `WPAIP_FACEBOOK_ACCESS_TOKEN` (o filtro `wpai_publisher_instagram_access_token`), mai nel DB.
+- **Prerequisiti Meta**: account Instagram Business/Creator collegato alla Pagina Facebook; permessi `instagram_basic` e `instagram_content_publish`. L'IG User ID si ricava da `{ID-Pagina}?fields=instagram_business_account`. Pulsante **"Verifica connessione Instagram"** in Impostazioni.
 
 ## Condivisione automatica su Facebook 0.5.43
 
@@ -573,6 +582,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.44
+- Integrazione Instagram: pubblicazione automatica dell'immagine in evidenza su account Business alla pubblicazione (casella per-articolo, background, anti-duplicato, flusso container + media_publish). Caption da template o AI; immagine obbligatoria; link come testo. Token via costante (fallback a quello di Facebook). Guida ai prerequisiti e pulsante di verifica connessione.
 
 ### 0.5.43
 - Integrazione Facebook: condivisione automatica su Pagina alla pubblicazione (casella per-articolo, background, anti-duplicato). Testo da template o AI; modalità link/foto. Token via costante. Pulsante di verifica connessione.

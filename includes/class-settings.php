@@ -85,6 +85,11 @@ class Settings {
 		$output['facebook_message_template']     = isset( $input['facebook_message_template'] ) ? sanitize_textarea_field( (string) $input['facebook_message_template'] ) : $defaults['facebook_message_template'];
 		$output['facebook_use_ai_caption']       = ! empty( $input['facebook_use_ai_caption'] );
 		$output['facebook_default_share']        = ! empty( $input['facebook_default_share'] );
+		$output['instagram_enabled']             = ! empty( $input['instagram_enabled'] );
+		$output['instagram_user_id']             = isset( $input['instagram_user_id'] ) ? sanitize_text_field( (string) $input['instagram_user_id'] ) : $defaults['instagram_user_id'];
+		$output['instagram_caption_template']    = isset( $input['instagram_caption_template'] ) ? sanitize_textarea_field( (string) $input['instagram_caption_template'] ) : $defaults['instagram_caption_template'];
+		$output['instagram_use_ai_caption']      = ! empty( $input['instagram_use_ai_caption'] );
+		$output['instagram_default_share']       = ! empty( $input['instagram_default_share'] );
 		$output['site_context']                  = $this->sanitize_site_context( $input['site_context'] ?? array() );
 
 		return $output;
