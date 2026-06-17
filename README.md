@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.50**
+Versione corrente: **0.5.51**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.51
+- Assistente Guide AI: pulsante invio a icona circolare con spinner, testo d'attesa animato dentro il campo input (fix icona/cursore visibili prima dell'invio), tre pulsanti finali (PDF/WhatsApp/Salva) come icone circolari con tooltip, link alla pagina pubblica in Richieste guide, e redirect con avviso configurabile per i link di guide eliminate (verso la "Pagina del generatore").
 
 ### 0.5.50
 - Assistente Guide AI: cancellazione automatica delle pagine pubbliche delle guide con retention configurabile dal pannello ("Cancella le pagine guida dopo (giorni)", 0 = mai), eseguita da una pulizia giornaliera WP-Cron. Le richieste restano archiviate.

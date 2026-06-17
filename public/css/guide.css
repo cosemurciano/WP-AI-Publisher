@@ -53,16 +53,16 @@
 .wpai-guide__submit {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
+	justify-content: center;
 	cursor: pointer;
 	border: 0;
-	border-radius: 20px;
-	padding: 10px 18px;
-	font: inherit;
-	font-weight: 600;
+	border-radius: 50%;
+	width: 40px;
+	height: 40px;
+	padding: 0;
 	color: #fff;
 	background: var( --wpai-accent );
-	transition: background 0.15s ease, transform 0.1s ease;
+	transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
 	flex: 0 0 auto;
 }
 
@@ -71,7 +71,7 @@
 }
 
 .wpai-guide__submit:active {
-	transform: scale( 0.97 );
+	transform: scale( 0.94 );
 }
 
 .wpai-guide__submit:disabled {
@@ -80,55 +80,43 @@
 }
 
 .wpai-guide__submit-icon {
+	display: block;
+}
+
+.wpai-guide__submit-spinner {
+	display: none;
+	width: 18px;
+	height: 18px;
+	border: 2px solid rgba( 255, 255, 255, 0.45 );
+	border-top-color: #fff;
+	border-radius: 50%;
+	animation: wpai-spin 0.7s linear infinite;
+}
+
+.wpai-guide.is-loading .wpai-guide__submit-icon {
 	display: none;
 }
 
-/* ---- Loader (typewriter) ---- */
-.wpai-guide__loader {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	margin: 22px 4px;
+.wpai-guide.is-loading .wpai-guide__submit-spinner {
+	display: block;
+}
+
+@keyframes wpai-spin {
+	to { transform: rotate( 360deg ); }
+}
+
+.wpai-guide__deleted-notice {
+	margin: 0 0 1rem;
+	padding: 14px 18px;
+	border-radius: 12px;
+	background: rgba( 91, 75, 255, 0.08 );
+	border: 1px solid var( --wpai-border );
+	color: inherit;
+}
+
+/* ---- Loading state: the typing text animates inside the input placeholder ---- */
+.wpai-guide.is-loading .wpai-guide__input {
 	color: var( --wpai-muted );
-	font-size: 1.02em;
-}
-
-.wpai-guide__loader-text::after {
-	content: '';
-	display: inline-block;
-	width: 2px;
-	height: 1em;
-	margin-left: 2px;
-	background: currentColor;
-	vertical-align: -2px;
-	animation: wpai-caret 0.9s steps( 1 ) infinite;
-}
-
-@keyframes wpai-caret {
-	50% { opacity: 0; }
-}
-
-.wpai-guide__loader-dots {
-	display: inline-flex;
-	gap: 4px;
-	flex: 0 0 auto;
-}
-
-.wpai-guide__loader-dots span {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: var( --wpai-accent );
-	opacity: 0.4;
-	animation: wpai-bounce 1.2s infinite ease-in-out;
-}
-
-.wpai-guide__loader-dots span:nth-child( 2 ) { animation-delay: 0.15s; }
-.wpai-guide__loader-dots span:nth-child( 3 ) { animation-delay: 0.3s; }
-
-@keyframes wpai-bounce {
-	0%, 80%, 100% { transform: scale( 0.6 ); opacity: 0.35; }
-	40% { transform: scale( 1 ); opacity: 1; }
 }
 
 .wpai-guide__status {
@@ -228,38 +216,86 @@
 	line-height: 1.45;
 }
 
-/* ---- Tools ---- */
+/* ---- Tools: minimal circular icon buttons with tooltip ---- */
 .wpai-guide__tools {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 10px;
+	gap: 14px;
 	margin-top: 1.75rem;
 	justify-content: center;
 }
 
 .wpai-guide__tool {
+	position: relative;
 	display: inline-flex;
 	align-items: center;
-	gap: 8px;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
 	cursor: pointer;
 	border: 1px solid var( --wpai-border );
-	border-radius: 12px;
-	padding: 10px 16px;
-	font: inherit;
-	font-weight: 600;
+	border-radius: 50%;
 	background: var( --wpai-surface );
 	color: inherit;
-	transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+	transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
 .wpai-guide__tool:hover {
 	border-color: var( --wpai-accent );
 	color: var( --wpai-accent );
+	box-shadow: 0 4px 14px rgba( 17, 17, 26, 0.1 );
+}
+
+.wpai-guide__tool:active {
+	transform: scale( 0.94 );
 }
 
 .wpai-guide__whatsapp:hover {
 	border-color: #25d366;
 	color: #1da851;
+}
+
+/* Tooltip bubble */
+.wpai-guide__tool[data-tooltip]::after {
+	content: attr( data-tooltip );
+	position: absolute;
+	bottom: calc( 100% + 8px );
+	left: 50%;
+	transform: translateX( -50% ) translateY( 4px );
+	white-space: nowrap;
+	background: #1f2430;
+	color: #fff;
+	font-size: 12px;
+	line-height: 1;
+	padding: 7px 10px;
+	border-radius: 7px;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease, transform 0.15s ease;
+	z-index: 5;
+}
+
+.wpai-guide__tool[data-tooltip]::before {
+	content: '';
+	position: absolute;
+	bottom: calc( 100% + 3px );
+	left: 50%;
+	transform: translateX( -50% );
+	border: 5px solid transparent;
+	border-top-color: #1f2430;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+	z-index: 5;
+}
+
+.wpai-guide__tool[data-tooltip]:hover::after {
+	opacity: 1;
+	transform: translateX( -50% ) translateY( 0 );
+}
+
+.wpai-guide__tool[data-tooltip]:hover::before {
+	opacity: 1;
 }
 
 .wpai-guide__save-note {
@@ -284,18 +320,5 @@
 @media ( max-width: 680px ) {
 	.wpai-guide__cards {
 		grid-template-columns: 1fr;
-	}
-
-	.wpai-guide__submit-label {
-		display: none;
-	}
-
-	.wpai-guide__submit {
-		padding: 12px;
-		border-radius: 50%;
-	}
-
-	.wpai-guide__submit-icon {
-		display: block;
 	}
 }

@@ -45,8 +45,10 @@
 			'</style></head><body>' + contentHtml + relatedHtml + '</body></html>';
 	}
 
-	// Typewriter loader: cycles through the steps, typing each one out.
-	function createLoader( box, textEl, steps ) {
+	// Typewriter loader: cycles through the steps, typing each one out and
+	// pushing the current text through the supplied apply() callback (used to
+	// animate the input placeholder during generation).
+	function createLoader( apply, steps ) {
 		var timer = null;
 		var stepIndex = 0;
 		var charIndex = 0;
@@ -56,13 +58,13 @@
 			var msg = steps[ stepIndex ] || '';
 			if ( typing ) {
 				charIndex++;
-				textEl.textContent = msg.slice( 0, charIndex );
+				apply( msg.slice( 0, charIndex ) );
 				if ( charIndex >= msg.length ) {
 					typing = false;
 					timer = setTimeout( tick, 1400 );
 					return;
 				}
-				timer = setTimeout( tick, 35 );
+				timer = setTimeout( tick, 38 );
 			} else {
 				typing = true;
 				charIndex = 0;
@@ -72,23 +74,23 @@
 		}
 
 		return {
+			running: false,
 			start: function () {
 				if ( ! steps || ! steps.length ) {
 					return;
 				}
-				box.hidden = false;
+				this.running = true;
 				stepIndex = 0;
 				charIndex = 0;
 				typing = true;
 				tick();
 			},
 			stop: function () {
+				this.running = false;
 				if ( timer ) {
 					clearTimeout( timer );
 					timer = null;
 				}
-				box.hidden = true;
-				textEl.textContent = '';
 			}
 		};
 	}
@@ -103,8 +105,6 @@
 		var input = root.querySelector( '.wpai-guide__input' );
 		var hp = root.querySelector( '.wpai-guide__hp' );
 		var status = root.querySelector( '.wpai-guide__status' );
-		var loaderBox = root.querySelector( '.wpai-guide__loader' );
-		var loaderText = root.querySelector( '.wpai-guide__loader-text' );
 		var result = root.querySelector( '.wpai-guide__result' );
 		var content = root.querySelector( '.wpai-guide__content' );
 		var related = root.querySelector( '.wpai-guide__related' );
@@ -114,7 +114,14 @@
 		var saveBtn = root.querySelector( '.wpai-guide__save' );
 		var saveNote = root.querySelector( '.wpai-guide__save-note' );
 		var i18n = wpaiGuide.i18n || {};
-		var loader = createLoader( loaderBox, loaderText, i18n.loadingSteps || [] );
+		var basePlaceholder = input ? input.getAttribute( 'placeholder' ) || '' : '';
+		// During generation the typing animation is shown inside the input field
+		// (as its placeholder), so it only ever appears after a request is sent.
+		var loader = createLoader( function ( text ) {
+			if ( input ) {
+				input.setAttribute( 'placeholder', text );
+			}
+		}, i18n.loadingSteps || [] );
 		var lastTitle = '';
 		var lastGuideUrl = '';
 
@@ -153,10 +160,12 @@
 			root.classList.add( 'is-loading' );
 			result.hidden = true;
 			setStatus( '', false );
-			loader.start();
-			if ( loaderBox && loaderBox.scrollIntoView ) {
-				loaderBox.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+			if ( input ) {
+				input.value = '';
+				input.style.height = 'auto';
+				input.readOnly = true;
 			}
+			loader.start();
 
 			var headers = { 'Content-Type': 'application/json' };
 			if ( wpaiGuide.restNonce ) {
@@ -180,6 +189,10 @@
 				submit.disabled = false;
 				root.classList.remove( 'is-loading' );
 				loader.stop();
+				if ( input ) {
+					input.readOnly = false;
+					input.setAttribute( 'placeholder', basePlaceholder );
+				}
 				if ( ! r.ok || ! r.data || ! r.data.html ) {
 					var msg = r.data && r.data.message ? r.data.message : i18n.error;
 					setStatus( msg, true );
@@ -199,6 +212,10 @@
 				submit.disabled = false;
 				root.classList.remove( 'is-loading' );
 				loader.stop();
+				if ( input ) {
+					input.readOnly = false;
+					input.setAttribute( 'placeholder', basePlaceholder );
+				}
 				setStatus( i18n.error, true );
 			} );
 		} );
