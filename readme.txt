@@ -73,6 +73,7 @@ Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione atti
 * Integrazione Facebook: condivisione automatica dell'articolo su una Pagina Facebook alla pubblicazione. Casella "Condividi su Facebook" nell'editor (per-articolo); la condivisione avviene in background (WP-Cron, non bloccante, anti-duplicato) e l'ID del post Facebook viene salvato sul post.
 * Testo del post da template personalizzabile ({title}, {meta_title}, {meta_description}, {excerpt}, {hashtags}, {link}) oppure generato dall'AI (opzionale). Modalità link (anteprima Open Graph) o foto (immagine in evidenza + testo).
 * Token letto dalla costante WPAIP_FACEBOOK_ACCESS_TOKEN (o filtro), mai salvato nel database. Pulsante "Verifica connessione Pagina" nelle Impostazioni. I post generati dal plugin sono marcati con meta _wpai_publisher_generated.
+* Guida nelle Impostazioni → Facebook su come recuperare l'ID Pagina e generare il Page Access Token (con link a Graph API Explorer, Meta Business Suite, Utenti di sistema e Access Token Debugger) e link diretto alla Pagina quando l'ID è impostato.
 
 = 0.5.42 =
 * Telegram interattivo: dopo l'invio del messaggio il bot mostra i pulsanti (inline keyboard) per scegliere la Tipologia articolo e poi selezionare una o più Categorie, quindi genera la bozza con quelle scelte. Le categorie scelte vengono forzate sulla bozza (filtro wpai_publisher_forced_category_ids). Nuova impostazione "Scelta interattiva" (attiva di default); se disattivata, la bozza viene generata subito come prima.

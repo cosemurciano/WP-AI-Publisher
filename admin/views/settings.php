@@ -304,7 +304,31 @@ $language_options = array(
 		<h2><?php echo esc_html__( 'Facebook', 'wp-ai-publisher' ); ?></h2>
 		<p><?php echo esc_html__( 'Condividi automaticamente l’articolo su una Pagina Facebook quando viene pubblicato. Attiva la condivisione per singolo articolo dalla casella “WP AI Publisher — Facebook” nell’editor.', 'wp-ai-publisher' ); ?></p>
 
-		<?php $wpai_fb_token_present = '' !== wpai_publisher_get_facebook_access_token(); ?>
+		<details class="wpai-facebook-help" style="margin:8px 0 16px; padding:12px 16px; background:#fff; border:1px solid #dcdcde; border-radius:4px;">
+			<summary style="cursor:pointer; font-weight:600;"><?php echo esc_html__( 'Come recuperare l’ID Pagina e il Token di accesso (WPAIP_FACEBOOK_ACCESS_TOKEN)', 'wp-ai-publisher' ); ?></summary>
+			<div style="margin-top:10px;">
+				<p><strong><?php echo esc_html__( 'A. Trovare l’ID della Pagina', 'wp-ai-publisher' ); ?></strong></p>
+				<ul style="margin-left:18px; list-style:disc;">
+					<li><?php echo wp_kses( __( '<strong>Meta Business Suite</strong> → <em>Impostazioni</em> → <em>Informazioni sulla Pagina</em>: l’ID numerico è in fondo alla scheda. Apri <a href="https://business.facebook.com/settings/pages" target="_blank" rel="noopener">business.facebook.com/settings/pages</a>.', 'wp-ai-publisher' ), array( 'strong' => array(), 'em' => array(), 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></li>
+					<li><?php echo wp_kses( __( 'In alternativa, sulla Pagina: <em>Informazioni</em> → in fondo trovi “ID Pagina”.', 'wp-ai-publisher' ), array( 'em' => array() ) ); ?></li>
+					<li><?php echo wp_kses( __( 'Via API: apri <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a> e chiama <code>me/accounts</code>: ottieni <code>id</code> e <code>name</code> di tutte le Pagine che gestisci.', 'wp-ai-publisher' ), array( 'code' => array(), 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></li>
+				</ul>
+				<p><strong><?php echo esc_html__( 'B. Ottenere il Page Access Token', 'wp-ai-publisher' ); ?></strong></p>
+				<ol style="margin-left:18px;">
+					<li><?php echo wp_kses( __( 'Crea un’app su <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener">developers.facebook.com/apps</a> (tipo “Business”).', 'wp-ai-publisher' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></li>
+					<li><?php echo wp_kses( __( 'Apri il <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a>, seleziona l’app e aggiungi i permessi <code>pages_manage_posts</code> e <code>pages_read_engagement</code>, poi genera il token e seleziona la Pagina (così ottieni un <em>Page Access Token</em>).', 'wp-ai-publisher' ), array( 'code' => array(), 'em' => array(), 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></li>
+					<li><?php echo wp_kses( __( 'Consigliato per la produzione: crea un <strong>System User</strong> in <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener">Impostazioni Business → Utenti di sistema</a>, assegna la Pagina e genera un token <em>che non scade</em>. Verifica/allunga la durata con lo <a href="https://developers.facebook.com/tools/debug/accesstoken/" target="_blank" rel="noopener">Access Token Debugger</a>.', 'wp-ai-publisher' ), array( 'strong' => array(), 'em' => array(), 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></li>
+					<li><?php echo wp_kses( __( 'Aggiungi il token in <code>wp-config.php</code>:<br><code>define( \'WPAIP_FACEBOOK_ACCESS_TOKEN\', \'EAAB...\' );</code>', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array() ) ); ?></li>
+					<li><?php echo esc_html__( 'Salva le impostazioni qui sotto e usa “Verifica connessione Pagina”.', 'wp-ai-publisher' ); ?></li>
+				</ol>
+				<p class="description"><?php echo esc_html__( 'Nota: per pubblicare su una Pagina di terzi in produzione, Meta richiede la revisione dell’app (App Review) e la verifica del Business. Per le tue Pagine in modalità sviluppo il token funziona subito.', 'wp-ai-publisher' ); ?></p>
+			</div>
+		</details>
+
+		<?php
+		$wpai_fb_token_present = '' !== wpai_publisher_get_facebook_access_token();
+		$wpai_fb_page_id       = trim( (string) ( $settings['facebook_page_id'] ?? '' ) );
+		?>
 		<table class="form-table" role="presentation">
 			<tbody>
 				<tr>
@@ -313,7 +337,15 @@ $language_options = array(
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-fb-page"><?php echo esc_html__( 'ID Pagina Facebook', 'wp-ai-publisher' ); ?></label></th>
-					<td><input type="text" id="wpai-fb-page" name="wpai_publisher_settings[facebook_page_id]" class="regular-text" value="<?php echo esc_attr( (string) ( $settings['facebook_page_id'] ?? '' ) ); ?>" placeholder="1234567890"><p class="description"><?php echo esc_html__( 'L’ID numerico della Pagina (in Meta Business o nelle informazioni della Pagina).', 'wp-ai-publisher' ); ?></p></td>
+					<td>
+						<input type="text" id="wpai-fb-page" name="wpai_publisher_settings[facebook_page_id]" class="regular-text" value="<?php echo esc_attr( $wpai_fb_page_id ); ?>" placeholder="1234567890">
+						<p class="description">
+							<?php echo esc_html__( 'L’ID numerico della Pagina (vedi la guida sopra).', 'wp-ai-publisher' ); ?>
+							<?php if ( '' !== $wpai_fb_page_id ) : ?>
+								<br><a href="<?php echo esc_url( 'https://www.facebook.com/' . rawurlencode( $wpai_fb_page_id ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html__( 'Apri la Pagina su Facebook', 'wp-ai-publisher' ); ?></a>
+							<?php endif; ?>
+						</p>
+					</td>
 				</tr>
 				<tr>
 					<th scope="row"><?php echo esc_html__( 'Token di accesso', 'wp-ai-publisher' ); ?></th>
