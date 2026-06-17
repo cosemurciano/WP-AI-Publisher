@@ -94,7 +94,31 @@ $wpai_guide_selected_ct = array_map( 'absint', (array) ( $config['search_categor
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-guide-max-tokens"><?php echo esc_html__( 'Lunghezza massima (token)', 'wp-ai-publisher' ); ?></label></th>
-					<td><input type="number" id="wpai-guide-max-tokens" name="wpai_guide[max_tokens]" min="256" max="4000" step="64" value="<?php echo esc_attr( (string) $config['max_tokens'] ); ?>"><p class="description"><?php echo esc_html__( 'Limita la lunghezza della guida (e quindi i costi).', 'wp-ai-publisher' ); ?></p></td>
+					<td>
+						<input type="number" id="wpai-guide-max-tokens" name="wpai_guide[max_tokens]" min="128" step="64" value="<?php echo esc_attr( (string) $config['max_tokens'] ); ?>">
+						<p class="description">
+							<?php echo esc_html__( 'Quantità libera. Più token = guida più lunga ma costi maggiori.', 'wp-ai-publisher' ); ?>
+							<span id="wpai-guide-token-estimate" style="display:block;margin-top:4px;font-style:italic;"></span>
+						</p>
+						<script>
+						( function () {
+							var field = document.getElementById( 'wpai-guide-max-tokens' );
+							var out = document.getElementById( 'wpai-guide-token-estimate' );
+							if ( ! field || ! out ) { return; }
+							function update() {
+								var tokens = parseInt( field.value, 10 ) || 0;
+								// ~0.75 parole per token; ~200 parole al minuto di lettura.
+								var words = Math.round( tokens * 0.75 );
+								var minutes = Math.max( 1, Math.round( words / 200 ) );
+								out.textContent = <?php echo wp_json_encode( __( 'Stima:', 'wp-ai-publisher' ) ); ?> + ' ≈ ' + words.toLocaleString() + ' ' +
+									<?php echo wp_json_encode( __( 'parole', 'wp-ai-publisher' ) ); ?> + ' (' + minutes + ' ' +
+									<?php echo wp_json_encode( __( 'min di lettura', 'wp-ai-publisher' ) ); ?> + ')';
+							}
+							field.addEventListener( 'input', update );
+							update();
+						}() );
+						</script>
+					</td>
 				</tr>
 			</tbody>
 		</table>
