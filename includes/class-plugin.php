@@ -87,6 +87,13 @@ final class Plugin {
 	private $telegram;
 
 	/**
+	 * Facebook integration.
+	 *
+	 * @var Facebook_Integration|null
+	 */
+	private $facebook;
+
+	/**
 	 * Return singleton instance.
 	 *
 	 * @return Plugin
@@ -131,6 +138,12 @@ final class Plugin {
 		if ( class_exists( __NAMESPACE__ . '\\Telegram_Integration' ) ) {
 			$this->telegram = new Telegram_Integration( $this->content_ideas, $this->logger );
 			$this->telegram->register();
+		}
+
+		// Facebook integration: share to a Page on publish.
+		if ( class_exists( __NAMESPACE__ . '\\Facebook_Integration' ) ) {
+			$this->facebook = new Facebook_Integration( $this->logger, $this->ai_provider );
+			$this->facebook->register();
 		}
 	}
 

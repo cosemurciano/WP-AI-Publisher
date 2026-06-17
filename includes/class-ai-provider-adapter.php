@@ -1149,6 +1149,71 @@ class AI_Provider_Adapter {
 	}
 
 	/**
+	 * Generate a short plain-text snippet (e.g. a social caption) via the AI.
+	 *
+	 * Uses the PHP AI Client when available; returns a trimmed string or a
+	 * WP_Error. Kept deliberately lightweight (no JSON contract / normalization).
+	 *
+	 * @param string $prompt Instruction.
+	 * @param string $system Optional system instruction.
+	 * @return string|WP_Error
+	 */
+	public function generate_short_text( $prompt, $system = '' ) {
+		$class = '\\WordPress\\AiClient\\AiClient';
+		if ( ! class_exists( $class ) ) {
+			return new WP_Error( 'wpai_short_text_unavailable', __( 'PHP AI Client non disponibile.', 'wp-ai-publisher' ) );
+		}
+		try {
+			$request = call_user_func( array( $class, 'prompt' ), (string) $prompt );
+			if ( ! is_object( $request ) ) {
+				return new WP_Error( 'wpai_short_text_no_builder', __( 'AiClient::prompt() non ha restituito un builder.', 'wp-ai-publisher' ) );
+			}
+			if ( '' !== trim( (string) $system ) && method_exists( $request, 'usingSystemInstruction' ) ) {
+				try {
+					$request = $request->usingSystemInstruction( (string) $system );
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+			$params = $this->get_ai_generation_params();
+			if ( '' !== $params['model'] && method_exists( $request, 'usingModel' ) ) {
+				try {
+					$request = $request->usingModel( $params['model'] );
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+			if ( method_exists( $request, 'usingMaxTokens' ) ) {
+				try {
+					$request = $request->usingMaxTokens( 400 );
+				} catch ( Throwable $error ) {
+					unset( $error );
+				}
+			}
+			if ( ! method_exists( $request, 'generateText' ) ) {
+				return new WP_Error( 'wpai_short_text_no_method', __( 'generateText() non disponibile.', 'wp-ai-publisher' ) );
+			}
+			$timeout       = max( 15, (int) $params['http_timeout'] );
+			$raise_timeout = static function () use ( $timeout ) {
+				return (float) $timeout;
+			};
+			add_filter( 'http_request_timeout', $raise_timeout, 9999 );
+			try {
+				$text = $this->stringify_ai_result( $request->generateText() );
+			} finally {
+				remove_filter( 'http_request_timeout', $raise_timeout, 9999 );
+			}
+			$text = trim( (string) $text );
+			if ( '' === $text ) {
+				return new WP_Error( 'wpai_short_text_empty', __( 'Nessun testo generato.', 'wp-ai-publisher' ) );
+			}
+			return $text;
+		} catch ( Throwable $error ) {
+			return new WP_Error( 'wpai_short_text_exception', $error->getMessage() );
+		}
+	}
+
+	/**
 	 * Test that the configured OpenAI vector stores are reachable and usable.
 	 *
 	 * Performs two checks: (1) reads each configured vector store via the API

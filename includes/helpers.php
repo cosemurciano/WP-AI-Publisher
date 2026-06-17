@@ -69,6 +69,12 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'telegram_language'             => 'it',
 			'telegram_reply_enabled'        => true,
 			'telegram_interactive'          => true,
+			'facebook_enabled'              => false,
+			'facebook_page_id'              => '',
+			'facebook_share_mode'           => 'link',
+			'facebook_message_template'     => "{title}\n\n{meta_description}\n\n{hashtags}\n👉 {link}",
+			'facebook_use_ai_caption'       => false,
+			'facebook_default_share'        => false,
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -131,6 +137,13 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['telegram_language']             = in_array( $telegram_lang, array( 'it', 'en', 'fr', 'es', 'de' ), true ) ? $telegram_lang : 'it';
 		$settings['telegram_reply_enabled']        = ! empty( $settings['telegram_reply_enabled'] );
 		$settings['telegram_interactive']          = ! empty( $settings['telegram_interactive'] );
+		$settings['facebook_enabled']              = ! empty( $settings['facebook_enabled'] );
+		$settings['facebook_page_id']              = sanitize_text_field( (string) ( $settings['facebook_page_id'] ?? '' ) );
+		$fb_mode                                   = sanitize_key( (string) ( $settings['facebook_share_mode'] ?? 'link' ) );
+		$settings['facebook_share_mode']           = in_array( $fb_mode, array( 'link', 'photo' ), true ) ? $fb_mode : 'link';
+		$settings['facebook_message_template']     = (string) ( $settings['facebook_message_template'] ?? '' );
+		$settings['facebook_use_ai_caption']       = ! empty( $settings['facebook_use_ai_caption'] );
+		$settings['facebook_default_share']        = ! empty( $settings['facebook_default_share'] );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );
@@ -585,6 +598,27 @@ if ( ! function_exists( 'wpai_publisher_get_telegram_secret_token' ) ) {
 		 * @param string $secret Secret token.
 		 */
 		return trim( (string) apply_filters( 'wpai_publisher_telegram_secret_token', $secret ) );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_get_facebook_access_token' ) ) {
+	/**
+	 * Resolve the Facebook Page (or System User) access token.
+	 *
+	 * Never stored in the DB: read from the WPAIP_FACEBOOK_ACCESS_TOKEN constant
+	 * or the wpai_publisher_facebook_access_token filter.
+	 *
+	 * @return string
+	 */
+	function wpai_publisher_get_facebook_access_token() {
+		$token = defined( 'WPAIP_FACEBOOK_ACCESS_TOKEN' ) ? (string) WPAIP_FACEBOOK_ACCESS_TOKEN : '';
+
+		/**
+		 * Filter the Facebook access token.
+		 *
+		 * @param string $token Access token.
+		 */
+		return trim( (string) apply_filters( 'wpai_publisher_facebook_access_token', $token ) );
 	}
 }
 

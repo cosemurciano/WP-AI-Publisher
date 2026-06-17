@@ -1,6 +1,16 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.42**
+Versione corrente: **0.5.43**
+
+## Condivisione automatica su Facebook 0.5.43
+
+Alla **pubblicazione** di un articolo, WP AI Publisher può condividerlo su una **Pagina Facebook**. La condivisione è **per-articolo** (casella "Condividi su Facebook" nel riquadro dell'editor) e avviene in **background** (WP-Cron, non bloccante, con anti-duplicato); l'ID del post Facebook viene salvato sul post.
+
+- **Trigger**: transizione del post a *pubblicato* (`transition_post_status`), solo se la casella è attiva.
+- **Testo**: template personalizzabile con segnaposto `{title}`, `{meta_title}`, `{meta_description}`, `{excerpt}`, `{hashtags}`, `{link}` — oppure **caption generata dall'AI** (opzionale, con fallback al template).
+- **Modalità**: *link* (condivide il permalink, anteprima da Open Graph) o *foto* (immagine in evidenza + testo).
+- **Sicurezza**: token Pagina dalla costante `WPAIP_FACEBOOK_ACCESS_TOKEN` (o filtro `wpai_publisher_facebook_access_token`), mai nel DB. Pulsante **"Verifica connessione Pagina"** in Impostazioni.
+- **Prerequisiti Meta**: App Meta, Pagina, Page Access Token (preferibile System User) con permessi `pages_manage_posts` e `pages_read_engagement`. Instagram è previsto in una fase successiva.
 
 ## Telegram interattivo: scelta Tipologia e Categorie 0.5.42
 
@@ -563,6 +573,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.43
+- Integrazione Facebook: condivisione automatica su Pagina alla pubblicazione (casella per-articolo, background, anti-duplicato). Testo da template o AI; modalità link/foto. Token via costante. Pulsante di verifica connessione.
 
 ### 0.5.42
 - Telegram interattivo: pulsanti per scegliere Tipologia articolo e Categorie (multi-selezione) prima di generare; categorie forzate sulla bozza. Nuova opzione "Scelta interattiva".

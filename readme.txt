@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.42
+Stable tag: 0.5.43
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.43 =
+* Integrazione Facebook: condivisione automatica dell'articolo su una Pagina Facebook alla pubblicazione. Casella "Condividi su Facebook" nell'editor (per-articolo); la condivisione avviene in background (WP-Cron, non bloccante, anti-duplicato) e l'ID del post Facebook viene salvato sul post.
+* Testo del post da template personalizzabile ({title}, {meta_title}, {meta_description}, {excerpt}, {hashtags}, {link}) oppure generato dall'AI (opzionale). Modalità link (anteprima Open Graph) o foto (immagine in evidenza + testo).
+* Token letto dalla costante WPAIP_FACEBOOK_ACCESS_TOKEN (o filtro), mai salvato nel database. Pulsante "Verifica connessione Pagina" nelle Impostazioni. I post generati dal plugin sono marcati con meta _wpai_publisher_generated.
 
 = 0.5.42 =
 * Telegram interattivo: dopo l'invio del messaggio il bot mostra i pulsanti (inline keyboard) per scegliere la Tipologia articolo e poi selezionare una o più Categorie, quindi genera la bozza con quelle scelte. Le categorie scelte vengono forzate sulla bozza (filtro wpai_publisher_forced_category_ids). Nuova impostazione "Scelta interattiva" (attiva di default); se disattivata, la bozza viene generata subito come prima.

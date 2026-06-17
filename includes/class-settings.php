@@ -78,6 +78,13 @@ class Settings {
 		$output['telegram_language']             = in_array( $telegram_lang, array( 'it', 'en', 'fr', 'es', 'de' ), true ) ? $telegram_lang : 'it';
 		$output['telegram_reply_enabled']        = ! empty( $input['telegram_reply_enabled'] );
 		$output['telegram_interactive']          = ! empty( $input['telegram_interactive'] );
+		$output['facebook_enabled']              = ! empty( $input['facebook_enabled'] );
+		$output['facebook_page_id']              = isset( $input['facebook_page_id'] ) ? sanitize_text_field( (string) $input['facebook_page_id'] ) : $defaults['facebook_page_id'];
+		$fb_mode                                 = isset( $input['facebook_share_mode'] ) ? sanitize_key( (string) $input['facebook_share_mode'] ) : 'link';
+		$output['facebook_share_mode']           = in_array( $fb_mode, array( 'link', 'photo' ), true ) ? $fb_mode : 'link';
+		$output['facebook_message_template']     = isset( $input['facebook_message_template'] ) ? sanitize_textarea_field( (string) $input['facebook_message_template'] ) : $defaults['facebook_message_template'];
+		$output['facebook_use_ai_caption']       = ! empty( $input['facebook_use_ai_caption'] );
+		$output['facebook_default_share']        = ! empty( $input['facebook_default_share'] );
 		$output['site_context']                  = $this->sanitize_site_context( $input['site_context'] ?? array() );
 
 		return $output;
