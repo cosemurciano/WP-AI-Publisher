@@ -63,6 +63,16 @@ class DB {
 	}
 
 	/**
+	 * Return guide requests table name.
+	 *
+	 * @return string
+	 */
+	public function get_guide_requests_table_name() {
+		global $wpdb;
+		return $wpdb->prefix . 'wpai_publisher_guide_requests';
+	}
+
+	/**
 	 * Create or update plugin tables.
 	 *
 	 * @return void
@@ -76,6 +86,7 @@ class DB {
 		$jobs_table_name          = $this->get_jobs_table_name();
 		$content_ideas_table_name = $this->get_content_ideas_table_name();
 		$article_types_table_name = $this->get_article_types_table_name();
+		$guide_requests_table_name = $this->get_guide_requests_table_name();
 		$charset_collate          = $wpdb->get_charset_collate();
 
 		$logs_sql = "CREATE TABLE {$logs_table_name} (
@@ -172,10 +183,29 @@ class DB {
 			KEY created_at (created_at)
 		) {$charset_collate};";
 
+		$guide_requests_sql = "CREATE TABLE {$guide_requests_table_name} (
+			id BIGINT unsigned NOT NULL AUTO_INCREMENT,
+			created_at DATETIME NOT NULL,
+			query TEXT NOT NULL,
+			query_hash CHAR(64) NOT NULL,
+			language VARCHAR(20) NOT NULL DEFAULT 'it',
+			result_html LONGTEXT NULL,
+			recommended_post_ids LONGTEXT NULL,
+			ip_hash VARCHAR(64) NULL,
+			status VARCHAR(30) NOT NULL DEFAULT 'new',
+			idea_id BIGINT unsigned NULL,
+			post_id BIGINT unsigned NULL,
+			PRIMARY KEY  (id),
+			KEY query_hash (query_hash),
+			KEY status (status),
+			KEY created_at (created_at)
+		) {$charset_collate};";
+
 		dbDelta( $logs_sql );
 		dbDelta( $jobs_sql );
 		dbDelta( $content_ideas_sql );
 		dbDelta( $article_types_sql );
+		dbDelta( $guide_requests_sql );
 		$this->ensure_content_ideas_draft_columns();
 		$this->ensure_content_ideas_article_type_column();
 		$this->ensure_content_ideas_scheduled_column();
@@ -329,12 +359,15 @@ class DB {
 		$jobs_found               = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $jobs_table_name ) );
 		$content_ideas_found      = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $content_ideas_table_name ) );
 		$article_types_found      = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $article_types_table_name ) );
+		$guide_requests_table_name = $this->get_guide_requests_table_name();
+		$guide_requests_found     = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $guide_requests_table_name ) );
 
 		return array(
-			'logs'          => $logs_found === $logs_table_name,
-			'jobs'          => $jobs_found === $jobs_table_name,
-			'content_ideas' => $content_ideas_found === $content_ideas_table_name,
-			'article_types' => $article_types_found === $article_types_table_name,
+			'logs'           => $logs_found === $logs_table_name,
+			'jobs'           => $jobs_found === $jobs_table_name,
+			'content_ideas'  => $content_ideas_found === $content_ideas_table_name,
+			'article_types'  => $article_types_found === $article_types_table_name,
+			'guide_requests' => $guide_requests_found === $guide_requests_table_name,
 		);
 	}
 }

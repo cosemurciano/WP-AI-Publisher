@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.44
+Stable tag: 0.5.45
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.45 =
+* Assistente Guide AI: nuovo modulo pubblico (shortcode [wpai_guide_generator]) che genera una guida personalizzata in base alla richiesta del visitatore, ancorata ai contenuti del sito. La risposta AI è seguita dagli articoli consigliati (risultati reali della ricerca) e può essere salvata in PDF (stampa lato browser). One-shot, non chat.
+* Link sotto controllo: l'AI riceve solo URL reali del sito e una whitelist opzionale di link esterni; ogni link non interno o non in whitelist viene rimosso automaticamente (niente link inventati). HTML ripulito con wp_kses.
+* Limite token/abuso: limite giornaliero per IP e globale, attesa tra richieste, honeypot e cache delle richieste identiche. Nuova pagina "Assistente Guide AI" per la configurazione (prompt, lingua, categorie/tipi di contenuto in cui cercare, whitelist, limiti) e pagina "Richieste guide" con l'elenco delle richieste, convertibili in Idea contenuto. IP salvato solo come hash.
 
 = 0.5.44 =
 * Integrazione Instagram: pubblicazione automatica dell'immagine in evidenza dell'articolo su un account Instagram Business alla pubblicazione (stesso schema di Facebook). Casella "Condividi su Instagram" nell'editor (per-articolo); pubblicazione in background (WP-Cron, non bloccante, anti-duplicato) con flusso a due passi (container + media_publish) e salvataggio di media ID e permalink sul post.

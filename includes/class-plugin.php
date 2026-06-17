@@ -101,6 +101,13 @@ final class Plugin {
 	private $instagram;
 
 	/**
+	 * Guide assistant.
+	 *
+	 * @var Guide_Assistant|null
+	 */
+	private $guide_assistant;
+
+	/**
 	 * Return singleton instance.
 	 *
 	 * @return Plugin
@@ -126,7 +133,8 @@ final class Plugin {
 		$this->ai_provider   = new AI_Provider_Adapter();
 		$this->content_ideas = new Content_Ideas( $this->db, $this->ai_provider, $this->logger );
 		$this->article_type_repository = class_exists( __NAMESPACE__ . '\\Article_Type_Repository' ) ? new Article_Type_Repository() : null;
-		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas, $this->article_type_repository );
+		$this->guide_assistant = class_exists( __NAMESPACE__ . '\\Guide_Assistant' ) ? new Guide_Assistant( $this->db, $this->logger, $this->ai_provider, $this->content_ideas ) : null;
+		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas, $this->article_type_repository, $this->guide_assistant );
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 		add_action( 'admin_init', array( $this->settings, 'register' ) );
@@ -157,6 +165,11 @@ final class Plugin {
 		if ( class_exists( __NAMESPACE__ . '\\Instagram_Integration' ) ) {
 			$this->instagram = new Instagram_Integration( $this->logger, $this->ai_provider );
 			$this->instagram->register();
+		}
+
+		// Assistente Guide AI: public shortcode + REST guide generator.
+		if ( $this->guide_assistant instanceof Guide_Assistant ) {
+			$this->guide_assistant->register();
 		}
 	}
 
