@@ -45,6 +45,17 @@ $language_options = array(
 			);
 		}
 	}
+	if ( isset( $_GET['wpai_notice'] ) && 'facebook_test' === sanitize_key( wp_unslash( $_GET['wpai_notice'] ) ) ) {
+		$wpai_fb_notice = get_transient( 'wpai_publisher_facebook_notice_' . get_current_user_id() );
+		if ( is_array( $wpai_fb_notice ) ) {
+			delete_transient( 'wpai_publisher_facebook_notice_' . get_current_user_id() );
+			printf(
+				'<div class="notice %1$s is-dismissible"><p>%2$s</p></div>',
+				! empty( $wpai_fb_notice['ok'] ) ? 'notice-success' : 'notice-error',
+				esc_html( (string) ( $wpai_fb_notice['message'] ?? '' ) )
+			);
+		}
+	}
 	?>
 	<p class="wpai-lead"><?php echo esc_html__( 'Configura le impostazioni operative del plugin. Le chiamate AI useranno esclusivamente il sistema AI di WordPress già configurato sul sito; non vengono gestite chiavi OpenAI personalizzate.', 'wp-ai-publisher' ); ?></p>
 
@@ -285,6 +296,60 @@ $language_options = array(
 							<a href="<?php echo esc_url( $wpai_tg_help_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Invia istruzioni su Telegram', 'wp-ai-publisher' ); ?></a>
 						</p>
 						<p class="description"><?php echo esc_html__( 'I pulsanti usano il token e il secret configurati nelle costanti, senza terminale. Registra il webhook dopo aver salvato le impostazioni e definito le costanti.', 'wp-ai-publisher' ); ?></p>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<h2><?php echo esc_html__( 'Facebook', 'wp-ai-publisher' ); ?></h2>
+		<p><?php echo esc_html__( 'Condividi automaticamente l’articolo su una Pagina Facebook quando viene pubblicato. Attiva la condivisione per singolo articolo dalla casella “WP AI Publisher — Facebook” nell’editor.', 'wp-ai-publisher' ); ?></p>
+
+		<?php $wpai_fb_token_present = '' !== wpai_publisher_get_facebook_access_token(); ?>
+		<table class="form-table" role="presentation">
+			<tbody>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Abilita Facebook', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[facebook_enabled]" value="1" <?php checked( ! empty( $settings['facebook_enabled'] ) ); ?>> <?php echo esc_html__( 'Consenti la condivisione automatica sulla Pagina.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-fb-page"><?php echo esc_html__( 'ID Pagina Facebook', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="text" id="wpai-fb-page" name="wpai_publisher_settings[facebook_page_id]" class="regular-text" value="<?php echo esc_attr( (string) ( $settings['facebook_page_id'] ?? '' ) ); ?>" placeholder="1234567890"><p class="description"><?php echo esc_html__( 'L’ID numerico della Pagina (in Meta Business o nelle informazioni della Pagina).', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Token di accesso', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<span class="<?php echo $wpai_fb_token_present ? 'wpai-badge wpai-badge--ok' : 'wpai-badge wpai-badge--info'; ?>"><?php echo $wpai_fb_token_present ? esc_html__( 'Configurato', 'wp-ai-publisher' ) : esc_html__( 'Non configurato', 'wp-ai-publisher' ); ?></span>
+						<p class="description"><?php echo wp_kses( __( 'Per sicurezza non si salva nel database. Aggiungi in <code>wp-config.php</code>:<br><code>define( \'WPAIP_FACEBOOK_ACCESS_TOKEN\', \'EAAB...\' );</code><br>Usa un <strong>Page Access Token</strong> (idealmente un token System User che non scade) con i permessi <code>pages_manage_posts</code> e <code>pages_read_engagement</code>.', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array(), 'strong' => array() ) ); ?></p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-fb-mode"><?php echo esc_html__( 'Tipo di post', 'wp-ai-publisher' ); ?></label></th>
+					<td>
+						<select id="wpai-fb-mode" name="wpai_publisher_settings[facebook_share_mode]">
+							<option value="link" <?php selected( (string) ( $settings['facebook_share_mode'] ?? 'link' ), 'link' ); ?>><?php echo esc_html__( 'Link (anteprima da Open Graph)', 'wp-ai-publisher' ); ?></option>
+							<option value="photo" <?php selected( (string) ( $settings['facebook_share_mode'] ?? 'link' ), 'photo' ); ?>><?php echo esc_html__( 'Foto (immagine in evidenza + testo)', 'wp-ai-publisher' ); ?></option>
+						</select>
+						<p class="description"><?php echo esc_html__( 'Link: condivide il permalink e Facebook genera l’anteprima. Foto: pubblica l’immagine in evidenza con il testo e il link nella didascalia.', 'wp-ai-publisher' ); ?></p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-fb-template"><?php echo esc_html__( 'Testo del post', 'wp-ai-publisher' ); ?></label></th>
+					<td><textarea id="wpai-fb-template" name="wpai_publisher_settings[facebook_message_template]" rows="4" class="large-text code"><?php echo esc_textarea( (string) ( $settings['facebook_message_template'] ?? '' ) ); ?></textarea><p class="description"><?php echo esc_html__( 'Segnaposto disponibili: {title}, {meta_title}, {meta_description}, {excerpt}, {hashtags}, {link}.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Caption AI', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[facebook_use_ai_caption]" value="1" <?php checked( ! empty( $settings['facebook_use_ai_caption'] ) ); ?>> <?php echo esc_html__( 'Genera il testo del post con l’AI (più ingaggiante). Se fallisce, uso il template.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Pre-spunta', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[facebook_default_share]" value="1" <?php checked( ! empty( $settings['facebook_default_share'] ) ); ?>> <?php echo esc_html__( 'Pre-attiva la condivisione per gli articoli generati dal plugin.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Verifica connessione', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<?php $wpai_fb_test_url = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_facebook_test' ), 'wpai_publisher_facebook_test' ); ?>
+						<a href="<?php echo esc_url( $wpai_fb_test_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Verifica connessione Pagina', 'wp-ai-publisher' ); ?></a>
+						<p class="description"><?php echo esc_html__( 'Controlla che il token raggiunga la Pagina indicata. Salva prima le impostazioni.', 'wp-ai-publisher' ); ?></p>
 					</td>
 				</tr>
 			</tbody>

@@ -158,6 +158,7 @@ class Draft_Creator {
 		}
 
 		$post_id = absint( $post_id );
+		update_post_meta( $post_id, '_wpai_publisher_generated', '1' );
 		$this->assign_categories_and_tags( $post_id, $dry_run );
 		$this->maybe_write_seo_meta( $post_id, $dry_run );
 		$this->update_idea_after_draft_created( (int) $idea->id, $post_id, (string) $post_data['post_status'] );
