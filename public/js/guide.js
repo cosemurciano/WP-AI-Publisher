@@ -70,9 +70,15 @@
 			result.hidden = true;
 			setStatus( i18n.loading, false );
 
+			var headers = { 'Content-Type': 'application/json' };
+			if ( wpaiGuide.restNonce ) {
+				headers['X-WP-Nonce'] = wpaiGuide.restNonce;
+			}
+
 			fetch( wpaiGuide.endpoint, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				credentials: 'same-origin',
+				headers: headers,
 				body: JSON.stringify( {
 					query: query,
 					nonce: wpaiGuide.nonce,
