@@ -120,6 +120,34 @@ $wpai_guide_selected_ct = array_map( 'absint', (array) ( $config['search_categor
 					</td>
 				</tr>
 				<tr>
+					<th scope="row"><label for="wpai-guide-generator-page"><?php echo esc_html__( 'Pagina del generatore', 'wp-ai-publisher' ); ?></label></th>
+					<td>
+						<?php
+						wp_dropdown_pages(
+							array(
+								'name'              => 'wpai_guide[generator_page_id]',
+								'id'                => 'wpai-guide-generator-page',
+								'selected'          => (int) $config['generator_page_id'],
+								'show_option_none'  => esc_html__( '— Nessuna —', 'wp-ai-publisher' ),
+								'option_none_value' => 0,
+							)
+						);
+						?>
+						<p class="description">
+							<?php echo esc_html__( 'La pagina che contiene lo shortcode [wpai_guide_generator]. Quando un visitatore apre il link di una guida già eliminata, viene reindirizzato qui con un avviso per ricreare la guida aggiornata.', 'wp-ai-publisher' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-guide-deleted-message"><?php echo esc_html__( 'Messaggio guida eliminata', 'wp-ai-publisher' ); ?></label></th>
+					<td>
+						<textarea id="wpai-guide-deleted-message" name="wpai_guide[deleted_message]" rows="3" class="large-text"><?php echo esc_textarea( (string) $config['deleted_message'] ); ?></textarea>
+						<p class="description">
+							<?php echo esc_html__( 'Avviso mostrato sopra il modulo quando si apre il link di una guida eliminata.', 'wp-ai-publisher' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
 					<th scope="row"><label for="wpai-guide-max-tokens"><?php echo esc_html__( 'Lunghezza massima (token)', 'wp-ai-publisher' ); ?></label></th>
 					<td>
 						<input type="number" id="wpai-guide-max-tokens" name="wpai_guide[max_tokens]" min="128" step="64" value="<?php echo esc_attr( (string) $config['max_tokens'] ); ?>">

@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.50
+Stable tag: 0.5.51
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,12 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.51 =
+* Assistente Guide AI: il pulsante "Genera guida" è ora un'icona di invio circolare; durante l'attesa il pulsante mostra uno spinner e il testo animato ("Sto studiando la tua richiesta…") compare dentro il campo di input. Risolto il problema dell'icona di attesa e del cursore visibili prima dell'invio.
+* I tre pulsanti a fine guida (PDF, WhatsApp, Salva) sono ora icone circolari minimal con tooltip.
+* Richieste guide: aggiunto il link diretto alla pagina pubblica della guida per ogni richiesta (oltre a Visualizza, Crea idea ed Elimina già presenti).
+* Guide eliminate dalla pulizia: configurando la "Pagina del generatore", aprire il link di una guida non più esistente reindirizza a quella pagina con un avviso personalizzabile ("Questa guida è stata eliminata… ricrea la tua guida aggiornata").
 
 = 0.5.50 =
 * Assistente Guide AI: cancellazione automatica delle pagine pubbliche delle guide configurabile dal pannello. Nuovo campo "Cancella le pagine guida dopo (giorni)": una pulizia giornaliera (WP-Cron) elimina le pagine più vecchie del numero di giorni impostato (0 = non cancellare mai). Le richieste restano in "Richieste guide" (viene solo scollegata la pagina eliminata).
