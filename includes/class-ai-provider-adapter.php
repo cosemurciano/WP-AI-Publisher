@@ -1321,6 +1321,25 @@ class AI_Provider_Adapter {
 			return array( 'ok' => false, 'message' => __( 'Nessun Vector Store ID configurato.', 'wp-ai-publisher' ) );
 		}
 
+		// Catch the common mistake of pasting a File ID (file-...) or any value
+		// that is not a Vector Store ID (which always begins with "vs_").
+		$malformed = array();
+		foreach ( $vector_store_ids as $candidate ) {
+			if ( 0 !== strncmp( (string) $candidate, 'vs_', 3 ) ) {
+				$malformed[] = $candidate;
+			}
+		}
+		if ( count( $malformed ) === count( $vector_store_ids ) ) {
+			return array(
+				'ok'      => false,
+				'message' => sprintf(
+					/* translators: %s: the invalid IDs entered. */
+					__( 'Gli ID inseriti non sono Vector Store ID validi: %s. Un Vector Store ID inizia con "vs_". Se hai un ID file (file-...), devi prima creare un Vector Store su OpenAI, aggiungervi il file e poi usare l’ID del Vector Store (vs_...).', 'wp-ai-publisher' ),
+					implode( ', ', $malformed )
+				),
+			);
+		}
+
 		$timeout      = max( 15, (int) ( $this->get_ai_generation_params()['http_timeout'] ?? 60 ) );
 		$headers      = array( 'Authorization' => 'Bearer ' . $api_key, 'OpenAI-Beta' => 'assistants=v2' );
 		$total_files  = 0;

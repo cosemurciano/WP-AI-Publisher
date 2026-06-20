@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.52**
+Versione corrente: **0.5.53**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.53
+- Knowledge base OpenAI: il test dello storage rileva l'inserimento errato di un ID file (file-...) o di un valore non valido al posto di un Vector Store ID (vs_...) e spiega come correggere.
 
 ### 0.5.52
 - Assistente Guide AI — Area membri front-end: ruolo dedicato "Membro Guide", shortcode `[wpai_guide_register]`/`[wpai_guide_login]`/`[wpai_guide_account]`, salvataggio reale delle guide nell'area utente, blocco accesso a wp-admin per i membri. Nuova sezione impostazioni con selezione pagine. Aggiunta frase d'attesa "Ancora un momento, grazie per la pazienza…".
