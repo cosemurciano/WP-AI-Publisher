@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.57
+Stable tag: 0.5.58
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.58 =
+* Ultime idee: aggiunta una barra di filtri e ordinamento (per stato, tipologia articolo, categoria; ordina per data creazione, programmazione o ultimo aggiornamento, crescente/decrescente). La colonna Categorie mostra le categorie associate a ogni idea.
+* Telegram: corretto il link alla bozza nel messaggio (in contesto cron get_edit_post_link non restituiva l'URL); ora il link è sempre presente e punta alla schermata di modifica della bozza.
+* Telegram: il messaggio viene inviato solo quando la bozza è completamente assemblata, cioè dopo la generazione e l'inserimento delle immagini (in evidenza e nel corpo). Niente più notifiche con i segnaposto immagine ancora da elaborare.
 
 = 0.5.57 =
 * Modifica idea: le categorie associate vengono ora mostrate anche per le idee già create o importate con le versioni precedenti (0.5.55), che salvavano le categorie nel vecchio meccanismo a opzione. Aggiunto un fallback di compatibilità: le categorie compaiono nei chip in modifica, nell'elenco e vengono usate anche alla generazione della bozza. Salvando l'idea, le categorie vengono migrate definitivamente sul campo dell'idea.

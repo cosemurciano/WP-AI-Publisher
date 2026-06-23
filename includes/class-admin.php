@@ -588,10 +588,17 @@ class Admin {
 		$this->content_ideas->mark_stale_processing_ideas( 15 );
 		$ideas_per_page = (int) apply_filters( 'wpai_publisher_ideas_per_page', 20 );
 		$ideas_per_page = min( 100, max( 5, $ideas_per_page ) );
-		$ideas_total    = $content_ideas->count_all();
+		$idea_filters   = array(
+			'status'          => isset( $_GET['idea_status'] ) ? sanitize_key( wp_unslash( $_GET['idea_status'] ) ) : '',
+			'article_type_id' => absint( $_GET['idea_article_type'] ?? 0 ),
+			'category_id'     => absint( $_GET['idea_category'] ?? 0 ),
+			'orderby'         => isset( $_GET['idea_orderby'] ) ? sanitize_key( wp_unslash( $_GET['idea_orderby'] ) ) : 'created_at',
+			'order'           => ( isset( $_GET['idea_order'] ) && 'asc' === strtolower( sanitize_key( wp_unslash( $_GET['idea_order'] ) ) ) ) ? 'ASC' : 'DESC',
+		);
+		$ideas_total    = $content_ideas->count_all( $idea_filters );
 		$ideas_pages    = max( 1, (int) ceil( $ideas_total / $ideas_per_page ) );
 		$ideas_page     = min( $ideas_pages, max( 1, absint( $_GET['paged'] ?? 1 ) ) );
-		$ideas          = $content_ideas->get_ideas_paginated( $ideas_page, $ideas_per_page );
+		$ideas          = $content_ideas->get_ideas_paginated( $ideas_page, $ideas_per_page, $idea_filters );
 		$selected_idea = null;
 		$dry_run_data  = array();
 		$notes_data    = array();

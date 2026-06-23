@@ -262,23 +262,66 @@ class Content_Ideas {
 	}
 
 	/**
-	 * Count all content ideas.
+	 * Count content ideas, optionally filtered.
 	 *
+	 * @param array<string,mixed> $args Filters (status, article_type_id, category_id).
 	 * @return int
 	 */
-	public function count_all() {
+	public function count_all( $args = array() ) {
 		global $wpdb;
-		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->get_table_name()}" );
+		$where = $this->build_ideas_where( $args );
+		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->get_table_name()} WHERE {$where}" );
 	}
 
 	/**
-	 * Get a page of content ideas.
+	 * Build a sanitized WHERE clause for the idea list filters.
 	 *
-	 * @param int $page Page number (1-based).
-	 * @param int $per_page Items per page.
+	 * @param array<string,mixed> $args Filters.
+	 * @return string
+	 */
+	private function build_ideas_where( $args ) {
+		global $wpdb;
+		$where = array( '1=1' );
+
+		$status = isset( $args['status'] ) ? sanitize_key( (string) $args['status'] ) : '';
+		if ( '' !== $status ) {
+			$where[] = $wpdb->prepare( 'status = %s', $status );
+		}
+		$article_type_id = absint( $args['article_type_id'] ?? 0 );
+		if ( $article_type_id > 0 ) {
+			$where[] = $wpdb->prepare( 'article_type_id = %d', $article_type_id );
+		}
+		$category_id = absint( $args['category_id'] ?? 0 );
+		if ( $category_id > 0 ) {
+			// category_ids holds a JSON array of ints (e.g. [12,34]); match the
+			// exact integer with non-digit boundaries to avoid 12 matching 120.
+			$where[] = "category_ids REGEXP '(^|[^0-9])" . $category_id . "([^0-9]|$)'";
+		}
+
+		return implode( ' AND ', $where );
+	}
+
+	/**
+	 * Resolve the ORDER BY clause from filter args.
+	 *
+	 * @param array<string,mixed> $args Filters.
+	 * @return string
+	 */
+	private function build_ideas_orderby( $args ) {
+		$orderby = in_array( (string) ( $args['orderby'] ?? '' ), array( 'created_at', 'scheduled_at', 'updated_at' ), true ) ? (string) $args['orderby'] : 'created_at';
+		$order   = strtoupper( (string) ( $args['order'] ?? 'DESC' ) ) === 'ASC' ? 'ASC' : 'DESC';
+		return "{$orderby} {$order}, id {$order}";
+	}
+
+	/**
+	 * Get a page of content ideas, optionally filtered/ordered.
+	 *
+	 * @param int                 $page Page number (1-based).
+	 * @param int                 $per_page Items per page.
+	 * @param array<string,mixed> $args Filters (status, article_type_id, category_id, orderby, order).
 	 * @return array<int,object>
 	 */
-	public function get_ideas_paginated( $page = 1, $per_page = 20 ) {
+	public function get_ideas_paginated( $page = 1, $per_page = 20, $args = array() ) {
 		global $wpdb;
 		$per_page = min( 100, max( 1, absint( $per_page ) ) );
 		$page     = max( 1, absint( $page ) );
@@ -286,9 +329,14 @@ class Content_Ideas {
 		if ( method_exists( $this->db, 'ensure_content_ideas_article_type_column' ) ) {
 			$this->db->ensure_content_ideas_article_type_column();
 		}
+		if ( method_exists( $this->db, 'ensure_content_ideas_category_ids_column' ) ) {
+			$this->db->ensure_content_ideas_category_ids_column();
+		}
+		$where   = $this->build_ideas_where( $args );
+		$orderby = $this->build_ideas_orderby( $args );
 		return $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$this->get_table_name()} ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d",
+				"SELECT * FROM {$this->get_table_name()} WHERE {$where} ORDER BY {$orderby} LIMIT %d OFFSET %d",
 				$per_page,
 				$offset
 			)
@@ -758,6 +806,17 @@ class Content_Ideas {
 		// even if the slower inline-image phase is interrupted.
 		$this->maybe_generate_featured_image( absint( $post_id ), $idea_id, $article_type, $output['featured_image_alt'] );
 		$this->maybe_generate_inline_images( absint( $post_id ), $idea_id, $article_type );
+
+		/**
+		 * Fires after a draft has been created AND its featured/inline images have
+		 * been generated and inserted. Use this (not wpai_publisher_idea_draft_created)
+		 * to notify or act on a fully assembled draft.
+		 *
+		 * @param int $idea_id Idea ID.
+		 * @param int $post_id Draft post ID.
+		 */
+		do_action( 'wpai_publisher_idea_draft_finalized', absint( $idea_id ), absint( $post_id ) );
+
 		return array( 'success' => true, 'idea_id' => $idea_id, 'post_id' => absint( $post_id ), 'status' => 'draft_created', 'message' => __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) );
 	}
 
