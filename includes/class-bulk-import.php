@@ -65,21 +65,24 @@ class Bulk_Import {
 	}
 
 	/**
-	 * Register the (hidden) import page.
+	 * Register the import page as a hidden admin page.
+	 *
+	 * Registered under a null parent so it is reachable by URL (opened from the
+	 * button on the ideas page) but does not appear in the menu. Using
+	 * remove_submenu_page() instead would strip it from the access whitelist and
+	 * trigger "Sorry, you are not allowed to access this page".
 	 *
 	 * @return void
 	 */
 	public function register_page() {
 		add_submenu_page(
-			'wp-ai-publisher',
+			'',
 			esc_html__( 'Importa idee', 'wp-ai-publisher' ),
 			esc_html__( 'Importa idee', 'wp-ai-publisher' ),
 			wpai_publisher_capability(),
 			self::PAGE,
 			array( $this, 'render_page' )
 		);
-		// Keep it reachable by URL but out of the menu (opened from a button).
-		remove_submenu_page( 'wp-ai-publisher', self::PAGE );
 	}
 
 	/**
