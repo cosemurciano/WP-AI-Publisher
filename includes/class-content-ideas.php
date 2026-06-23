@@ -153,6 +153,11 @@ class Content_Ideas {
 
 		$scheduled_at = $this->normalize_scheduled_at( $data['scheduled_at'] ?? '' );
 		$status       = ( '' !== $scheduled_at ) ? 'scheduled' : 'new';
+		$category_ids = $this->sanitize_category_ids( $data['category_ids'] ?? array() );
+
+		if ( method_exists( $this->db, 'ensure_content_ideas_category_ids_column' ) ) {
+			$this->db->ensure_content_ideas_category_ids_column();
+		}
 
 		$updated = $wpdb->update(
 			$this->get_table_name(),
@@ -164,9 +169,10 @@ class Content_Ideas {
 				'keyword'         => sanitize_text_field( (string) ( $data['keyword'] ?? '' ) ),
 				'language'        => $language,
 				'article_type_id' => $article_type_id,
+				'category_ids'    => ! empty( $category_ids ) ? wp_json_encode( $category_ids ) : null,
 			),
 			array( 'id' => $id ),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d' ),
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' ),
 			array( '%d' )
 		);
 
@@ -209,6 +215,11 @@ class Content_Ideas {
 		if ( method_exists( $this->db, 'ensure_content_ideas_scheduled_column' ) ) {
 			$this->db->ensure_content_ideas_scheduled_column();
 		}
+		if ( method_exists( $this->db, 'ensure_content_ideas_category_ids_column' ) ) {
+			$this->db->ensure_content_ideas_category_ids_column();
+		}
+
+		$category_ids = $this->sanitize_category_ids( $data['category_ids'] ?? array() );
 
 		// Optional scheduling: a future date moves the idea to the 'scheduled' state
 		// until the cron picks it up.
@@ -236,9 +247,10 @@ class Content_Ideas {
 				'target_audience' => '',
 				'tutorial_level'  => null,
 				'article_type_id' => $article_type_id,
+				'category_ids'    => ! empty( $category_ids ) ? wp_json_encode( $category_ids ) : null,
 				'notes'           => sanitize_textarea_field( (string) ( $data['notes'] ?? '' ) ),
 			),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
 		);
 
 		if ( false === $inserted ) {
@@ -305,6 +317,74 @@ class Content_Ideas {
 		}
 		$dt->setTimezone( new \DateTimeZone( 'UTC' ) );
 		return $dt->format( 'Y-m-d H:i:s' );
+	}
+
+	/**
+	 * Sanitize a list of category IDs (array or comma string) to existing IDs.
+	 *
+	 * @param mixed $value IDs as array or comma-separated string.
+	 * @return array<int,int>
+	 */
+	private function sanitize_category_ids( $value ) {
+		// Accept an array of IDs, or a comma-separated string of IDs/names (the
+		// tag-box UI submits category names separated by commas).
+		if ( is_string( $value ) ) {
+			$value = explode( ',', $value );
+		}
+		$ids = array();
+		foreach ( (array) $value as $token ) {
+			if ( is_int( $token ) || ( is_string( $token ) && ctype_digit( trim( $token ) ) ) ) {
+				$ids[] = absint( $token );
+				continue;
+			}
+			$name = trim( wp_strip_all_tags( (string) $token ) );
+			if ( '' === $name ) {
+				continue;
+			}
+			$term = get_term_by( 'name', $name, 'category' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$ids[] = (int) $term->term_id;
+			}
+		}
+		$ids = array_values( array_filter( array_map( 'absint', $ids ) ) );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+		// Keep only categories that actually exist.
+		$existing = get_terms( array( 'taxonomy' => 'category', 'hide_empty' => false, 'fields' => 'ids', 'include' => $ids ) );
+		$existing = is_wp_error( $existing ) ? array() : array_map( 'absint', (array) $existing );
+		return array_values( array_intersect( $ids, $existing ) );
+	}
+
+	/**
+	 * Decode the stored category IDs for an idea row.
+	 *
+	 * @param object|null $idea Idea row.
+	 * @return array<int,int>
+	 */
+	public function get_idea_category_ids( $idea ) {
+		if ( ! $idea || empty( $idea->category_ids ) ) {
+			return array();
+		}
+		$decoded = json_decode( (string) $idea->category_ids, true );
+		return is_array( $decoded ) ? array_values( array_filter( array_map( 'absint', $decoded ) ) ) : array();
+	}
+
+	/**
+	 * Resolve idea category IDs to category names.
+	 *
+	 * @param object|null $idea Idea row.
+	 * @return array<int,string>
+	 */
+	public function get_idea_category_names( $idea ) {
+		$names = array();
+		foreach ( $this->get_idea_category_ids( $idea ) as $cid ) {
+			$term = get_term( $cid, 'category' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$names[] = $term->name;
+			}
+		}
+		return $names;
 	}
 
 	/**
@@ -577,8 +657,15 @@ class Content_Ideas {
 		$ai_diagnostics = method_exists( $this->ai_provider, 'get_ai_generation_diagnostics' ) ? $this->ai_provider->get_ai_generation_diagnostics() : array();
 		$this->logger->info( __( 'Generazione articolo da idea avviata.', 'wp-ai-publisher' ), array_merge( array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'article_generation_started', 'article_type_id' => $article_type_id ), $ai_diagnostics ) );
 		$site_data = function_exists( 'wpai_publisher_get_site_generation_context' ) ? wpai_publisher_get_site_generation_context() : array();
+		$target_categories = $this->get_idea_category_names( $idea );
 		$article   = $this->ai_provider->generate_article_from_idea(
-			array( 'topic' => (string) $idea->topic, 'keyword' => (string) $idea->keyword, 'language' => (string) $idea->language, 'context' => $site_data ),
+			array(
+				'topic'             => (string) $idea->topic,
+				'keyword'           => (string) $idea->keyword,
+				'language'          => (string) $idea->language,
+				'context'           => $site_data,
+				'target_categories' => $target_categories,
+			),
 			$site_context,
 			$article_type
 		);
@@ -599,9 +686,13 @@ class Content_Ideas {
 		$title    = '' !== $ai_title ? $ai_title : wp_trim_words( wp_strip_all_tags( (string) $idea->topic ), 14, '' );
 		$slug     = sanitize_title( (string) ( $article['slug'] ?? '' ) );
 
-		// AI-chosen categories, unless a trusted caller (e.g. the Telegram
-		// inline-keyboard flow) forces a specific set for this idea.
+		// Category precedence: AI choice → categories saved on the idea → a forced
+		// set provided by a trusted caller (e.g. the Telegram inline keyboard).
 		$category_ids = array_values( array_filter( array_map( 'absint', (array) ( $article['category_ids'] ?? array() ) ) ) );
+		$idea_categories = $this->get_idea_category_ids( $idea );
+		if ( ! empty( $idea_categories ) ) {
+			$category_ids = $idea_categories;
+		}
 		/**
 		 * Filter the category IDs to assign to the draft, overriding the AI choice.
 		 *

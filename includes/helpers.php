@@ -740,3 +740,36 @@ if ( ! function_exists( 'wpai_publisher_get_article_type_config_safe' ) ) {
 		return is_array( $config ) ? wp_parse_args( $config, $fallback ) : $fallback;
 	}
 }
+
+if ( ! function_exists( 'wpai_publisher_render_category_tagbox' ) ) {
+	/**
+	 * Render a WordPress tag-box style field for selecting categories by name.
+	 *
+	 * The native tagBox JS turns this markup into removable token chips with
+	 * autocomplete. On submit, the chosen category names arrive in
+	 * $_POST['tax_input']['category'] as a comma-separated string.
+	 *
+	 * @param array<int,string> $selected_names Currently selected category names.
+	 * @return void
+	 */
+	function wpai_publisher_render_category_tagbox( $selected_names = array() ) {
+		$value = implode( ', ', array_map( 'sanitize_text_field', (array) $selected_names ) );
+		?>
+		<div class="tagsdiv wpai-tagsdiv" id="category">
+			<div class="jaxtag">
+				<div class="nojs-tags hide-if-js">
+					<label for="tax-input-category"><?php echo esc_html__( 'Categorie separate da virgole', 'wp-ai-publisher' ); ?></label>
+					<p><textarea name="tax_input[category]" rows="3" cols="20" class="the-tags" id="tax-input-category"><?php echo esc_textarea( $value ); ?></textarea></p>
+				</div>
+				<div class="ajaxtag hide-if-no-js">
+					<label class="screen-reader-text" for="new-tag-category"><?php echo esc_html__( 'Aggiungi nuova categoria', 'wp-ai-publisher' ); ?></label>
+					<input type="text" id="new-tag-category" name="newtag[category]" class="newtag form-input-tip" size="16" autocomplete="off" aria-describedby="new-tag-category-desc" value="" />
+					<input type="button" class="button tagadd" value="<?php echo esc_attr__( 'Aggiungi', 'wp-ai-publisher' ); ?>" />
+				</div>
+			</div>
+			<p class="howto" id="new-tag-category-desc"><?php echo esc_html__( 'Digita il nome di una categoria esistente e premi Invio. Le categorie devono già esistere.', 'wp-ai-publisher' ); ?></p>
+			<ul class="tagchecklist" role="list"></ul>
+		</div>
+		<?php
+	}
+}

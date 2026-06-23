@@ -49,10 +49,6 @@ $wpai_error = isset( $_GET['wpai_error'] ) ? sanitize_text_field( wp_unslash( $_
 						<td><textarea id="wpai-edit-topic" name="topic" rows="4" class="large-text" required><?php echo esc_textarea( (string) $edit_idea->topic ); ?></textarea></td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="wpai-edit-keyword"><?php echo esc_html__( 'Keyword principale', 'wp-ai-publisher' ); ?></label></th>
-						<td><input id="wpai-edit-keyword" name="keyword" type="text" class="regular-text" value="<?php echo esc_attr( (string) $edit_idea->keyword ); ?>" /></td>
-					</tr>
-					<tr>
 						<th scope="row"><label for="wpai-edit-language"><?php echo esc_html__( 'Lingua', 'wp-ai-publisher' ); ?></label></th>
 						<td>
 							<select id="wpai-edit-language" name="language">
@@ -75,8 +71,15 @@ $wpai_error = isset( $_GET['wpai_error'] ) ? sanitize_text_field( wp_unslash( $_
 							</td>
 						</tr>
 					<?php endif; ?>
-					<tr>
-						<th scope="row"><label for="wpai-edit-scheduled-at"><?php echo esc_html__( 'Programma creazione', 'wp-ai-publisher' ); ?></label></th>
+						<tr>
+							<th scope="row"><label><?php echo esc_html__( 'Categorie', 'wp-ai-publisher' ); ?></label></th>
+							<td>
+								<?php wpai_publisher_render_category_tagbox( $content_ideas->get_idea_category_names( $edit_idea ) ); ?>
+								<p class="description"><?php echo esc_html__( 'Le categorie indicate vengono assegnate alla bozza e comunicate all’AI. Lascia vuoto per far scegliere l’AI.', 'wp-ai-publisher' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="wpai-edit-scheduled-at"><?php echo esc_html__( 'Programma creazione', 'wp-ai-publisher' ); ?></label></th>
 						<td>
 							<input type="datetime-local" id="wpai-edit-scheduled-at" name="wpai_scheduled_at" value="<?php echo esc_attr( $wpai_scheduled_in ); ?>" />
 							<p class="description"><?php echo esc_html__( 'Lascia vuoto per riportare l’idea allo stato “nuova”. Con data e ora, l’idea resta programmata.', 'wp-ai-publisher' ); ?></p>
