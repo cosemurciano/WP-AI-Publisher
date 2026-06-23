@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.54
+Stable tag: 0.5.55
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.55 =
+* Importazione massiva idee: nuova colonna "Categorie" nel CSV. Indica uno o più nomi di categorie già esistenti, separati da virgola: vengono assegnate alla bozza al posto della scelta automatica dell'AI (nel rispetto delle eventuali restrizioni della Tipologia articolo). I nomi inesistenti vengono ignorati e segnalati nel riepilogo. Aggiornato il CSV di esempio con la nuova colonna.
 
 = 0.5.54 =
 * Idee contenuto: nuova Importazione massiva di idee da file CSV (pulsante in basso a destra nella pagina Idee contenuto). La pagina dedicata permette di scaricare un CSV di esempio e caricare un file con i campi Argomento principale, Lingua, Tipologia articolo e Programma creazione (data e ora).
