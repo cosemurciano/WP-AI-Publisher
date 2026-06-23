@@ -23,8 +23,8 @@ $wpai_langs = array(
 $wpai_back_url     = admin_url( 'admin.php?page=wp-ai-publisher-content-ideas' );
 $wpai_scheduled_in = '';
 if ( ! empty( $edit_idea->scheduled_at ) ) {
-	$wpai_ts = strtotime( (string) $edit_idea->scheduled_at );
-	$wpai_scheduled_in = $wpai_ts ? gmdate( 'Y-m-d\TH:i', $wpai_ts ) : '';
+	// Stored as UTC; show in the site timezone for the datetime-local field.
+	$wpai_scheduled_in = get_date_from_gmt( (string) $edit_idea->scheduled_at, 'Y-m-d\TH:i' );
 }
 $wpai_error = isset( $_GET['wpai_error'] ) ? sanitize_text_field( wp_unslash( $_GET['wpai_error'] ) ) : '';
 ?>

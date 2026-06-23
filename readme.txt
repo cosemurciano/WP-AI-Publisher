@@ -74,6 +74,7 @@ Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione atti
 * Tutte le idee importate vengono messe obbligatoriamente in programmazione; dopo l'import viene mostrato un riepilogo con idee create, righe ignorate ed errori per riga (campi mancanti, tipologia non valida, data non valida).
 * Per ogni bozza creata dalle idee importate viene inviato un messaggio su Telegram (alle chat autorizzate) con titolo e link alla bozza.
 * Nell'elenco Ultime idee è ora disponibile l'azione "Modifica" per correggere un'idea (argomento, keyword, lingua, tipologia, programmazione) prima della generazione della bozza.
+* Le date di programmazione (import, creazione manuale e modifica) sono interpretate e mostrate nel fuso orario di WordPress e salvate in UTC.
 
 = 0.5.53 =
 * Knowledge base OpenAI: il test "Testa accesso allo storage OpenAI" ora riconosce quando viene inserito per errore un ID file (file-...) o un valore non valido al posto di un Vector Store ID (che inizia con "vs_") e mostra un messaggio chiaro su come risolvere. Nessuna modifica al comportamento con ID corretti.

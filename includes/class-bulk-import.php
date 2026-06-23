@@ -112,8 +112,10 @@ class Bulk_Import {
 			$example_type = ! empty( $types ) ? (string) $types[0]['name'] : __( 'Guida pratica', 'wp-ai-publisher' );
 		}
 
-		$tomorrow = gmdate( 'Y-m-d H:i', time() + DAY_IN_SECONDS );
-		$after    = gmdate( 'Y-m-d H:i', time() + 2 * DAY_IN_SECONDS );
+		// Sample dates in the site timezone (that is how the importer reads them).
+		$now      = (int) current_time( 'timestamp' );
+		$tomorrow = gmdate( 'Y-m-d H:i', $now + DAY_IN_SECONDS );
+		$after    = gmdate( 'Y-m-d H:i', $now + 2 * DAY_IN_SECONDS );
 
 		nocache_headers();
 		header( 'Content-Type: text/csv; charset=utf-8' );
@@ -360,10 +362,12 @@ class Bulk_Import {
 	}
 
 	/**
-	 * Parse a date/time string into "Y-m-d H:i:s" (or '' if invalid).
+	 * Validate/normalize a date-time string to a canonical wall-clock
+	 * "Y-m-d H:i:s" (local time). The local→UTC conversion (using the WordPress
+	 * timezone) is performed later by Content_Ideas::normalize_scheduled_at().
 	 *
 	 * @param string $value Raw value.
-	 * @return string
+	 * @return string Canonical local datetime, or '' if invalid.
 	 */
 	private function parse_datetime( $value ) {
 		$value = trim( (string) $value );
@@ -374,11 +378,11 @@ class Bulk_Import {
 		foreach ( array( 'Y-m-d H:i:s', 'Y-m-d H:i', 'Y-m-d\TH:i', 'd/m/Y H:i', 'd/m/Y H:i:s', 'd-m-Y H:i' ) as $format ) {
 			$dt = \DateTime::createFromFormat( $format, $value );
 			if ( $dt instanceof \DateTime ) {
-				return $dt->format( 'Y-m-d H:i:s' );
+				return $dt->format( 'Y-m-d H:i:00' );
 			}
 		}
 		$ts = strtotime( str_replace( 'T', ' ', $value ) );
-		return false !== $ts ? gmdate( 'Y-m-d H:i:s', $ts ) : '';
+		return false !== $ts ? gmdate( 'Y-m-d H:i:00', $ts ) : '';
 	}
 
 	/**

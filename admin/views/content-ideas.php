@@ -223,7 +223,7 @@ $render_list = static function ( $items ) {
 						<td><?php echo esc_html( (string) $idea->id ); ?></td>
 						<td><span class="<?php echo esc_attr( wpai_publisher_badge_class( $idea_status_display ) ); ?>"><?php echo esc_html( $idea_status_label ); ?></span>
 							<?php if ( 'scheduled' === $idea_status_display && ! empty( $idea->scheduled_at ) ) : ?>
-								<p class="description"><?php echo esc_html( sprintf( __( 'Per: %s', 'wp-ai-publisher' ), (string) $idea->scheduled_at ) ); ?></p>
+								<p class="description"><?php echo esc_html( sprintf( __( 'Per: %s', 'wp-ai-publisher' ), get_date_from_gmt( (string) $idea->scheduled_at, 'd/m/Y H:i' ) ) ); ?></p>
 							<?php endif; ?>
 						</td>
 						<td><?php echo esc_html( wp_trim_words( (string) $idea->topic, 18, '…' ) ); ?></td>

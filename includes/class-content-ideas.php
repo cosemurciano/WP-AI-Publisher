@@ -290,15 +290,21 @@ class Content_Ideas {
 	 * @return string MySQL datetime or '' if empty/invalid.
 	 */
 	private function normalize_scheduled_at( $value ) {
-		$value = trim( (string) $value );
+		$value = trim( str_replace( 'T', ' ', (string) $value ) );
 		if ( '' === $value ) {
 			return '';
 		}
-		$ts = strtotime( str_replace( 'T', ' ', $value ) );
-		if ( false === $ts ) {
-			return '';
+		// Interpret the incoming wall-clock time in the site's timezone and store
+		// it as UTC (scheduling comparisons run against gmdate()).
+		$tz = function_exists( 'wp_timezone' ) ? wp_timezone() : new \DateTimeZone( 'UTC' );
+		try {
+			$dt = new \DateTime( $value, $tz );
+		} catch ( \Exception $e ) {
+			$ts = strtotime( $value );
+			return false !== $ts ? gmdate( 'Y-m-d H:i:s', $ts ) : '';
 		}
-		return gmdate( 'Y-m-d H:i:s', $ts );
+		$dt->setTimezone( new \DateTimeZone( 'UTC' ) );
+		return $dt->format( 'Y-m-d H:i:s' );
 	}
 
 	/**
