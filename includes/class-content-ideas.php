@@ -114,6 +114,70 @@ class Content_Ideas {
 	}
 
 	/**
+	 * Update an existing idea before it has been turned into a draft.
+	 *
+	 * @param int                 $id Idea ID.
+	 * @param array<string,mixed> $data Fields (topic, keyword, language, article_type_id, scheduled_at).
+	 * @return true|WP_Error
+	 */
+	public function update_idea( $id, $data ) {
+		global $wpdb;
+
+		$id   = absint( $id );
+		$idea = $this->get_idea( $id );
+		if ( ! $idea ) {
+			return new WP_Error( 'wpai_content_idea_not_found', __( 'Idea non trovata.', 'wp-ai-publisher' ) );
+		}
+
+		$editable = array( 'new', 'scheduled', 'draft_failed', 'timeout', 'dry_run_failed' );
+		if ( ! in_array( (string) $idea->status, $editable, true ) ) {
+			return new WP_Error( 'wpai_content_idea_locked', __( 'Questa idea non è più modificabile (bozza in lavorazione o già creata).', 'wp-ai-publisher' ) );
+		}
+
+		$topic = sanitize_textarea_field( (string) ( $data['topic'] ?? '' ) );
+		if ( '' === trim( $topic ) ) {
+			return new WP_Error( 'wpai_content_idea_empty_topic', __( 'L’argomento principale è obbligatorio.', 'wp-ai-publisher' ) );
+		}
+
+		$language      = sanitize_key( (string) ( $data['language'] ?? 'it' ) );
+		$allowed_langs = array( 'it', 'en', 'fr', 'es', 'de' );
+		if ( ! in_array( $language, $allowed_langs, true ) ) {
+			return new WP_Error( 'wpai_content_idea_invalid_language', __( 'Lingua non valida.', 'wp-ai-publisher' ) );
+		}
+
+		$article_types_enabled = wpai_publisher_article_types_enabled();
+		$article_type_id       = $article_types_enabled ? absint( $data['article_type_id'] ?? 0 ) : 0;
+		if ( $article_types_enabled && $article_type_id > 0 && ! wpai_publisher_is_active_article_type_safe( $article_type_id ) ) {
+			return new WP_Error( 'wpai_content_idea_invalid_article_type', __( 'Seleziona una Tipologia articolo attiva.', 'wp-ai-publisher' ) );
+		}
+
+		$scheduled_at = $this->normalize_scheduled_at( $data['scheduled_at'] ?? '' );
+		$status       = ( '' !== $scheduled_at ) ? 'scheduled' : 'new';
+
+		$updated = $wpdb->update(
+			$this->get_table_name(),
+			array(
+				'updated_at'      => current_time( 'mysql' ),
+				'status'          => $status,
+				'scheduled_at'    => '' !== $scheduled_at ? $scheduled_at : null,
+				'topic'           => $topic,
+				'keyword'         => sanitize_text_field( (string) ( $data['keyword'] ?? '' ) ),
+				'language'        => $language,
+				'article_type_id' => $article_type_id,
+			),
+			array( 'id' => $id ),
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d' ),
+			array( '%d' )
+		);
+
+		if ( false === $updated ) {
+			return new WP_Error( 'wpai_content_idea_update_failed', __( 'Impossibile aggiornare l’idea.', 'wp-ai-publisher' ) );
+		}
+
+		return true;
+	}
+
+	/**
 	 * Validate and insert a content idea row.
 	 *
 	 * @param array<string,mixed> $data Idea data.

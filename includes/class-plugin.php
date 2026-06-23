@@ -115,6 +115,13 @@ final class Plugin {
 	private $guide_members;
 
 	/**
+	 * Bulk import service.
+	 *
+	 * @var Bulk_Import|null
+	 */
+	private $bulk_import;
+
+	/**
 	 * Return singleton instance.
 	 *
 	 * @return Plugin
@@ -155,6 +162,12 @@ final class Plugin {
 		add_filter( 'cron_schedules', array( $this, 'register_cron_schedules' ) );
 		add_action( 'wpai_publisher_run_scheduled_ideas', array( $this->admin, 'process_scheduled_ideas' ) );
 		add_action( 'init', array( $this, 'maybe_schedule_scheduled_ideas_cron' ) );
+
+		// Bulk import of content ideas from CSV (scheduled drafts + Telegram notify).
+		if ( class_exists( __NAMESPACE__ . '\\Bulk_Import' ) ) {
+			$this->bulk_import = new Bulk_Import( $this->db, $this->content_ideas, $this->logger );
+			$this->bulk_import->register();
+		}
 
 		// Telegram integration: inbound webhook → idea + draft, with reply.
 		if ( class_exists( __NAMESPACE__ . '\\Telegram_Integration' ) ) {

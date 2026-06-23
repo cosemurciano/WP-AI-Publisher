@@ -452,7 +452,7 @@ class Draft_Creator {
 	public function update_idea_after_draft_created( $idea_id, $post_id, $status ) {
 		global $wpdb;
 
-		return false !== $wpdb->update(
+		$result = false !== $wpdb->update(
 			$this->db->get_content_ideas_table_name(),
 			array(
 				'status'           => 'draft_created',
@@ -466,6 +466,17 @@ class Draft_Creator {
 			array( '%s', '%s', '%s', '%d', '%s', '%s' ),
 			array( '%d' )
 		);
+
+		/**
+		 * Fires when a draft has been created from a content idea.
+		 *
+		 * @param int    $idea_id Idea ID.
+		 * @param int    $post_id Draft post ID.
+		 * @param string $status  Draft status.
+		 */
+		do_action( 'wpai_publisher_idea_draft_created', absint( $idea_id ), absint( $post_id ), sanitize_key( (string) $status ) );
+
+		return $result;
 	}
 
 	/**
