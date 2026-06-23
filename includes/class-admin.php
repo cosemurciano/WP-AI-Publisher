@@ -99,6 +99,7 @@ class Admin {
 		add_action( 'admin_post_wpai_publisher_create_draft_from_idea', array( $this, 'handle_create_draft_from_idea' ) );
 		add_action( 'admin_post_wpai_publisher_process_idea_job_now', array( $this, 'handle_process_idea_job_now' ) );
 		add_action( 'admin_post_wpai_publisher_assign_article_type_to_idea', array( $this, 'handle_assign_article_type_to_idea' ) );
+		add_action( 'admin_post_wpai_publisher_update_content_idea', array( $this, 'handle_update_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_delete_content_idea', array( $this, 'handle_delete_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_save_article_type', array( $this, 'handle_save_article_type' ) );
 		add_action( 'admin_post_wpai_publisher_delete_article_type', array( $this, 'handle_delete_article_type' ) );
@@ -309,6 +310,43 @@ class Admin {
 		check_admin_referer( 'wpai_publisher_delete_content_idea_' . $idea_id );
 		$deleted = $this->content_ideas->delete_idea( $idea_id );
 		$this->redirect_content_ideas( array( 'wpai_notice' => $deleted ? 'idea_deleted' : 'idea_delete_failed' ) );
+	}
+
+	/**
+	 * Handle editing an existing content idea.
+	 *
+	 * @return void
+	 */
+	public function handle_update_content_idea() {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+		$idea_id = absint( $_POST['idea_id'] ?? 0 );
+		check_admin_referer( 'wpai_publisher_update_content_idea_' . $idea_id );
+
+		$result = $this->content_ideas->update_idea(
+			$idea_id,
+			array(
+				'topic'           => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
+				'keyword'         => sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) ),
+				'language'        => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
+				'article_type_id' => absint( $_POST['article_type_id'] ?? 0 ),
+				'scheduled_at'    => sanitize_text_field( wp_unslash( $_POST['wpai_scheduled_at'] ?? '' ) ),
+			)
+		);
+
+		if ( is_wp_error( $result ) ) {
+			$this->redirect_content_ideas(
+				array(
+					'wpai_notice' => 'idea_update_failed',
+					'wpai_error'  => sanitize_text_field( $result->get_error_message() ),
+					'edit_idea'   => $idea_id,
+					'_wpnonce'    => wp_create_nonce( 'wpai_publisher_edit_content_idea_' . $idea_id ),
+				)
+			);
+		}
+
+		$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_updated' ) );
 	}
 
 	public function handle_assign_article_type_to_idea() {
@@ -570,6 +608,16 @@ class Admin {
 					$dry_run_data['classic_editor_preview'] = $classic_builder->build_from_dry_run( $dry_run_data );
 				}
 
+			}
+		}
+
+		// Edit screen for an existing idea (before it becomes a draft).
+		$edit_idea_id = absint( $_GET['edit_idea'] ?? 0 );
+		if ( $edit_idea_id > 0 && isset( $_GET['_wpnonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'wpai_publisher_edit_content_idea_' . $edit_idea_id ) ) {
+			$edit_idea = $content_ideas->get_idea( $edit_idea_id );
+			if ( $edit_idea ) {
+				include WPAIP_PLUGIN_DIR . 'admin/views/content-idea-edit.php';
+				return;
 			}
 		}
 

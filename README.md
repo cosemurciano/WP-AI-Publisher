@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.53**
+Versione corrente: **0.5.54**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.54
+- Idee contenuto: importazione massiva da CSV (pulsante in basso a destra) con CSV di esempio scaricabile, campi Argomento/Lingua/Tipologia/Programma; tutte le idee importate vanno in programmazione, riepilogo con errori per riga, notifica Telegram alla creazione di ogni bozza, e nuova azione "Modifica" sull'elenco idee.
 
 ### 0.5.53
 - Knowledge base OpenAI: il test dello storage rileva l'inserimento errato di un ID file (file-...) o di un valore non valido al posto di un Vector Store ID (vs_...) e spiega come correggere.

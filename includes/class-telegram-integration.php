@@ -67,6 +67,53 @@ class Telegram_Integration {
 		add_action( 'admin_post_wpai_publisher_telegram_webhook_info', array( $this, 'handle_webhook_info' ) );
 		add_action( 'admin_post_wpai_publisher_telegram_send_help', array( $this, 'handle_send_help' ) );
 		add_filter( 'wpai_publisher_forced_category_ids', array( $this, 'filter_forced_category_ids' ), 10, 2 );
+		add_action( 'wpai_publisher_idea_draft_created', array( $this, 'notify_bulk_import_draft' ), 10, 2 );
+	}
+
+	/**
+	 * Notify allowed Telegram chats when a bulk-imported idea's draft is created.
+	 *
+	 * Only ideas flagged by the bulk importer are announced; the flag is consumed
+	 * once the message is sent.
+	 *
+	 * @param int $idea_id Idea ID.
+	 * @param int $post_id Draft post ID.
+	 * @return void
+	 */
+	public function notify_bulk_import_draft( $idea_id, $post_id ) {
+		$idea_id = absint( $idea_id );
+		$post_id = absint( $post_id );
+		if ( $idea_id <= 0 || $post_id <= 0 || ! class_exists( __NAMESPACE__ . '\\Bulk_Import' ) ) {
+			return;
+		}
+
+		$option = Bulk_Import::NOTIFY_OPTION;
+		$list   = get_option( $option, array() );
+		$list   = is_array( $list ) ? array_map( 'absint', $list ) : array();
+		if ( ! in_array( $idea_id, $list, true ) ) {
+			return;
+		}
+
+		// Consume the flag so we never notify twice.
+		update_option( $option, array_values( array_diff( $list, array( $idea_id ) ) ), false );
+
+		$chat_ids = wpai_publisher_get_telegram_allowed_chat_ids();
+		if ( empty( $chat_ids ) || '' === wpai_publisher_get_telegram_bot_token() ) {
+			return;
+		}
+
+		$title     = get_the_title( $post_id );
+		$edit_link = get_edit_post_link( $post_id, '' );
+		$text      = sprintf(
+			/* translators: 1: post title, 2: edit URL. */
+			__( "✅ Bozza creata (importazione massiva): %1\$s\n%2\$s", 'wp-ai-publisher' ),
+			'' !== $title ? $title : sprintf( __( 'Bozza #%d', 'wp-ai-publisher' ), $post_id ),
+			$edit_link ? $edit_link : ''
+		);
+
+		foreach ( $chat_ids as $chat_id ) {
+			$this->send_message( $chat_id, $text );
+		}
 	}
 
 	/**

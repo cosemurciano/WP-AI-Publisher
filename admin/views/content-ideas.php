@@ -37,6 +37,8 @@ $notices    = array(
 	'idea_scheduled'            => array( 'success', __( 'Idea programmata: la bozza verrà generata alla data impostata.', 'wp-ai-publisher' ) ),
 	'idea_deleted'              => array( 'success', __( 'Idea contenuto eliminata.', 'wp-ai-publisher' ) ),
 	'idea_delete_failed'        => array( 'error', __( 'Impossibile eliminare l’idea contenuto.', 'wp-ai-publisher' ) ),
+	'idea_updated'              => array( 'success', __( 'Idea contenuto aggiornata.', 'wp-ai-publisher' ) ),
+	'idea_update_failed'        => array( 'error', __( 'Impossibile aggiornare l’idea contenuto.', 'wp-ai-publisher' ) ),
 );
 
 $language_labels = array(
@@ -221,7 +223,7 @@ $render_list = static function ( $items ) {
 						<td><?php echo esc_html( (string) $idea->id ); ?></td>
 						<td><span class="<?php echo esc_attr( wpai_publisher_badge_class( $idea_status_display ) ); ?>"><?php echo esc_html( $idea_status_label ); ?></span>
 							<?php if ( 'scheduled' === $idea_status_display && ! empty( $idea->scheduled_at ) ) : ?>
-								<p class="description"><?php echo esc_html( sprintf( __( 'Per: %s', 'wp-ai-publisher' ), (string) $idea->scheduled_at ) ); ?></p>
+								<p class="description"><?php echo esc_html( sprintf( __( 'Per: %s', 'wp-ai-publisher' ), get_date_from_gmt( (string) $idea->scheduled_at, 'd/m/Y H:i' ) ) ); ?></p>
 							<?php endif; ?>
 						</td>
 						<td><?php echo esc_html( wp_trim_words( (string) $idea->topic, 18, '…' ) ); ?></td>
@@ -307,6 +309,10 @@ $render_list = static function ( $items ) {
 								</form>
 							<?php endif; ?>
 							<div class="row-actions wpai-secondary-actions">
+								<?php if ( in_array( sanitize_key( (string) $idea->status ), array( 'new', 'scheduled', 'draft_failed', 'timeout', 'dry_run_failed' ), true ) ) : ?>
+									<?php $edit_url = wp_nonce_url( admin_url( 'admin.php?page=wp-ai-publisher-content-ideas&edit_idea=' . $idea_id ), 'wpai_publisher_edit_content_idea_' . $idea_id ); ?>
+									<a href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html__( 'Modifica', 'wp-ai-publisher' ); ?></a> |
+								<?php endif; ?>
 								<?php if ( ! empty( $idea->dry_run_output ) ) : ?><a href="<?php echo esc_url( $view_url ); ?>"><?php echo esc_html__( 'Visualizza risultato', 'wp-ai-publisher' ); ?></a><?php endif; ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php echo esc_js( __( 'Eliminare questa idea? La bozza eventualmente collegata non verrà eliminata.', 'wp-ai-publisher' ) ); ?>');">
 									<input type="hidden" name="action" value="wpai_publisher_delete_content_idea" />
@@ -494,4 +500,13 @@ $render_list = static function ( $items ) {
 			</details>
 		</section>
 	<?php endif; ?>
+
+	<a class="button button-primary wpai-fab" href="<?php echo esc_url( admin_url( 'admin.php?page=wp-ai-publisher-import-ideas' ) ); ?>" title="<?php echo esc_attr__( 'Importazione massiva di idee', 'wp-ai-publisher' ); ?>">
+		<span class="dashicons dashicons-upload" style="vertical-align:middle;"></span>
+		<?php echo esc_html__( 'Importazione massiva', 'wp-ai-publisher' ); ?>
+	</a>
 </div>
+
+<style>
+.wpai-fab{position:fixed;right:28px;bottom:28px;z-index:9990;display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:24px;box-shadow:0 4px 16px rgba(0,0,0,.2);}
+</style>
