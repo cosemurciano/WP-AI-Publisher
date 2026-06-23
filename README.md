@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.54**
+Versione corrente: **0.5.55**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.55
+- Importazione massiva idee: nuova colonna "Categorie" (nomi separati da virgola, categorie esistenti) che forza le categorie sulla bozza al posto della scelta dell'AI; nomi inesistenti ignorati e segnalati; CSV di esempio aggiornato.
 
 ### 0.5.54
 - Idee contenuto: importazione massiva da CSV (pulsante in basso a destra) con CSV di esempio scaricabile, campi Argomento/Lingua/Tipologia/Programma; tutte le idee importate vanno in programmazione, riepilogo con errori per riga, notifica Telegram alla creazione di ogni bozza, e nuova azione "Modifica" sull'elenco idee.

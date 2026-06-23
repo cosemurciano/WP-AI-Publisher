@@ -50,12 +50,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 	<section class="wpai-card">
 		<h2><?php echo esc_html__( '1. Scarica il file di esempio', 'wp-ai-publisher' ); ?></h2>
-		<p><?php echo esc_html__( 'Il CSV deve contenere le colonne: Argomento principale, Lingua, Tipologia articolo, Programma creazione (data e ora).', 'wp-ai-publisher' ); ?></p>
+		<p><?php echo esc_html__( 'Il CSV deve contenere le colonne: Argomento principale, Lingua, Tipologia articolo, Programma creazione (data e ora), Categorie.', 'wp-ai-publisher' ); ?></p>
 		<ul style="list-style:disc;margin-left:20px;">
 			<li><strong><?php echo esc_html__( 'Argomento principale', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'obbligatorio.', 'wp-ai-publisher' ); ?></li>
 			<li><strong><?php echo esc_html__( 'Lingua', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'codice (it, en, fr, es, de) o nome. Default: it.', 'wp-ai-publisher' ); ?></li>
 			<li><strong><?php echo esc_html__( 'Tipologia articolo', 'wp-ai-publisher' ); ?></strong>: <?php echo $article_types_enabled ? esc_html__( 'nome esatto di una tipologia attiva (obbligatorio).', 'wp-ai-publisher' ) : esc_html__( 'ignorata (tipologie non attive).', 'wp-ai-publisher' ); ?></li>
-			<li><strong><?php echo esc_html__( 'Programma creazione', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'obbligatorio. Formato consigliato: AAAA-MM-GG HH:MM (es. 2026-07-01 09:30).', 'wp-ai-publisher' ); ?></li>
+			<li><strong><?php echo esc_html__( 'Programma creazione', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'obbligatorio. Formato consigliato: AAAA-MM-GG HH:MM (es. 2026-07-01 09:30), nel fuso orario del sito.', 'wp-ai-publisher' ); ?></li>
+			<li><strong><?php echo esc_html__( 'Categorie', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'opzionale. Uno o più nomi di categorie già esistenti, separati da virgola. Vengono assegnate alla bozza al posto della scelta automatica dell’AI. I nomi inesistenti vengono ignorati.', 'wp-ai-publisher' ); ?></li>
 		</ul>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="wpai_publisher_download_idea_sample" />
