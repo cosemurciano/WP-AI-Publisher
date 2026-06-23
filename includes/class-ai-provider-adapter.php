@@ -793,6 +793,7 @@ class AI_Provider_Adapter {
 			'article_type'    => $article_type,
 			'content_outline' => $this->build_outline_from_article_type( $article_type ),
 			'site_data'       => isset( $payload['context'] ) && is_array( $payload['context'] ) ? $payload['context'] : array(),
+			'target_categories' => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $payload['target_categories'] ?? array() ) ) ) ),
 		);
 
 		$prompt  = $this->build_article_from_idea_prompt( $generation_context, $site_context, $article_type );
@@ -1930,6 +1931,15 @@ class AI_Provider_Adapter {
 			);
 		}
 
+		$categories_line = '';
+		$target_categories = array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $generation_context['target_categories'] ?? array() ) ) ) );
+		if ( ! empty( $target_categories ) ) {
+			$categories_line = sprintf(
+				"\nCATEGORIE OBIETTIVO: inquadra l'articolo nelle seguenti categorie del sito: %s. Tienine conto nel taglio, negli esempi e nella terminologia, e includi questi nomi tra le categorie scelte in category_ids quando presenti nell'elenco categories.",
+				implode( ', ', $target_categories )
+			);
+		}
+
 		return sprintf(
 			"Scrivi un articolo completo, originale e pubblicabile per il lettore (non una scaletta), pronto per una bozza WordPress in Editor Classico.\n" .
 			"Restituisci SOLO un oggetto JSON valido (nessun testo fuori dal JSON, nessun markdown) con questi campi:\n" .
@@ -1940,14 +1950,15 @@ class AI_Provider_Adapter {
 			"- \"category_ids\": array di ID interi scelti ESCLUSIVAMENTE tra le categorie fornite (campo categories). Scegli 1-2 categorie coerenti.\n" .
 			"- \"meta_title\": titolo SEO (max ~60 caratteri). \"meta_description\": descrizione SEO (max ~160 caratteri).\n" .
 			"- \"featured_image_alt\": breve testo alternativo descrittivo per l'immagine di copertina (cosa rappresenta), utile a SEO e accessibilità, senza keyword stuffing.\n" .
-			"Inserisci nel campo html alcuni link interni pertinenti usando ESCLUSIVAMENTE gli URL reali forniti in internal_links (tag <a href>), dove hanno senso nel testo; non inventare URL. Non inventare dati tecnici, prezzi, normative o date non verificabili. Usa il Contesto editoriale del sito come quadro generale e la Tipologia articolo come istruzione principale.%1\$s%6\$s\n" .
+			"Inserisci nel campo html alcuni link interni pertinenti usando ESCLUSIVAMENTE gli URL reali forniti in internal_links (tag <a href>), dove hanno senso nel testo; non inventare URL. Non inventare dati tecnici, prezzi, normative o date non verificabili. Usa il Contesto editoriale del sito come quadro generale e la Tipologia articolo come istruzione principale.%1\$s%6\$s%7\$s\n" .
 			"Lingua dell'articolo: %2\$s.\nArgomento principale: %3\$s.\nKeyword principale: %4\$s.\nVincoli, dati del sito e istruzioni:\n%5\$s",
 			$sections_line,
 			$generation_context['language'],
 			$generation_context['topic'],
 			$generation_context['keyword'],
 			false !== $constraints_json ? $constraints_json : '{}',
-			$image_line
+			$image_line,
+			$categories_line
 		);
 	}
 

@@ -111,10 +111,6 @@ $render_list = static function ( $items ) {
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="wpai-content-keyword"><?php echo esc_html__( 'Keyword principale', 'wp-ai-publisher' ); ?></label></th>
-						<td><input id="wpai-content-keyword" name="keyword" type="text" class="regular-text" /></td>
-					</tr>
-					<tr>
 						<th scope="row"><label for="wpai-content-language"><?php echo esc_html__( 'Lingua', 'wp-ai-publisher' ); ?></label></th>
 						<td>
 							<select id="wpai-content-language" name="language">
@@ -137,8 +133,15 @@ $render_list = static function ( $items ) {
 							</td>
 						</tr>
 					<?php endif; ?>
-					<tr>
-						<th scope="row"><label for="wpai-content-scheduled-at"><?php echo esc_html__( 'Programma creazione (opzionale)', 'wp-ai-publisher' ); ?></label></th>
+						<tr>
+							<th scope="row"><label><?php echo esc_html__( 'Categorie', 'wp-ai-publisher' ); ?></label></th>
+							<td>
+								<?php wpai_publisher_render_category_tagbox( array() ); ?>
+								<p class="description"><?php echo esc_html__( 'Opzionale. Le categorie indicate vengono assegnate alla bozza e comunicate all’AI. Lascia vuoto per far scegliere l’AI.', 'wp-ai-publisher' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="wpai-content-scheduled-at"><?php echo esc_html__( 'Programma creazione (opzionale)', 'wp-ai-publisher' ); ?></label></th>
 						<td>
 							<input type="datetime-local" id="wpai-content-scheduled-at" name="wpai_scheduled_at" value="" />
 							<p class="description"><?php echo esc_html__( 'Imposta data e ora e usa il pulsante “Programma” per generare la bozza automaticamente in seguito.', 'wp-ai-publisher' ); ?></p>
@@ -189,7 +192,7 @@ $render_list = static function ( $items ) {
 					<th scope="col"><?php echo esc_html__( 'ID', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Stato', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Argomento', 'wp-ai-publisher' ); ?></th>
-					<th scope="col"><?php echo esc_html__( 'Keyword', 'wp-ai-publisher' ); ?></th>
+					<th scope="col"><?php echo esc_html__( 'Categorie', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Lingua', 'wp-ai-publisher' ); ?></th>
 					<?php if ( $article_types_enabled ) : ?><th scope="col"><?php echo esc_html__( 'Tipologia articolo', 'wp-ai-publisher' ); ?></th><?php endif; ?>
 					<th scope="col"><?php echo esc_html__( 'Data creazione', 'wp-ai-publisher' ); ?></th>
@@ -227,7 +230,7 @@ $render_list = static function ( $items ) {
 							<?php endif; ?>
 						</td>
 						<td><?php echo esc_html( wp_trim_words( (string) $idea->topic, 18, '…' ) ); ?></td>
-						<td><?php echo '' !== (string) $idea->keyword ? esc_html( (string) $idea->keyword ) : esc_html__( '—', 'wp-ai-publisher' ); ?></td>
+						<td><?php $wpai_cat_names = $content_ideas->get_idea_category_names( $idea ); echo ! empty( $wpai_cat_names ) ? esc_html( implode( ', ', $wpai_cat_names ) ) : esc_html__( '—', 'wp-ai-publisher' ); ?></td>
 						<td><?php echo esc_html( $language_labels[ $idea->language ] ?? (string) $idea->language ); ?></td>
 						<?php if ( $article_types_enabled ) : ?>
 						<td>

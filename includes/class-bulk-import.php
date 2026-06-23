@@ -16,9 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Bulk_Import {
 
-	const PAGE             = 'wp-ai-publisher-import-ideas';
-	const NOTIFY_OPTION    = 'wpai_publisher_bulk_import_notify';
-	const CATEGORIES_OPTION = 'wpai_publisher_bulk_import_categories';
+	const PAGE          = 'wp-ai-publisher-import-ideas';
+	const NOTIFY_OPTION = 'wpai_publisher_bulk_import_notify';
 
 	/**
 	 * DB service.
@@ -63,41 +62,6 @@ class Bulk_Import {
 		add_action( 'admin_menu', array( $this, 'register_page' ), 11 );
 		add_action( 'admin_post_wpai_publisher_import_ideas', array( $this, 'handle_import' ) );
 		add_action( 'admin_post_wpai_publisher_download_idea_sample', array( $this, 'handle_download_sample' ) );
-
-		// Force the categories chosen at import time onto the generated draft.
-		add_filter( 'wpai_publisher_forced_category_ids', array( $this, 'filter_forced_category_ids' ), 10, 2 );
-		add_action( 'wpai_publisher_idea_draft_created', array( $this, 'cleanup_categories' ), 20, 1 );
-	}
-
-	/**
-	 * Drop the stored forced categories once the draft has been created.
-	 *
-	 * @param int $idea_id Idea ID.
-	 * @return void
-	 */
-	public function cleanup_categories( $idea_id ) {
-		$map = get_option( self::CATEGORIES_OPTION, array() );
-		$idea_id = absint( $idea_id );
-		if ( is_array( $map ) && isset( $map[ $idea_id ] ) ) {
-			unset( $map[ $idea_id ] );
-			update_option( self::CATEGORIES_OPTION, $map, false );
-		}
-	}
-
-	/**
-	 * Provide the imported categories for an idea (overrides the AI choice).
-	 *
-	 * @param array<int,int> $forced  Current forced IDs.
-	 * @param int            $idea_id Idea ID.
-	 * @return array<int,int>
-	 */
-	public function filter_forced_category_ids( $forced, $idea_id ) {
-		$map = get_option( self::CATEGORIES_OPTION, array() );
-		$idea_id = absint( $idea_id );
-		if ( is_array( $map ) && ! empty( $map[ $idea_id ] ) && is_array( $map[ $idea_id ] ) ) {
-			return array_values( array_filter( array_map( 'absint', $map[ $idea_id ] ) ) );
-		}
-		return $forced;
 	}
 
 	/**
@@ -261,11 +225,28 @@ class Bulk_Import {
 				$article_type_id = (int) $type_map[ $key ];
 			}
 
+			// Resolve category names (comma-separated) to existing category IDs.
+			// Unknown names are reported but do not block the import.
+			$category_ids = array();
+			if ( '' !== $cats_raw ) {
+				$resolved     = $this->resolve_category_names( $cats_raw );
+				$category_ids = $resolved['ids'];
+				if ( ! empty( $resolved['unknown'] ) ) {
+					$feedback['errors'][] = sprintf(
+						/* translators: 1: line, 2: category names */
+						__( 'Riga %1$d: categorie ignorate (inesistenti): %2$s', 'wp-ai-publisher' ),
+						$line,
+						implode( ', ', $resolved['unknown'] )
+					);
+				}
+			}
+
 			$idea_id = $this->content_ideas->create_idea_programmatic(
 				array(
 					'topic'           => $topic,
 					'language'        => $language,
 					'article_type_id' => $article_type_id,
+					'category_ids'    => $category_ids,
 					'scheduled_at'    => $this->parse_datetime( $schedule ),
 					'notes'           => __( 'Importazione massiva CSV', 'wp-ai-publisher' ),
 				)
@@ -275,24 +256,6 @@ class Bulk_Import {
 				$feedback['skipped']++;
 				$feedback['errors'][] = sprintf( __( 'Riga %1$d: %2$s', 'wp-ai-publisher' ), $line, $idea_id->get_error_message() );
 				continue;
-			}
-
-			// Resolve category names (comma-separated) to existing category IDs and
-			// force them on the generated draft. Unknown names are reported but do
-			// not block the import.
-			if ( '' !== $cats_raw ) {
-				$resolved = $this->resolve_category_names( $cats_raw );
-				if ( ! empty( $resolved['ids'] ) ) {
-					$this->store_categories( (int) $idea_id, $resolved['ids'] );
-				}
-				if ( ! empty( $resolved['unknown'] ) ) {
-					$feedback['errors'][] = sprintf(
-						/* translators: 1: line, 2: category names */
-						__( 'Riga %1$d: categorie ignorate (inesistenti): %2$s', 'wp-ai-publisher' ),
-						$line,
-						implode( ', ', $resolved['unknown'] )
-					);
-				}
 			}
 
 			$this->flag_for_notify( (int) $idea_id );
@@ -504,22 +467,6 @@ class Bulk_Import {
 			'ids'     => array_values( array_unique( $ids ) ),
 			'unknown' => array_values( array_unique( $unknown ) ),
 		);
-	}
-
-	/**
-	 * Store the forced categories for an imported idea.
-	 *
-	 * @param int            $idea_id Idea ID.
-	 * @param array<int,int> $ids Category IDs.
-	 * @return void
-	 */
-	private function store_categories( $idea_id, $ids ) {
-		$map = get_option( self::CATEGORIES_OPTION, array() );
-		if ( ! is_array( $map ) ) {
-			$map = array();
-		}
-		$map[ absint( $idea_id ) ] = array_values( array_filter( array_map( 'absint', $ids ) ) );
-		update_option( self::CATEGORIES_OPTION, $map, false );
 	}
 
 	private function flag_for_notify( $idea_id ) {

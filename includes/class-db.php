@@ -137,6 +137,7 @@ class DB {
 			target_audience VARCHAR(255) NULL,
 			tutorial_level VARCHAR(50) NULL,
 			article_type_id BIGINT unsigned NULL,
+			category_ids LONGTEXT NULL,
 			notes LONGTEXT NULL,
 			dry_run_output LONGTEXT NULL,
 			validation_notes LONGTEXT NULL,
@@ -209,7 +210,25 @@ class DB {
 		$this->ensure_content_ideas_draft_columns();
 		$this->ensure_content_ideas_article_type_column();
 		$this->ensure_content_ideas_scheduled_column();
+		$this->ensure_content_ideas_category_ids_column();
 		$this->ensure_article_types_image_prompt_column();
+	}
+
+	/**
+	 * Ensure schema 11 category_ids column exists on the content ideas table.
+	 *
+	 * @return void
+	 */
+	public function ensure_content_ideas_category_ids_column() {
+		global $wpdb;
+		$table = $this->get_content_ideas_table_name();
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+			return;
+		}
+		$columns = (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+		if ( ! in_array( 'category_ids', $columns, true ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN category_ids LONGTEXT NULL AFTER article_type_id" );
+		}
 	}
 
 	/**

@@ -248,12 +248,13 @@ class Admin {
 		$creation_mode = sanitize_key( wp_unslash( $_POST['wpai_creation_mode'] ?? '' ) );
 		$scheduled_at  = ( 'schedule' === $creation_mode ) ? sanitize_text_field( wp_unslash( $_POST['wpai_scheduled_at'] ?? '' ) ) : '';
 
+		$posted_categories = isset( $_POST['tax_input']['category'] ) ? sanitize_text_field( wp_unslash( $_POST['tax_input']['category'] ) ) : '';
 		$idea_id = $this->content_ideas->create_idea(
 			array(
 				'topic'           => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
-				'keyword'         => sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) ),
 				'language'        => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
 				'article_type_id' => absint( $_POST['article_type_id'] ?? 0 ),
+				'category_ids'    => $posted_categories,
 				'scheduled_at'    => $scheduled_at,
 				'_wpnonce'        => sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ?? '' ) ),
 			)
@@ -324,13 +325,14 @@ class Admin {
 		$idea_id = absint( $_POST['idea_id'] ?? 0 );
 		check_admin_referer( 'wpai_publisher_update_content_idea_' . $idea_id );
 
+		$posted_categories = isset( $_POST['tax_input']['category'] ) ? sanitize_text_field( wp_unslash( $_POST['tax_input']['category'] ) ) : '';
 		$result = $this->content_ideas->update_idea(
 			$idea_id,
 			array(
 				'topic'           => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
-				'keyword'         => sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) ),
 				'language'        => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
 				'article_type_id' => absint( $_POST['article_type_id'] ?? 0 ),
+				'category_ids'    => $posted_categories,
 				'scheduled_at'    => sanitize_text_field( wp_unslash( $_POST['wpai_scheduled_at'] ?? '' ) ),
 			)
 		);
