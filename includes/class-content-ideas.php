@@ -363,11 +363,23 @@ class Content_Ideas {
 	 * @return array<int,int>
 	 */
 	public function get_idea_category_ids( $idea ) {
-		if ( ! $idea || empty( $idea->category_ids ) ) {
+		if ( ! $idea ) {
 			return array();
 		}
-		$decoded = json_decode( (string) $idea->category_ids, true );
-		return is_array( $decoded ) ? array_values( array_filter( array_map( 'absint', $decoded ) ) ) : array();
+		$decoded = ! empty( $idea->category_ids ) ? json_decode( (string) $idea->category_ids, true ) : array();
+		$ids     = is_array( $decoded ) ? array_values( array_filter( array_map( 'absint', $decoded ) ) ) : array();
+
+		// Backward compatibility: ideas imported before the category column existed
+		// stored their categories in a legacy option keyed by idea ID.
+		if ( empty( $ids ) && ! empty( $idea->id ) ) {
+			$legacy = get_option( 'wpai_publisher_bulk_import_categories', array() );
+			$key    = absint( $idea->id );
+			if ( is_array( $legacy ) && ! empty( $legacy[ $key ] ) && is_array( $legacy[ $key ] ) ) {
+				$ids = array_values( array_filter( array_map( 'absint', $legacy[ $key ] ) ) );
+			}
+		}
+
+		return $ids;
 	}
 
 	/**

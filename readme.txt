@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.56
+Stable tag: 0.5.57
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.57 =
+* Modifica idea: le categorie associate vengono ora mostrate anche per le idee già create o importate con le versioni precedenti (0.5.55), che salvavano le categorie nel vecchio meccanismo a opzione. Aggiunto un fallback di compatibilità: le categorie compaiono nei chip in modifica, nell'elenco e vengono usate anche alla generazione della bozza. Salvando l'idea, le categorie vengono migrate definitivamente sul campo dell'idea.
 
 = 0.5.56 =
 * Idee contenuto: le categorie sono ora un campo dell'idea, gestito con l'interfaccia a tag di WordPress (chip rimovibili + autocompletamento) nella creazione e nella modifica. In modifica vengono mostrate le categorie già associate. Le categorie sono salvate sull'idea e inviate anche all'AI per orientare il contenuto, oltre a essere assegnate alla bozza (nel rispetto delle restrizioni della Tipologia articolo).

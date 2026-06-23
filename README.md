@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.56**
+Versione corrente: **0.5.57**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.57
+- Modifica idea: le categorie associate vengono mostrate anche per le idee importate/create con la 0.5.55 (fallback dal vecchio meccanismo a opzione); compaiono in modifica, nell'elenco e alla generazione, e vengono migrate sul campo dell'idea al salvataggio.
 
 ### 0.5.56
 - Idee contenuto: categorie come campo dell'idea con UI a tag di WordPress (creazione/modifica, precompilate in modifica), salvate sull'idea e inviate all'AI oltre che assegnate alla bozza; import CSV allineato; rimosso il campo "Keyword principale" (sostituito da Categorie nell'elenco).
