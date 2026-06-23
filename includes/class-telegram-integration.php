@@ -67,11 +67,14 @@ class Telegram_Integration {
 		add_action( 'admin_post_wpai_publisher_telegram_webhook_info', array( $this, 'handle_webhook_info' ) );
 		add_action( 'admin_post_wpai_publisher_telegram_send_help', array( $this, 'handle_send_help' ) );
 		add_filter( 'wpai_publisher_forced_category_ids', array( $this, 'filter_forced_category_ids' ), 10, 2 );
-		add_action( 'wpai_publisher_idea_draft_created', array( $this, 'notify_bulk_import_draft' ), 10, 2 );
+		// Notify only once the draft is fully assembled (images generated/inserted),
+		// not at creation time, to avoid announcing a draft that still contains
+		// unresolved image placeholders.
+		add_action( 'wpai_publisher_idea_draft_finalized', array( $this, 'notify_bulk_import_draft' ), 10, 2 );
 	}
 
 	/**
-	 * Notify allowed Telegram chats when a bulk-imported idea's draft is created.
+	 * Notify allowed Telegram chats when a bulk-imported idea's draft is ready.
 	 *
 	 * Only ideas flagged by the bulk importer are announced; the flag is consumed
 	 * once the message is sent.
@@ -102,13 +105,15 @@ class Telegram_Integration {
 			return;
 		}
 
-		$title     = get_the_title( $post_id );
-		$edit_link = get_edit_post_link( $post_id, '' );
+		$title = get_the_title( $post_id );
+		// Build the edit URL directly: get_edit_post_link() returns empty in a
+		// cron/no-user context because it checks edit capabilities.
+		$edit_link = admin_url( 'post.php?post=' . $post_id . '&action=edit' );
 		$text      = sprintf(
 			/* translators: 1: post title, 2: edit URL. */
 			__( "✅ Bozza creata (importazione massiva): %1\$s\n%2\$s", 'wp-ai-publisher' ),
 			'' !== $title ? $title : sprintf( __( 'Bozza #%d', 'wp-ai-publisher' ), $post_id ),
-			$edit_link ? $edit_link : ''
+			$edit_link
 		);
 
 		foreach ( $chat_ids as $chat_id ) {

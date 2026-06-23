@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.57**
+Versione corrente: **0.5.58**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.58
+- Ultime idee: filtri e ordinamento (stato/tipologia/categoria; ordina per creazione, programmazione o aggiornamento) e colonna Categorie. Telegram: link alla bozza sempre presente (fix get_edit_post_link in cron) e messaggio inviato solo a bozza completa, dopo l'inserimento delle immagini (nuovo hook wpai_publisher_idea_draft_finalized).
 
 ### 0.5.57
 - Modifica idea: le categorie associate vengono mostrate anche per le idee importate/create con la 0.5.55 (fallback dal vecchio meccanismo a opzione); compaiono in modifica, nell'elenco e alla generazione, e vengono migrate sul campo dell'idea al salvataggio.

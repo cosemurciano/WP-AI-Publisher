@@ -160,6 +160,63 @@ $render_list = static function ( $items ) {
 	</section>
 
 	<h2><?php echo esc_html__( 'Ultime idee', 'wp-ai-publisher' ); ?></h2>
+
+	<?php
+	$wpai_f         = isset( $idea_filters ) && is_array( $idea_filters ) ? $idea_filters : array();
+	$wpai_f_status  = (string) ( $wpai_f['status'] ?? '' );
+	$wpai_f_type    = absint( $wpai_f['article_type_id'] ?? 0 );
+	$wpai_f_cat     = absint( $wpai_f['category_id'] ?? 0 );
+	$wpai_f_orderby = (string) ( $wpai_f['orderby'] ?? 'created_at' );
+	$wpai_f_order   = strtoupper( (string) ( $wpai_f['order'] ?? 'DESC' ) ) === 'ASC' ? 'ASC' : 'DESC';
+	$wpai_statuses  = array(
+		'new'                => __( 'Nuova', 'wp-ai-publisher' ),
+		'scheduled'          => __( 'Programmata', 'wp-ai-publisher' ),
+		'processing'         => __( 'In elaborazione', 'wp-ai-publisher' ),
+		'full_article_ready' => __( 'Articolo pronto', 'wp-ai-publisher' ),
+		'draft_created'      => __( 'Bozza creata', 'wp-ai-publisher' ),
+		'draft_failed'       => __( 'Errore bozza', 'wp-ai-publisher' ),
+		'timeout'            => __( 'Scaduto', 'wp-ai-publisher' ),
+	);
+	$wpai_cats = get_categories( array( 'hide_empty' => false ) );
+	?>
+	<form method="get" class="wpai-ideas-filters" style="margin:12px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+		<input type="hidden" name="page" value="wp-ai-publisher-content-ideas" />
+		<label class="screen-reader-text" for="wpai-filter-status"><?php echo esc_html__( 'Stato', 'wp-ai-publisher' ); ?></label>
+		<select id="wpai-filter-status" name="idea_status">
+			<option value=""><?php echo esc_html__( 'Tutti gli stati', 'wp-ai-publisher' ); ?></option>
+			<?php foreach ( $wpai_statuses as $wpai_skey => $wpai_slabel ) : ?>
+				<option value="<?php echo esc_attr( $wpai_skey ); ?>" <?php selected( $wpai_f_status, $wpai_skey ); ?>><?php echo esc_html( $wpai_slabel ); ?></option>
+			<?php endforeach; ?>
+		</select>
+		<?php if ( $article_types_enabled && ! empty( $active_article_types ) ) : ?>
+			<select name="idea_article_type">
+				<option value="0"><?php echo esc_html__( 'Tutte le tipologie', 'wp-ai-publisher' ); ?></option>
+				<?php foreach ( $active_article_types as $wpai_at ) : ?>
+					<option value="<?php echo esc_attr( (string) $wpai_at['id'] ); ?>" <?php selected( $wpai_f_type, (int) $wpai_at['id'] ); ?>><?php echo esc_html( $wpai_at['name'] ); ?></option>
+				<?php endforeach; ?>
+			</select>
+		<?php endif; ?>
+		<?php if ( ! empty( $wpai_cats ) ) : ?>
+			<select name="idea_category">
+				<option value="0"><?php echo esc_html__( 'Tutte le categorie', 'wp-ai-publisher' ); ?></option>
+				<?php foreach ( $wpai_cats as $wpai_cat ) : ?>
+					<option value="<?php echo esc_attr( (string) $wpai_cat->term_id ); ?>" <?php selected( $wpai_f_cat, (int) $wpai_cat->term_id ); ?>><?php echo esc_html( $wpai_cat->name ); ?></option>
+				<?php endforeach; ?>
+			</select>
+		<?php endif; ?>
+		<select name="idea_orderby">
+			<option value="created_at" <?php selected( $wpai_f_orderby, 'created_at' ); ?>><?php echo esc_html__( 'Data creazione', 'wp-ai-publisher' ); ?></option>
+			<option value="scheduled_at" <?php selected( $wpai_f_orderby, 'scheduled_at' ); ?>><?php echo esc_html__( 'Programmazione', 'wp-ai-publisher' ); ?></option>
+			<option value="updated_at" <?php selected( $wpai_f_orderby, 'updated_at' ); ?>><?php echo esc_html__( 'Ultimo aggiornamento', 'wp-ai-publisher' ); ?></option>
+		</select>
+		<select name="idea_order">
+			<option value="desc" <?php selected( $wpai_f_order, 'DESC' ); ?>><?php echo esc_html__( 'Decrescente', 'wp-ai-publisher' ); ?></option>
+			<option value="asc" <?php selected( $wpai_f_order, 'ASC' ); ?>><?php echo esc_html__( 'Crescente', 'wp-ai-publisher' ); ?></option>
+		</select>
+		<button type="submit" class="button"><?php echo esc_html__( 'Filtra', 'wp-ai-publisher' ); ?></button>
+		<a class="button-link" href="<?php echo esc_url( admin_url( 'admin.php?page=wp-ai-publisher-content-ideas' ) ); ?>"><?php echo esc_html__( 'Reimposta', 'wp-ai-publisher' ); ?></a>
+	</form>
+
 	<?php if ( empty( $ideas ) ) : ?>
 		<div class="notice notice-info inline">
 			<p><?php echo esc_html__( 'Nessuna idea contenuto presente. Inserisci un argomento per crearne una.', 'wp-ai-publisher' ); ?></p>
