@@ -511,9 +511,10 @@ class Guide_Assistant {
 				<?php if ( ! empty( $quick_replies ) ) : ?>
 					<div class="wpai-guide__chips">
 						<?php foreach ( $quick_replies as $qr ) : ?>
+							<?php $qr_label = '' !== trim( (string) ( $qr->label ?? '' ) ) ? (string) $qr->label : wp_trim_words( (string) $qr->query, 7, '…' ); ?>
 							<button type="button" class="wpai-guide__chip" data-query="<?php echo esc_attr( (string) $qr->query ); ?>">
 								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-								<?php echo esc_html( wp_trim_words( (string) $qr->query, 7, '…' ) ); ?>
+								<?php echo esc_html( $qr_label ); ?>
 							</button>
 						<?php endforeach; ?>
 					</div>
@@ -1244,8 +1245,9 @@ class Guide_Assistant {
 			return;
 		}
 
-		$requests  = $this->get_requests( 100 );
-		$quick_ids = $this->get_quick_reply_ids();
+		$requests   = $this->get_requests( 100 );
+		$quick_map  = $this->get_quick_reply_map();
+		$quick_ids  = array_keys( $quick_map );
 		require WPAIP_PLUGIN_DIR . 'admin/views/guide-requests.php';
 	}
 
@@ -1275,33 +1277,57 @@ class Guide_Assistant {
 	}
 
 	/**
+	 * The quick-reply selection as an ordered map of request ID => custom label.
+	 *
+	 * Backward compatible with the legacy storage (a plain list of IDs).
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_quick_reply_map() {
+		$opt = get_option( self::QUICK_OPTION, array() );
+		if ( ! is_array( $opt ) || empty( $opt ) ) {
+			return array();
+		}
+		$map = array();
+		if ( array_is_list( $opt ) ) {
+			foreach ( $opt as $id ) {
+				$map[ absint( $id ) ] = '';
+			}
+		} else {
+			foreach ( $opt as $id => $label ) {
+				$map[ absint( $id ) ] = sanitize_text_field( (string) $label );
+			}
+		}
+		unset( $map[0] );
+		return $map;
+	}
+
+	/**
 	 * IDs of the requests flagged as quick replies (shown under the input).
 	 *
 	 * @return array<int,int>
 	 */
 	public function get_quick_reply_ids() {
-		$ids = get_option( self::QUICK_OPTION, array() );
-		return is_array( $ids ) ? array_values( array_filter( array_map( 'absint', $ids ) ) ) : array();
+		return array_values( array_map( 'absint', array_keys( $this->get_quick_reply_map() ) ) );
 	}
 
 	/**
-	 * Fetch the quick-reply requests (id + query) in selection order.
+	 * Fetch the quick-reply requests (id + query + label) in selection order.
 	 *
 	 * @param int $limit Max items.
 	 * @return array<int,object>
 	 */
 	public function get_quick_reply_requests( $limit = 8 ) {
-		$ids = $this->get_quick_reply_ids();
-		if ( empty( $ids ) ) {
+		$map = $this->get_quick_reply_map();
+		if ( empty( $map ) ) {
 			return array();
 		}
+		$ids = array_slice( array_keys( $map ), 0, max( 1, (int) $limit ) );
 		global $wpdb;
 		$table        = $this->db->get_guide_requests_table_name();
-		$ids          = array_slice( $ids, 0, max( 1, (int) $limit ) );
 		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders built from integer count.
 		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, query FROM {$table} WHERE id IN ({$placeholders})", $ids ) );
-		// Preserve the saved selection order.
 		$by_id = array();
 		foreach ( (array) $rows as $row ) {
 			$by_id[ (int) $row->id ] = $row;
@@ -1309,14 +1335,15 @@ class Guide_Assistant {
 		$ordered = array();
 		foreach ( $ids as $id ) {
 			if ( isset( $by_id[ $id ] ) ) {
-				$ordered[] = $by_id[ $id ];
+				$by_id[ $id ]->label = (string) ( $map[ $id ] ?? '' );
+				$ordered[]           = $by_id[ $id ];
 			}
 		}
 		return $ordered;
 	}
 
 	/**
-	 * Save the quick-reply selection from the requests list.
+	 * Save the quick-reply selection (and custom labels) from the requests list.
 	 *
 	 * @return void
 	 */
@@ -1326,10 +1353,16 @@ class Guide_Assistant {
 		}
 		check_admin_referer( 'wpai_publisher_save_guide_quick_replies' );
 
-		$ids = isset( $_POST['quick_replies'] ) && is_array( $_POST['quick_replies'] )
+		$checked = isset( $_POST['quick_replies'] ) && is_array( $_POST['quick_replies'] )
 			? array_values( array_filter( array_map( 'absint', wp_unslash( $_POST['quick_replies'] ) ) ) )
 			: array();
-		update_option( self::QUICK_OPTION, $ids, false );
+		$labels = isset( $_POST['quick_label'] ) && is_array( $_POST['quick_label'] ) ? wp_unslash( $_POST['quick_label'] ) : array();
+
+		$map = array();
+		foreach ( $checked as $id ) {
+			$map[ $id ] = sanitize_text_field( (string) ( $labels[ $id ] ?? '' ) );
+		}
+		update_option( self::QUICK_OPTION, $map, false );
 
 		wp_safe_redirect( add_query_arg( 'wpai_notice', 'guide_quick_saved', admin_url( 'admin.php?page=wp-ai-publisher-guide-requests' ) ) );
 		exit;

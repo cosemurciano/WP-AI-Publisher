@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.59**
+Versione corrente: **0.5.60**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.60
+- Risposte veloci: "Etichetta chip" personalizzabile per ogni richiesta (se vuota usa la richiesta accorciata); al clic invia comunque la richiesta completa.
 
 ### 0.5.59
 - Assistente Guide AI: shortcode ridisegnato in stile "hero" (eyebrow, titolo gradiente azzurro→viola, testo introduttivo, prompt a pillola con send circolare, value props) con nuovi campi testo nelle impostazioni; "risposte veloci" selezionabili con una spunta nella lista Richieste guide e mostrate come chip cliccabili sotto il campo di ricerca.
