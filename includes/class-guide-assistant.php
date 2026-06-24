@@ -31,6 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Guide_Assistant {
 
 	const OPTION         = 'wpai_publisher_guide_assistant';
+	const QUICK_OPTION   = 'wpai_publisher_guide_quick_replies';
 	const REST_NAMESPACE = 'wp-ai-publisher/v1';
 	const REST_ROUTE     = '/guide';
 	const NONCE_ACTION   = 'wpai_guide_request';
@@ -92,6 +93,7 @@ class Guide_Assistant {
 		add_action( 'admin_post_wpai_publisher_save_guide_assistant', array( $this, 'handle_save_settings' ) );
 		add_action( 'admin_post_wpai_publisher_guide_request_to_idea', array( $this, 'handle_convert_to_idea' ) );
 		add_action( 'admin_post_wpai_publisher_delete_guide_request', array( $this, 'handle_delete_request' ) );
+		add_action( 'admin_post_wpai_publisher_save_guide_quick_replies', array( $this, 'handle_save_quick_replies' ) );
 
 		// Keep generated guide pages out of search engines and front-end search.
 		add_filter( 'wp_robots', array( $this, 'filter_guide_robots' ) );
@@ -309,6 +311,11 @@ class Guide_Assistant {
 			'system_instructions'      => __( 'Sei un assistente esperto del sito. Rispondi alla richiesta dell’utente con una guida pratica, chiara e ben strutturata, citando e collegando gli articoli pertinenti del sito.', 'wp-ai-publisher' ),
 			'placeholder'              => __( 'Descrivi cosa vuoi imparare o risolvere…', 'wp-ai-publisher' ),
 			'heading'                  => __( 'Crea la tua guida personalizzata', 'wp-ai-publisher' ),
+			'eyebrow'                  => __( 'La tua guida WordPress, su misura', 'wp-ai-publisher' ),
+			'subtext'                  => __( 'Spiega cosa vuoi imparare o quale problema vuoi risolvere, con parole tue. Ricevi in pochi secondi una guida chiara e completa, scritta apposta per la tua situazione.', 'wp-ai-publisher' ),
+			'value_1'                  => __( 'Su misura per te', 'wp-ai-publisher' ),
+			'value_2'                  => __( 'Spiegata passo dopo passo', 'wp-ai-publisher' ),
+			'value_3'                  => __( 'Sempre aggiornata', 'wp-ai-publisher' ),
 			'language'                 => 'it',
 			'max_articles'             => 4,
 			'search_post_types'        => array( 'post' ),
@@ -378,6 +385,11 @@ class Guide_Assistant {
 			'system_instructions'      => sanitize_textarea_field( (string) ( $input['system_instructions'] ?? $defaults['system_instructions'] ) ),
 			'placeholder'              => sanitize_text_field( (string) ( $input['placeholder'] ?? $defaults['placeholder'] ) ),
 			'heading'                  => sanitize_text_field( (string) ( $input['heading'] ?? $defaults['heading'] ) ),
+			'eyebrow'                  => sanitize_text_field( (string) ( $input['eyebrow'] ?? $defaults['eyebrow'] ) ),
+			'subtext'                  => sanitize_textarea_field( (string) ( $input['subtext'] ?? $defaults['subtext'] ) ),
+			'value_1'                  => sanitize_text_field( (string) ( $input['value_1'] ?? '' ) ),
+			'value_2'                  => sanitize_text_field( (string) ( $input['value_2'] ?? '' ) ),
+			'value_3'                  => sanitize_text_field( (string) ( $input['value_3'] ?? '' ) ),
 			'language'                 => in_array( $lang, $allowed_langs, true ) ? $lang : 'it',
 			'max_articles'             => min( 10, max( 1, absint( $input['max_articles'] ?? $defaults['max_articles'] ) ) ),
 			'search_post_types'        => ! empty( $post_types ) ? array_values( array_unique( $post_types ) ) : array( 'post' ),
@@ -467,26 +479,54 @@ class Guide_Assistant {
 
 		$uid = 'wpai-guide-' . wp_generate_password( 6, false, false );
 		$show_deleted_notice = isset( $_GET['guide_deleted'] );
+		$quick_replies = $this->get_quick_reply_requests( 8 );
+		$values = array_values( array_filter( array( (string) $config['value_1'], (string) $config['value_2'], (string) $config['value_3'] ) ) );
 		ob_start();
 		?>
 		<div class="wpai-guide" id="<?php echo esc_attr( $uid ); ?>">
-			<?php if ( '' !== trim( (string) $atts['heading'] ) ) : ?>
-				<h2 class="wpai-guide__heading"><?php echo esc_html( $atts['heading'] ); ?></h2>
-			<?php endif; ?>
-			<?php if ( $show_deleted_notice && '' !== trim( (string) $config['deleted_message'] ) ) : ?>
-				<div class="wpai-guide__deleted-notice"><?php echo esc_html( (string) $config['deleted_message'] ); ?></div>
-			<?php endif; ?>
-			<form class="wpai-guide__form" autocomplete="off">
-				<div class="wpai-guide__field">
-					<textarea class="wpai-guide__input" rows="1" maxlength="500" placeholder="<?php echo esc_attr( $atts['placeholder'] ); ?>" required></textarea>
-					<button type="submit" class="wpai-guide__submit" aria-label="<?php echo esc_attr__( 'Genera guida', 'wp-ai-publisher' ); ?>" title="<?php echo esc_attr__( 'Genera guida', 'wp-ai-publisher' ); ?>">
-						<svg class="wpai-guide__submit-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-						<span class="wpai-guide__submit-spinner" aria-hidden="true"></span>
-					</button>
-				</div>
-				<input type="text" class="wpai-guide__hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;" />
-			</form>
-			<div class="wpai-guide__status" aria-live="polite" hidden></div>
+			<div class="wpai-guide__hero">
+				<?php if ( $show_deleted_notice && '' !== trim( (string) $config['deleted_message'] ) ) : ?>
+					<div class="wpai-guide__deleted-notice"><?php echo esc_html( (string) $config['deleted_message'] ); ?></div>
+				<?php endif; ?>
+				<?php if ( '' !== trim( (string) $config['eyebrow'] ) ) : ?>
+					<span class="wpai-guide__eyebrow"><span class="wpai-guide__eyebrow-dot"></span><?php echo esc_html( (string) $config['eyebrow'] ); ?></span>
+				<?php endif; ?>
+				<?php if ( '' !== trim( (string) $atts['heading'] ) ) : ?>
+					<h1 class="wpai-guide__title"><?php echo esc_html( $atts['heading'] ); ?></h1>
+				<?php endif; ?>
+				<?php if ( '' !== trim( (string) $config['subtext'] ) ) : ?>
+					<p class="wpai-guide__sub"><?php echo esc_html( (string) $config['subtext'] ); ?></p>
+				<?php endif; ?>
+				<form class="wpai-guide__form" autocomplete="off">
+					<div class="wpai-guide__field">
+						<textarea class="wpai-guide__input" rows="1" maxlength="500" placeholder="<?php echo esc_attr( $atts['placeholder'] ); ?>" required></textarea>
+						<button type="submit" class="wpai-guide__submit" aria-label="<?php echo esc_attr__( 'Crea la guida', 'wp-ai-publisher' ); ?>" title="<?php echo esc_attr__( 'Crea la guida', 'wp-ai-publisher' ); ?>">
+							<svg class="wpai-guide__submit-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+							<span class="wpai-guide__submit-spinner" aria-hidden="true"></span>
+						</button>
+					</div>
+					<input type="text" class="wpai-guide__hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;" />
+				</form>
+				<div class="wpai-guide__status" aria-live="polite" hidden></div>
+				<?php if ( ! empty( $quick_replies ) ) : ?>
+					<div class="wpai-guide__chips">
+						<?php foreach ( $quick_replies as $qr ) : ?>
+							<?php $qr_label = '' !== trim( (string) ( $qr->label ?? '' ) ) ? (string) $qr->label : wp_trim_words( (string) $qr->query, 7, '…' ); ?>
+							<button type="button" class="wpai-guide__chip" data-query="<?php echo esc_attr( (string) $qr->query ); ?>">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+								<?php echo esc_html( $qr_label ); ?>
+							</button>
+						<?php endforeach; ?>
+					</div>
+				<?php endif; ?>
+				<?php if ( ! empty( $values ) ) : ?>
+					<div class="wpai-guide__values">
+						<?php foreach ( $values as $value ) : ?>
+							<span class="wpai-guide__value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><?php echo esc_html( $value ); ?></span>
+						<?php endforeach; ?>
+					</div>
+				<?php endif; ?>
+			</div>
 			<div class="wpai-guide__result" hidden>
 				<div class="wpai-guide__content"></div>
 				<div class="wpai-guide__related"></div>
@@ -1205,7 +1245,9 @@ class Guide_Assistant {
 			return;
 		}
 
-		$requests = $this->get_requests( 100 );
+		$requests   = $this->get_requests( 100 );
+		$quick_map  = $this->get_quick_reply_map();
+		$quick_ids  = array_keys( $quick_map );
 		require WPAIP_PLUGIN_DIR . 'admin/views/guide-requests.php';
 	}
 
@@ -1232,6 +1274,98 @@ class Guide_Assistant {
 		$table = $this->db->get_guide_requests_table_name();
 		$limit = max( 1, min( 500, (int) $limit ) );
 		return (array) $wpdb->get_results( "SELECT * FROM {$table} ORDER BY id DESC LIMIT {$limit}" );
+	}
+
+	/**
+	 * The quick-reply selection as an ordered map of request ID => custom label.
+	 *
+	 * Backward compatible with the legacy storage (a plain list of IDs).
+	 *
+	 * @return array<int,string>
+	 */
+	public function get_quick_reply_map() {
+		$opt = get_option( self::QUICK_OPTION, array() );
+		if ( ! is_array( $opt ) || empty( $opt ) ) {
+			return array();
+		}
+		$map = array();
+		if ( array_is_list( $opt ) ) {
+			foreach ( $opt as $id ) {
+				$map[ absint( $id ) ] = '';
+			}
+		} else {
+			foreach ( $opt as $id => $label ) {
+				$map[ absint( $id ) ] = sanitize_text_field( (string) $label );
+			}
+		}
+		unset( $map[0] );
+		return $map;
+	}
+
+	/**
+	 * IDs of the requests flagged as quick replies (shown under the input).
+	 *
+	 * @return array<int,int>
+	 */
+	public function get_quick_reply_ids() {
+		return array_values( array_map( 'absint', array_keys( $this->get_quick_reply_map() ) ) );
+	}
+
+	/**
+	 * Fetch the quick-reply requests (id + query + label) in selection order.
+	 *
+	 * @param int $limit Max items.
+	 * @return array<int,object>
+	 */
+	public function get_quick_reply_requests( $limit = 8 ) {
+		$map = $this->get_quick_reply_map();
+		if ( empty( $map ) ) {
+			return array();
+		}
+		$ids = array_slice( array_keys( $map ), 0, max( 1, (int) $limit ) );
+		global $wpdb;
+		$table        = $this->db->get_guide_requests_table_name();
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders built from integer count.
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, query FROM {$table} WHERE id IN ({$placeholders})", $ids ) );
+		$by_id = array();
+		foreach ( (array) $rows as $row ) {
+			$by_id[ (int) $row->id ] = $row;
+		}
+		$ordered = array();
+		foreach ( $ids as $id ) {
+			if ( isset( $by_id[ $id ] ) ) {
+				$by_id[ $id ]->label = (string) ( $map[ $id ] ?? '' );
+				$ordered[]           = $by_id[ $id ];
+			}
+		}
+		return $ordered;
+	}
+
+	/**
+	 * Save the quick-reply selection (and custom labels) from the requests list.
+	 *
+	 * @return void
+	 */
+	public function handle_save_quick_replies() {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+		check_admin_referer( 'wpai_publisher_save_guide_quick_replies' );
+
+		$checked = isset( $_POST['quick_replies'] ) && is_array( $_POST['quick_replies'] )
+			? array_values( array_filter( array_map( 'absint', wp_unslash( $_POST['quick_replies'] ) ) ) )
+			: array();
+		$labels = isset( $_POST['quick_label'] ) && is_array( $_POST['quick_label'] ) ? wp_unslash( $_POST['quick_label'] ) : array();
+
+		$map = array();
+		foreach ( $checked as $id ) {
+			$map[ $id ] = sanitize_text_field( (string) ( $labels[ $id ] ?? '' ) );
+		}
+		update_option( self::QUICK_OPTION, $map, false );
+
+		wp_safe_redirect( add_query_arg( 'wpai_notice', 'guide_quick_saved', admin_url( 'admin.php?page=wp-ai-publisher-guide-requests' ) ) );
+		exit;
 	}
 
 	/**
