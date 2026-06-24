@@ -254,6 +254,23 @@
 			saveNote.scrollIntoView( { behavior: 'smooth', block: 'nearest' } );
 		}
 
+		// Quick-reply chips: fill the input with the saved request and submit.
+		var chips = root.querySelectorAll( '.wpai-guide__chip' );
+		Array.prototype.forEach.call( chips, function ( chip ) {
+			chip.addEventListener( 'click', function () {
+				if ( ! input ) {
+					return;
+				}
+				input.value = chip.getAttribute( 'data-query' ) || chip.textContent.trim();
+				autoGrow( input );
+				if ( typeof form.requestSubmit === 'function' ) {
+					form.requestSubmit();
+				} else {
+					form.dispatchEvent( new Event( 'submit', { cancelable: true } ) );
+				}
+			} );
+		} );
+
 		if ( saveBtn && saveNote ) {
 			saveBtn.addEventListener( 'click', function () {
 				// Membership disabled: keep the legacy informational note.

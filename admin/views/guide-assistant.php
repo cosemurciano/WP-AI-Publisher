@@ -39,8 +39,25 @@ $wpai_guide_selected_ct = array_map( 'absint', (array) ( $config['search_categor
 					<td><label><input type="checkbox" name="wpai_guide[enabled]" value="1" <?php checked( ! empty( $config['enabled'] ) ); ?>> <?php echo esc_html__( 'Attiva il modulo pubblico e l’endpoint di generazione.', 'wp-ai-publisher' ); ?></label></td>
 				</tr>
 				<tr>
-					<th scope="row"><label for="wpai-guide-heading"><?php echo esc_html__( 'Titolo del modulo', 'wp-ai-publisher' ); ?></label></th>
+					<th scope="row"><label for="wpai-guide-eyebrow"><?php echo esc_html__( 'Etichetta superiore', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="text" id="wpai-guide-eyebrow" name="wpai_guide[eyebrow]" class="regular-text" value="<?php echo esc_attr( (string) $config['eyebrow'] ); ?>"><p class="description"><?php echo esc_html__( 'Piccola etichetta mostrata sopra il titolo (es. “La tua guida WordPress, su misura”).', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-guide-heading"><?php echo esc_html__( 'Titolo (intestazione)', 'wp-ai-publisher' ); ?></label></th>
 					<td><input type="text" id="wpai-guide-heading" name="wpai_guide[heading]" class="regular-text" value="<?php echo esc_attr( (string) $config['heading'] ); ?>"></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-guide-subtext"><?php echo esc_html__( 'Testo introduttivo', 'wp-ai-publisher' ); ?></label></th>
+					<td><textarea id="wpai-guide-subtext" name="wpai_guide[subtext]" rows="3" class="large-text"><?php echo esc_textarea( (string) $config['subtext'] ); ?></textarea><p class="description"><?php echo esc_html__( 'Paragrafo mostrato sotto il titolo, sopra il campo di ricerca.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Punti di valore', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<input type="text" name="wpai_guide[value_1]" class="regular-text" value="<?php echo esc_attr( (string) $config['value_1'] ); ?>" placeholder="<?php echo esc_attr__( 'Es. Su misura per te', 'wp-ai-publisher' ); ?>">
+						<input type="text" name="wpai_guide[value_2]" class="regular-text" value="<?php echo esc_attr( (string) $config['value_2'] ); ?>" placeholder="<?php echo esc_attr__( 'Es. Spiegata passo dopo passo', 'wp-ai-publisher' ); ?>" style="margin-top:6px;">
+						<input type="text" name="wpai_guide[value_3]" class="regular-text" value="<?php echo esc_attr( (string) $config['value_3'] ); ?>" placeholder="<?php echo esc_attr__( 'Es. Sempre aggiornata', 'wp-ai-publisher' ); ?>" style="margin-top:6px;">
+						<p class="description"><?php echo esc_html__( 'Fino a tre brevi vantaggi mostrati sotto il campo (lascia vuoto per nasconderli).', 'wp-ai-publisher' ); ?></p>
+					</td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="wpai-guide-placeholder"><?php echo esc_html__( 'Testo segnaposto', 'wp-ai-publisher' ); ?></label></th>
