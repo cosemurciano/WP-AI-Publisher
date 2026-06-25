@@ -263,37 +263,68 @@ class Guide_Assistant {
 		if ( ! is_singular( self::CPT ) || ! in_the_loop() || ! is_main_query() ) {
 			return $content;
 		}
-		$post_id  = get_the_ID();
+		$post_id = get_the_ID();
+
+		// Formatted creation date (site locale + timezone).
+		$date_str = wp_date( (string) get_option( 'date_format', 'j F Y' ), get_post_timestamp( $post_id ) );
+		$meta = '<p class="wpai-guide-page__meta"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+			. esc_html( sprintf( __( 'Guida creata il %s', 'wp-ai-publisher' ), $date_str ) ) . '</p>';
+
+		// Up to 6 recommended articles (real search results stored at generation).
 		$ids      = (array) json_decode( (string) get_post_meta( $post_id, '_wpai_guide_article_ids', true ), true );
-		$articles = $this->build_recommended_articles( $this->ids_to_candidates( $ids ), 12 );
-		if ( empty( $articles ) ) {
-			return $content;
-		}
-		$cards = '<div class="wpai-guide"><div class="wpai-guide__related"><h3 class="wpai-guide__related-title">' . esc_html__( 'Articoli per la tua guida', 'wp-ai-publisher' ) . '</h3><div class="wpai-guide__cards">';
-		foreach ( $articles as $a ) {
-			$cards .= '<a class="wpai-guide__card" href="' . esc_url( (string) $a['url'] ) . '">';
-			if ( ! empty( $a['thumb'] ) ) {
-				$cards .= '<span class="wpai-guide__card-media"><img src="' . esc_url( (string) $a['thumb'] ) . '" alt="" loading="lazy"></span>';
+		$articles = $this->build_recommended_articles( $this->ids_to_candidates( $ids ), 6 );
+
+		$cards = '';
+		if ( ! empty( $articles ) ) {
+			$cards = '<div class="wpai-guide__related"><h3 class="wpai-guide__related-title">' . esc_html__( 'Articoli per la tua guida', 'wp-ai-publisher' ) . '</h3><div class="wpai-guide__cards">';
+			foreach ( $articles as $a ) {
+				$cards .= '<a class="wpai-guide__card" href="' . esc_url( (string) $a['url'] ) . '">';
+				if ( ! empty( $a['thumb'] ) ) {
+					$cards .= '<span class="wpai-guide__card-media"><img src="' . esc_url( (string) $a['thumb'] ) . '" alt="" loading="lazy"></span>';
+				}
+				$cards .= '<span class="wpai-guide__card-body"><span class="wpai-guide__card-title">' . esc_html( (string) $a['title'] ) . '</span>';
+				if ( ! empty( $a['excerpt'] ) ) {
+					$cards .= '<span class="wpai-guide__card-excerpt">' . esc_html( (string) $a['excerpt'] ) . '</span>';
+				}
+				$cards .= '</span></a>';
 			}
-			$cards .= '<span class="wpai-guide__card-body"><span class="wpai-guide__card-title">' . esc_html( (string) $a['title'] ) . '</span>';
-			if ( ! empty( $a['excerpt'] ) ) {
-				$cards .= '<span class="wpai-guide__card-excerpt">' . esc_html( (string) $a['excerpt'] ) . '</span>';
-			}
-			$cards .= '</span></a>';
+			$cards .= '</div></div>';
 		}
-		$cards .= '</div></div></div>';
-		return $content . $cards;
+
+		// Print + share tools (same look as the home generator).
+		$tools = '<div class="wpai-guide__tools wpai-guide-page__tools">'
+			. '<button type="button" class="wpai-guide__tool wpai-guide__print" data-tooltip="' . esc_attr__( 'Salva come PDF', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Salva come PDF', 'wp-ai-publisher' ) . '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+			. '<button type="button" class="wpai-guide__tool wpai-guide__whatsapp" data-tooltip="' . esc_attr__( 'Invia su WhatsApp', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Invia su WhatsApp', 'wp-ai-publisher' ) . '"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Z"/></svg></button>'
+			. '</div>';
+
+		$wrapper_open  = '<div class="wpai-guide wpai-guide-page" data-title="' . esc_attr( get_the_title( $post_id ) ) . '">';
+		$wrapper_close = '</div>';
+
+		return $wrapper_open . $meta . '<div class="wpai-guide-page__content">' . $content . '</div>' . $cards . $tools . $wrapper_close;
 	}
 
 	/**
-	 * Load the guide stylesheet on single guide pages (for the cards).
+	 * Load the guide assets + tools script on single guide pages.
 	 *
 	 * @return void
 	 */
 	public function maybe_enqueue_single_guide_assets() {
-		if ( is_singular( self::CPT ) ) {
-			wp_enqueue_style( 'wpai-guide', WPAIP_PLUGIN_URL . 'public/css/guide.css', array(), WPAIP_VERSION );
+		if ( ! is_singular( self::CPT ) ) {
+			return;
 		}
+		wp_enqueue_style( 'wpai-guide', WPAIP_PLUGIN_URL . 'public/css/guide.css', array(), WPAIP_VERSION );
+		wp_enqueue_script( 'wpai-guide', WPAIP_PLUGIN_URL . 'public/js/guide.js', array(), WPAIP_VERSION, true );
+		wp_localize_script(
+			'wpai-guide',
+			'wpaiGuide',
+			array(
+				'i18n' => array(
+					'printTitle' => __( 'Guida', 'wp-ai-publisher' ),
+					'waText'     => __( 'Ecco una guida utile:', 'wp-ai-publisher' ),
+					'related'    => __( 'Articoli per la tua guida', 'wp-ai-publisher' ),
+				),
+			)
+		);
 	}
 
 	/* ---------------------------------------------------------------------
@@ -310,6 +341,7 @@ class Guide_Assistant {
 			'enabled'                  => false,
 			'system_instructions'      => __( 'Sei un assistente esperto del sito. Rispondi alla richiesta dell’utente con una guida pratica, chiara e ben strutturata, citando e collegando gli articoli pertinenti del sito.', 'wp-ai-publisher' ),
 			'placeholder'              => __( 'Descrivi cosa vuoi imparare o risolvere…', 'wp-ai-publisher' ),
+			'placeholder_2'            => __( 'Es. Come velocizzo il mio sito WordPress?', 'wp-ai-publisher' ),
 			'heading'                  => __( 'Crea la tua guida personalizzata', 'wp-ai-publisher' ),
 			'eyebrow'                  => __( 'La tua guida WordPress, su misura', 'wp-ai-publisher' ),
 			'subtext'                  => __( 'Spiega cosa vuoi imparare o quale problema vuoi risolvere, con parole tue. Ricevi in pochi secondi una guida chiara e completa, scritta apposta per la tua situazione.', 'wp-ai-publisher' ),
@@ -384,6 +416,7 @@ class Guide_Assistant {
 			'enabled'                  => ! empty( $input['enabled'] ),
 			'system_instructions'      => sanitize_textarea_field( (string) ( $input['system_instructions'] ?? $defaults['system_instructions'] ) ),
 			'placeholder'              => sanitize_text_field( (string) ( $input['placeholder'] ?? $defaults['placeholder'] ) ),
+			'placeholder_2'            => sanitize_text_field( (string) ( $input['placeholder_2'] ?? '' ) ),
 			'heading'                  => sanitize_text_field( (string) ( $input['heading'] ?? $defaults['heading'] ) ),
 			'eyebrow'                  => sanitize_text_field( (string) ( $input['eyebrow'] ?? $defaults['eyebrow'] ) ),
 			'subtext'                  => sanitize_textarea_field( (string) ( $input['subtext'] ?? $defaults['subtext'] ) ),
@@ -575,6 +608,7 @@ class Guide_Assistant {
 				'endpoint' => esc_url_raw( rest_url( self::REST_NAMESPACE . self::REST_ROUTE ) ),
 				'nonce'    => wp_create_nonce( self::NONCE_ACTION ),
 				'restNonce' => wp_create_nonce( 'wp_rest' ),
+				'placeholders' => array_values( array_filter( array( (string) $config['placeholder'], (string) $config['placeholder_2'] ) ) ),
 				'save'     => array(
 					'enabled'    => ! empty( $config['enable_membership'] ),
 					'isLoggedIn' => is_user_logged_in(),

@@ -64,6 +64,10 @@ $wpai_guide_selected_ct = array_map( 'absint', (array) ( $config['search_categor
 					<td><input type="text" id="wpai-guide-placeholder" name="wpai_guide[placeholder]" class="regular-text" value="<?php echo esc_attr( (string) $config['placeholder'] ); ?>"></td>
 				</tr>
 				<tr>
+					<th scope="row"><label for="wpai-guide-placeholder-2"><?php echo esc_html__( 'Secondo testo segnaposto', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="text" id="wpai-guide-placeholder-2" name="wpai_guide[placeholder_2]" class="regular-text" value="<?php echo esc_attr( (string) $config['placeholder_2'] ); ?>"><p class="description"><?php echo esc_html__( 'Compare poco dopo il primo, in loop, con effetto “scrittura”. Lascia vuoto per mostrarne solo uno.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
 					<th scope="row"><label for="wpai-guide-instructions"><?php echo esc_html__( 'Istruzioni di sistema (prompt)', 'wp-ai-publisher' ); ?></label></th>
 					<td><textarea id="wpai-guide-instructions" name="wpai_guide[system_instructions]" rows="4" class="large-text"><?php echo esc_textarea( (string) $config['system_instructions'] ); ?></textarea><p class="description"><?php echo esc_html__( 'Definisce tono e comportamento dell’assistente. I link interni e i vincoli sono già gestiti dal plugin.', 'wp-ai-publisher' ); ?></p></td>
 				</tr>
