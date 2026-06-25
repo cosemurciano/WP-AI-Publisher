@@ -240,10 +240,29 @@ class Guide_Members {
 		if ( empty( $config['enable_membership'] ) ) {
 			return '';
 		}
-		if ( is_user_logged_in() ) {
-			return $this->logged_in_box( $config );
-		}
 		$this->enqueue_auth_assets();
+
+		// Already logged in: show a logout action instead of the form.
+		if ( is_user_logged_in() ) {
+			$user        = wp_get_current_user();
+			$account     = absint( $config['account_page_id'] );
+			$account_url = $account ? get_permalink( $account ) : '';
+			ob_start();
+			?>
+			<div class="wpai-guide-auth">
+				<div class="wpai-guide-auth__card">
+					<span class="wpai-guide-auth__badge"><span class="wpai-guide-auth__badge-dot"></span><?php echo esc_html__( 'Area personale', 'wp-ai-publisher' ); ?></span>
+					<h2 class="wpai-guide-auth__title"><?php echo esc_html( sprintf( __( 'Sei connesso come %s', 'wp-ai-publisher' ), $user->display_name ) ); ?></h2>
+					<p class="wpai-guide-auth__sub"><?php echo esc_html__( 'Vuoi uscire dal tuo account?', 'wp-ai-publisher' ); ?></p>
+					<a class="wpai-guide-auth__submit" href="<?php echo esc_url( wp_logout_url( get_permalink() ) ); ?>"><?php echo esc_html__( 'Esci', 'wp-ai-publisher' ); ?></a>
+					<?php if ( '' !== (string) $account_url ) : ?>
+						<p class="wpai-guide-auth__alt"><a href="<?php echo esc_url( $account_url ); ?>"><?php echo esc_html__( 'Vai alle tue guide', 'wp-ai-publisher' ); ?></a></p>
+					<?php endif; ?>
+				</div>
+			</div>
+			<?php
+			return (string) ob_get_clean();
+		}
 
 		$intent       = $this->get_save_intent();
 		$account       = absint( $config['account_page_id'] );
@@ -298,26 +317,11 @@ class Guide_Members {
 		if ( empty( $config['enable_membership'] ) ) {
 			return '';
 		}
-		$this->enqueue_account_assets();
-
+		// The account area is shown only to logged-in members.
 		if ( ! is_user_logged_in() ) {
-			$login_url    = absint( $config['login_page_id'] ) ? get_permalink( absint( $config['login_page_id'] ) ) : wp_login_url();
-			$register_url = absint( $config['register_page_id'] ) ? get_permalink( absint( $config['register_page_id'] ) ) : '';
-			ob_start();
-			?>
-			<div class="wpai-guide-auth">
-				<div class="wpai-guide-auth__card wpai-guide-auth__card--cta">
-					<h2 class="wpai-guide-auth__title"><?php echo esc_html__( 'Le tue guide ti aspettano', 'wp-ai-publisher' ); ?></h2>
-					<p class="wpai-guide-auth__sub"><?php echo esc_html__( 'Accedi o crea un account gratuito per salvare le tue guide e ritrovarle qui.', 'wp-ai-publisher' ); ?></p>
-					<div class="wpai-guide-auth__cta-row">
-						<?php if ( '' !== (string) $register_url ) : ?><a class="wpai-guide-auth__submit" href="<?php echo esc_url( $register_url ); ?>"><?php echo esc_html__( 'Crea il tuo account', 'wp-ai-publisher' ); ?></a><?php endif; ?>
-						<a class="wpai-guide-auth__ghost" href="<?php echo esc_url( $login_url ); ?>"><?php echo esc_html__( 'Accedi', 'wp-ai-publisher' ); ?></a>
-					</div>
-				</div>
-			</div>
-			<?php
-			return (string) ob_get_clean();
+			return '';
 		}
+		$this->enqueue_account_assets();
 
 		$user = wp_get_current_user();
 

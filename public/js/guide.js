@@ -12,6 +12,28 @@
 		return div.innerHTML;
 	}
 
+	// Fixed, always-visible toast (bottom-center) so confirmations are not lost
+	// at the end of a long page.
+	var toastTimer = null;
+	function showToast( html ) {
+		var el = document.querySelector( '.wpai-guide-toast' );
+		if ( ! el ) {
+			el = document.createElement( 'div' );
+			el.className = 'wpai-guide-toast';
+			document.body.appendChild( el );
+		}
+		el.innerHTML = html;
+		// Force reflow then show for the transition.
+		void el.offsetWidth;
+		el.classList.add( 'is-visible' );
+		if ( toastTimer ) {
+			clearTimeout( toastTimer );
+		}
+		toastTimer = setTimeout( function () {
+			el.classList.remove( 'is-visible' );
+		}, 6000 );
+	}
+
 	function renderRelated( articles, i18n ) {
 		if ( ! articles || ! articles.length ) {
 			return '';
@@ -414,15 +436,6 @@
 
 		// Logged-in member: save this guide to their area via REST.
 		var save = wpaiGuide.save || {};
-		function showPageToast( html ) {
-			var existing = root.querySelector( '.wpai-guide-page__toast' );
-			if ( ! existing ) {
-				existing = document.createElement( 'div' );
-				existing.className = 'wpai-guide-page__toast';
-				root.appendChild( existing );
-			}
-			existing.innerHTML = html;
-		}
 		Array.prototype.forEach.call( root.querySelectorAll( '.wpai-guide__save-page' ), function ( saveBtn ) {
 			saveBtn.addEventListener( 'click', function () {
 				var id = parseInt( saveBtn.getAttribute( 'data-request-id' ), 10 ) || 0;
@@ -446,15 +459,15 @@
 				} ).then( function ( r ) {
 					saveBtn.disabled = false;
 					if ( ! r.ok || ! r.data || ! r.data.saved ) {
-						showPageToast( escapeHtml( i18n.saveError ) );
+						showToast( escapeHtml( i18n.saveError ) );
 						return;
 					}
 					var url = ( r.data && r.data.accountUrl ) || save.accountUrl || '';
 					var link = url ? ' <a href="' + encodeURI( url ) + '">' + escapeHtml( i18n.saveOkLink ) + '</a>' : '';
-					showPageToast( escapeHtml( i18n.saveOk ) + link );
+					showToast( escapeHtml( i18n.saveOk ) + link );
 				} ).catch( function () {
 					saveBtn.disabled = false;
-					showPageToast( escapeHtml( i18n.saveError ) );
+					showToast( escapeHtml( i18n.saveError ) );
 				} );
 			} );
 		} );

@@ -311,9 +311,21 @@
 	/* minmax(0,1fr) (not 1fr) so long words/URLs can't blow out the columns and
 	   break the 3-per-row alignment. */
 	grid-template-columns: repeat( 3, minmax( 0, 1fr ) ) !important;
-	grid-auto-rows: 1fr;
 	gap: 18px;
 	align-items: stretch;
+	align-content: start;
+}
+
+@media ( max-width: 900px ) {
+	.wpai-guide__cards {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) ) !important;
+	}
+}
+
+@media ( max-width: 560px ) {
+	.wpai-guide__cards {
+		grid-template-columns: 1fr !important;
+	}
 }
 
 .wpai-guide__card-title,
@@ -482,6 +494,12 @@
 /* ---- Single guide page ---- */
 .wpai-guide-page {
 	text-align: left;
+	max-width: 880px;
+	width: 100%;
+}
+
+.wpai-guide-page .wpai-guide__related {
+	margin-top: 2.5rem;
 }
 
 .wpai-guide-page__bar {
@@ -541,21 +559,6 @@
 	--wpai-muted: #7b8492;
 	color: #222b3a;
 	font-size: 16px;
-}
-
-/* Page toast on the public guide page after an inline save. */
-.wpai-guide-page__toast {
-	margin-top: 16px;
-	padding: 12px 16px;
-	border-radius: 12px;
-	background: rgba( 21, 155, 224, 0.08 );
-	border: 1px solid var( --wpai-border );
-	color: var( --wpai-navy );
-}
-
-.wpai-guide-page__toast a {
-	color: var( --wpai-violet-deep );
-	font-weight: 600;
 }
 
 /* Auth card */
@@ -896,11 +899,39 @@
 
 /* ---- Responsive ---- */
 @media ( max-width: 680px ) {
-	.wpai-guide__cards {
-		grid-template-columns: 1fr;
-	}
-
 	.wpai-guide-account__cards {
 		grid-template-columns: 1fr;
 	}
+}
+
+/* ---- Fixed confirmation toast (body-level, always visible) ---- */
+.wpai-guide-toast {
+	position: fixed;
+	left: 50%;
+	bottom: 24px;
+	transform: translateX( -50% ) translateY( 16px );
+	max-width: 92vw;
+	z-index: 99999;
+	background: #1f2a44;
+	color: #fff;
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	font-size: 14.5px;
+	padding: 13px 20px;
+	border-radius: 12px;
+	box-shadow: 0 18px 40px -12px rgba( 31, 42, 68, 0.55 );
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.wpai-guide-toast.is-visible {
+	opacity: 1;
+	transform: translateX( -50% ) translateY( 0 );
+	pointer-events: auto;
+}
+
+.wpai-guide-toast a {
+	color: #a9b6ff;
+	font-weight: 600;
+	margin-left: 6px;
 }
