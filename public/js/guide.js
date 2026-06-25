@@ -411,6 +411,53 @@
 				window.open( 'https://wa.me/?text=' + encodeURIComponent( text ), '_blank', 'noopener' );
 			} );
 		} );
+
+		// Logged-in member: save this guide to their area via REST.
+		var save = wpaiGuide.save || {};
+		function showPageToast( html ) {
+			var existing = root.querySelector( '.wpai-guide-page__toast' );
+			if ( ! existing ) {
+				existing = document.createElement( 'div' );
+				existing.className = 'wpai-guide-page__toast';
+				root.appendChild( existing );
+			}
+			existing.innerHTML = html;
+		}
+		Array.prototype.forEach.call( root.querySelectorAll( '.wpai-guide__save-page' ), function ( saveBtn ) {
+			saveBtn.addEventListener( 'click', function () {
+				var id = parseInt( saveBtn.getAttribute( 'data-request-id' ), 10 ) || 0;
+				if ( ! id || ! save.endpoint ) {
+					return;
+				}
+				saveBtn.disabled = true;
+				var headers = { 'Content-Type': 'application/json' };
+				if ( wpaiGuide.restNonce ) {
+					headers['X-WP-Nonce'] = wpaiGuide.restNonce;
+				}
+				fetch( save.endpoint, {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: headers,
+					body: JSON.stringify( { request_id: id } )
+				} ).then( function ( res ) {
+					return res.json().then( function ( data ) {
+						return { ok: res.ok, data: data };
+					} );
+				} ).then( function ( r ) {
+					saveBtn.disabled = false;
+					if ( ! r.ok || ! r.data || ! r.data.saved ) {
+						showPageToast( escapeHtml( i18n.saveError ) );
+						return;
+					}
+					var url = ( r.data && r.data.accountUrl ) || save.accountUrl || '';
+					var link = url ? ' <a href="' + encodeURI( url ) + '">' + escapeHtml( i18n.saveOkLink ) + '</a>' : '';
+					showPageToast( escapeHtml( i18n.saveOk ) + link );
+				} ).catch( function () {
+					saveBtn.disabled = false;
+					showPageToast( escapeHtml( i18n.saveError ) );
+				} );
+			} );
+		} );
 	}
 
 	document.addEventListener( 'DOMContentLoaded', function () {

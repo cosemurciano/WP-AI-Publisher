@@ -306,7 +306,8 @@ class Guide_Assistant {
 			$cards .= '</div></div>';
 		}
 
-		$tools = $this->build_guide_page_tools( $config );
+		$request_id = absint( get_post_meta( $post_id, '_wpai_guide_request_id', true ) );
+		$tools = $this->build_guide_page_tools( $config, $request_id );
 
 		$wrapper_open  = '<div class="wpai-guide wpai-guide-page" data-title="' . esc_attr( get_the_title( $post_id ) ) . '">';
 		$wrapper_close = '</div>';
@@ -321,18 +322,31 @@ class Guide_Assistant {
 	 * Build the print/share/save tools row used on a public guide page.
 	 *
 	 * @param array<string,mixed> $config Config.
+	 * @param int                 $request_id Guide request ID (for the save action).
 	 * @return string
 	 */
-	private function build_guide_page_tools( $config ) {
+	private function build_guide_page_tools( $config, $request_id = 0 ) {
+		$save_svg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 		$tools = '<div class="wpai-guide__tools wpai-guide-page__tools">'
 			. '<button type="button" class="wpai-guide__tool wpai-guide__print" data-tooltip="' . esc_attr__( 'Salva come PDF', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Salva come PDF', 'wp-ai-publisher' ) . '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
 			. '<button type="button" class="wpai-guide__tool wpai-guide__whatsapp" data-tooltip="' . esc_attr__( 'Invia su WhatsApp', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Invia su WhatsApp', 'wp-ai-publisher' ) . '"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Z"/></svg></button>';
 
-		// Prominent "Save" action linking to the membership login page.
-		$login_id  = absint( $config['login_page_id'] ) ?: absint( $config['register_page_id'] );
-		$login_url = $login_id ? get_permalink( $login_id ) : '';
-		if ( '' !== (string) $login_url ) {
-			$tools .= '<a class="wpai-guide__tool wpai-guide__save-link" href="' . esc_url( (string) $login_url ) . '" data-tooltip="' . esc_attr__( 'Salva la tua guida', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Salva la tua guida', 'wp-ai-publisher' ) . '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>';
+		if ( ! empty( $config['enable_membership'] ) ) {
+			if ( is_user_logged_in() && $request_id > 0 ) {
+				// Logged-in member: save inline to their area.
+				$tools .= '<button type="button" class="wpai-guide__tool wpai-guide__save-link wpai-guide__save-page" data-request-id="' . esc_attr( (string) $request_id ) . '" data-tooltip="' . esc_attr__( 'Salva nella mia area', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Salva nella mia area', 'wp-ai-publisher' ) . '">' . $save_svg . '</button>';
+			} else {
+				// Visitor: send them to registration with a "save this guide" intent.
+				$register_id  = absint( $config['register_page_id'] ) ?: absint( $config['login_page_id'] );
+				$register_url = $register_id ? get_permalink( $register_id ) : '';
+				if ( '' !== (string) $register_url ) {
+					if ( $request_id > 0 ) {
+						$register_url = add_query_arg( 'wpai_save', $request_id, $register_url );
+					}
+					$tools .= '<a class="wpai-guide__tool wpai-guide__save-link" href="' . esc_url( (string) $register_url ) . '" data-tooltip="' . esc_attr__( 'Crea il tuo account e salva le tue guide', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Crea il tuo account e salva le tue guide', 'wp-ai-publisher' ) . '">' . $save_svg . '</a>';
+				}
+			}
 		}
 
 		$tools .= '</div>';
@@ -350,14 +364,24 @@ class Guide_Assistant {
 		}
 		wp_enqueue_style( 'wpai-guide', WPAIP_PLUGIN_URL . 'public/css/guide.css', array(), WPAIP_VERSION );
 		wp_enqueue_script( 'wpai-guide', WPAIP_PLUGIN_URL . 'public/js/guide.js', array(), WPAIP_VERSION, true );
+		$config  = $this->get_config();
+		$account = absint( $config['account_page_id'] );
 		wp_localize_script(
 			'wpai-guide',
 			'wpaiGuide',
 			array(
+				'restNonce' => wp_create_nonce( 'wp_rest' ),
+				'save'      => array(
+					'endpoint'   => esc_url_raw( rest_url( self::REST_NAMESPACE . '/guide/save' ) ),
+					'accountUrl' => $account ? esc_url_raw( get_permalink( $account ) ) : '',
+				),
 				'i18n' => array(
 					'printTitle' => __( 'Guida', 'wp-ai-publisher' ),
 					'waText'     => __( 'Ecco una guida utile:', 'wp-ai-publisher' ),
 					'related'    => __( 'Articoli per la tua guida', 'wp-ai-publisher' ),
+					'saveOk'     => __( 'Guida salvata nella tua area.', 'wp-ai-publisher' ),
+					'saveOkLink' => __( 'Vai alle tue guide', 'wp-ai-publisher' ),
+					'saveError'  => __( 'Non è stato possibile salvare la guida.', 'wp-ai-publisher' ),
 				),
 			)
 		);
