@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.60
+Stable tag: 0.5.61
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.61 =
+* Assistente Guide AI: aggiunto il bagliore sfumato in background dietro la hero e reso più robusto il gradiente del titolo (azzurro→viola) per evitare che il tema lo sovrascriva (forzato -webkit-text-fill-color trasparente).
+* Risposte veloci: le richieste selezionate che hanno già una pagina pubblica della guida ora rimandano direttamente a quella pagina (mostrano la risposta già creata) invece di far rigenerare la guida all'AI. Le richieste senza pagina ricadono sul comportamento precedente (compilano il campo e avviano la generazione).
+* Il testo segnaposto del campo di ricerca viene ora scritto con un'animazione typewriter (lo stesso effetto usato durante la generazione); si ferma appena l'utente interagisce.
 
 = 0.5.60 =
 * Risposte veloci: aggiunta una "Etichetta chip" personalizzabile per ogni richiesta selezionata. Il chip mostrato sotto il campo di ricerca usa l'etichetta indicata (se vuota, ripiega sul testo della richiesta accorciato); al clic invia comunque la richiesta completa.
