@@ -381,16 +381,15 @@
 		}
 	}
 
-	// Wire the print/share tools on a single public guide page.
+	// Wire the print/share tools on a single public guide page. There can be more
+	// than one tools row (one near the date, one at the end), so bind them all.
 	function initGuidePageTools( root ) {
 		var i18n = wpaiGuide.i18n || {};
 		var article = root.querySelector( '.wpai-guide-page__content' );
 		var related = root.querySelector( '.wpai-guide__related' );
-		var printBtn = root.querySelector( '.wpai-guide__print' );
-		var waBtn = root.querySelector( '.wpai-guide__whatsapp' );
 		var title = ( root.getAttribute( 'data-title' ) || ( i18n.printTitle || 'Guide' ) );
 
-		if ( printBtn ) {
+		Array.prototype.forEach.call( root.querySelectorAll( '.wpai-guide__print' ), function ( printBtn ) {
 			printBtn.addEventListener( 'click', function () {
 				var doc = buildPrintDoc( title, article ? article.innerHTML : '', related ? related.innerHTML : '' );
 				var win = window.open( '', '_blank' );
@@ -405,13 +404,13 @@
 					win.print();
 				}, 300 );
 			} );
-		}
-		if ( waBtn ) {
+		} );
+		Array.prototype.forEach.call( root.querySelectorAll( '.wpai-guide__whatsapp' ), function ( waBtn ) {
 			waBtn.addEventListener( 'click', function () {
 				var text = ( i18n.waText || '' ) + ' "' + title + '"\n' + window.location.href;
 				window.open( 'https://wa.me/?text=' + encodeURIComponent( text ), '_blank', 'noopener' );
 			} );
-		}
+		} );
 	}
 
 	document.addEventListener( 'DOMContentLoaded', function () {
