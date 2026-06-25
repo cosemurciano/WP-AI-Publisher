@@ -129,3 +129,51 @@
 .wpai-ideas-table form { margin: 0; }
 .wpai-ideas-table .row-actions { padding: 2px 0 0; }
 .wpai-ideas-table .wpai-badge { white-space: nowrap; }
+
+/* Dashboard stat boxes */
+.wpai-stats {
+	display: grid;
+	grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	gap: 16px;
+	margin: 18px 0 24px;
+}
+
+.wpai-stat {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 20px 22px;
+	border: 1px solid #e2e4ea;
+	border-radius: 14px;
+	background: #fff;
+	text-decoration: none;
+	color: inherit;
+}
+
+a.wpai-stat:hover {
+	border-color: #6c5ce7;
+}
+
+.wpai-stat--primary {
+	background: linear-gradient( 135deg, #159be0, #6c5ce7 );
+	border-color: transparent;
+	color: #fff;
+}
+
+.wpai-stat__num {
+	font-size: 34px;
+	font-weight: 800;
+	line-height: 1.05;
+}
+
+.wpai-stat__label {
+	font-size: 13px;
+	font-weight: 600;
+	opacity: 0.85;
+}
+
+@media ( max-width: 782px ) {
+	.wpai-stats {
+		grid-template-columns: 1fr;
+	}
+}

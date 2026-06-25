@@ -19,6 +19,27 @@ $site_context = wpai_publisher_get_site_context();
 		<p><?php echo esc_html__( 'Questa fase prepara l’infrastruttura. La generazione articoli, le immagini, la SEO, la coda job e la pubblicazione assistita saranno implementate nelle fasi successive.', 'wp-ai-publisher' ); ?></p>
 	</div>
 
+	<?php
+	$wpai_ideas_total     = (int) array_sum( array_map( 'intval', (array) $content_idea_counts ) );
+	$wpai_ideas_scheduled = (int) ( $content_idea_counts['scheduled'] ?? 0 );
+	$wpai_ideas_drafts    = (int) ( $content_idea_counts['draft_created'] ?? 0 );
+	$wpai_ideas_url       = admin_url( 'admin.php?page=wp-ai-publisher-content-ideas' );
+	?>
+	<div class="wpai-stats">
+		<a class="wpai-stat wpai-stat--primary" href="<?php echo esc_url( $wpai_ideas_url ); ?>">
+			<span class="wpai-stat__num"><?php echo esc_html( number_format_i18n( $wpai_ideas_total ) ); ?></span>
+			<span class="wpai-stat__label"><?php echo esc_html__( 'Idee create', 'wp-ai-publisher' ); ?></span>
+		</a>
+		<div class="wpai-stat">
+			<span class="wpai-stat__num"><?php echo esc_html( number_format_i18n( $wpai_ideas_scheduled ) ); ?></span>
+			<span class="wpai-stat__label"><?php echo esc_html__( 'Idee programmate', 'wp-ai-publisher' ); ?></span>
+		</div>
+		<div class="wpai-stat">
+			<span class="wpai-stat__num"><?php echo esc_html( number_format_i18n( $wpai_ideas_drafts ) ); ?></span>
+			<span class="wpai-stat__label"><?php echo esc_html__( 'Bozze create', 'wp-ai-publisher' ); ?></span>
+		</div>
+	</div>
+
 	<div class="wpai-card-grid">
 		<section class="wpai-card">
 			<h2><?php echo esc_html__( 'Sistema pronto', 'wp-ai-publisher' ); ?></h2>

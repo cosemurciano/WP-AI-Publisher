@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.65**
+Versione corrente: **0.5.66**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.66
+- Bacheca: area in evidenza con il numero di Idee create (+ Idee programmate e Bozze create), con riquadro principale cliccabile verso Idee contenuto.
 
 ### 0.5.65
 - Area membri: [wpai_guide_login] mostra "Esci" se loggato; [wpai_guide_account] visibile solo se loggato. Pagina guida più larga e card "Articoli per la tua guida" allineate (3/2/1). Feedback di salvataggio come toast fisso sempre visibile.
