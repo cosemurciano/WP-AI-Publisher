@@ -102,6 +102,11 @@
 
 	function initWidget( root ) {
 		var form = root.querySelector( '.wpai-guide__form' );
+		// The single-guide page reuses .wpai-guide for styling but has no form;
+		// its tools are wired by initGuidePageTools instead.
+		if ( ! form ) {
+			return;
+		}
 		var input = root.querySelector( '.wpai-guide__input' );
 		var hp = root.querySelector( '.wpai-guide__hp' );
 		var status = root.querySelector( '.wpai-guide__status' );
@@ -133,11 +138,15 @@
 			status.classList.toggle( 'is-error', !! isError );
 		}
 
-		// Idle typewriter: type out the placeholder text as if it were being
-		// written, using the same effect as the generation loader. Stops as soon
-		// as the user interacts or a request starts.
+		// Idle typewriter: type out the placeholder text(s) as if being written,
+		// looping through them, using the same effect as the generation loader.
+		// Stops as soon as the user interacts or a request starts.
+		var idlePlaceholders = ( wpaiGuide.placeholders && wpaiGuide.placeholders.length ) ? wpaiGuide.placeholders : [ basePlaceholder ];
 		var idleTimer = null;
 		var idleStopped = false;
+		var idleIndex = 0;
+		var idleChar = 0;
+		var idleTyping = true;
 		function stopIdlePlaceholder() {
 			if ( idleStopped ) {
 				return;
@@ -151,22 +160,33 @@
 				input.setAttribute( 'placeholder', basePlaceholder );
 			}
 		}
-		function startIdlePlaceholder() {
-			if ( ! input || ! basePlaceholder || idleStopped ) {
+		function idleTick() {
+			if ( idleStopped || ! input ) {
 				return;
 			}
-			var i = 0;
-			input.setAttribute( 'placeholder', '' );
-			( function typeTick() {
-				if ( idleStopped ) {
+			var msg = idlePlaceholders[ idleIndex ] || '';
+			if ( idleTyping ) {
+				idleChar++;
+				input.setAttribute( 'placeholder', msg.slice( 0, idleChar ) );
+				if ( idleChar >= msg.length ) {
+					idleTyping = false;
+					idleTimer = setTimeout( idleTick, 1900 );
 					return;
 				}
-				i++;
-				input.setAttribute( 'placeholder', basePlaceholder.slice( 0, i ) );
-				if ( i < basePlaceholder.length ) {
-					idleTimer = setTimeout( typeTick, 45 );
-				}
-			}() );
+				idleTimer = setTimeout( idleTick, 45 );
+			} else {
+				idleTyping = true;
+				idleChar = 0;
+				idleIndex = ( idleIndex + 1 ) % idlePlaceholders.length;
+				idleTimer = setTimeout( idleTick, 250 );
+			}
+		}
+		function startIdlePlaceholder() {
+			if ( ! input || idleStopped || ! idlePlaceholders.length ) {
+				return;
+			}
+			input.setAttribute( 'placeholder', '' );
+			idleTick();
 		}
 
 		if ( input ) {
@@ -361,8 +381,41 @@
 		}
 	}
 
+	// Wire the print/share tools on a single public guide page.
+	function initGuidePageTools( root ) {
+		var i18n = wpaiGuide.i18n || {};
+		var article = root.querySelector( '.wpai-guide-page__content' );
+		var related = root.querySelector( '.wpai-guide__related' );
+		var printBtn = root.querySelector( '.wpai-guide__print' );
+		var waBtn = root.querySelector( '.wpai-guide__whatsapp' );
+		var title = ( root.getAttribute( 'data-title' ) || ( i18n.printTitle || 'Guide' ) );
+
+		if ( printBtn ) {
+			printBtn.addEventListener( 'click', function () {
+				var doc = buildPrintDoc( title, article ? article.innerHTML : '', related ? related.innerHTML : '' );
+				var win = window.open( '', '_blank' );
+				if ( ! win ) {
+					return;
+				}
+				win.document.open();
+				win.document.write( doc );
+				win.document.close();
+				win.focus();
+				setTimeout( function () {
+					win.print();
+				}, 300 );
+			} );
+		}
+		if ( waBtn ) {
+			waBtn.addEventListener( 'click', function () {
+				var text = ( i18n.waText || '' ) + ' "' + title + '"\n' + window.location.href;
+				window.open( 'https://wa.me/?text=' + encodeURIComponent( text ), '_blank', 'noopener' );
+			} );
+		}
+	}
+
 	document.addEventListener( 'DOMContentLoaded', function () {
-		var widgets = document.querySelectorAll( '.wpai-guide' );
-		Array.prototype.forEach.call( widgets, initWidget );
+		Array.prototype.forEach.call( document.querySelectorAll( '.wpai-guide' ), initWidget );
+		Array.prototype.forEach.call( document.querySelectorAll( '.wpai-guide-page' ), initGuidePageTools );
 	} );
 }() );

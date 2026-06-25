@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.61
+Stable tag: 0.5.62
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,10 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.62 =
+* Assistente Guide AI: aggiunto un secondo testo segnaposto che compare poco dopo il primo, in loop, con effetto "scrittura". Nuovo campo nelle impostazioni.
+* Pagina guida pubblica migliorata: gli "Articoli per la tua guida" sono ora fino a 6, sotto la guida compaiono i pulsanti di stampa (PDF) e condivisione (WhatsApp) come in home, e la data di creazione è mostrata in formato leggibile e localizzato. Il blocco articoli correlati è unico (nessun doppione).
 
 = 0.5.61 =
 * Assistente Guide AI: aggiunto il bagliore sfumato in background dietro la hero e reso più robusto il gradiente del titolo (azzurro→viola) per evitare che il tema lo sovrascriva (forzato -webkit-text-fill-color trasparente).
