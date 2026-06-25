@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.64**
+Versione corrente: **0.5.65**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.65
+- Area membri: [wpai_guide_login] mostra "Esci" se loggato; [wpai_guide_account] visibile solo se loggato. Pagina guida più larga e card "Articoli per la tua guida" allineate (3/2/1). Feedback di salvataggio come toast fisso sempre visibile.
 
 ### 0.5.64
 - Area membri: UI flat moderna per registrazione/login/area personale; flusso "Salva la tua guida" con auto-salvataggio dopo registrazione/login (intent), salvataggio inline per utenti loggati, messaggi chiari ("Crea il tuo account e salva le tue guide") e area personale a card con stato vuoto e CTA.

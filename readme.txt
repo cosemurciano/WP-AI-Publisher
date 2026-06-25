@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.64
+Stable tag: 0.5.65
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.65 =
+* Area membri: lo shortcode [wpai_guide_login], se l'utente è già connesso, mostra il pulsante "Esci" (logout). Lo shortcode [wpai_guide_account] viene mostrato soltanto agli utenti connessi.
+* Pagina guida pubblica: migliorata la resa (larghezza più ampia, spaziature) e corretto definitivamente l'allineamento delle card "Articoli per la tua guida" in righe (3/2/1 in base allo spazio disponibile).
+* Il feedback al salvataggio della guida ora compare come notifica fissa sempre visibile (toast in basso al centro), invece che in fondo alla pagina.
 
 = 0.5.64 =
 * Area membri: UI rinnovata e "flat" per registrazione, login e area personale (card moderne, palette azzurro/viola, messaggi chiari).
