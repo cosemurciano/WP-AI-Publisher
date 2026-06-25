@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.66**
+Versione corrente: **0.5.67**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.67
+- Guide AI: modifica admin della guida creata (titolo + contenuto) con pulsante "Modifica" (lista Richieste guide e pagina pubblica) e pagina di editor dedicata, con sync del result_html nell'area membri. Card "Articoli per la tua guida" ridisegnate in stile rivista (badge categoria, data, titolo, estratto, CTA) con hover/zoom.
 
 ### 0.5.66
 - Bacheca: area in evidenza con il numero di Idee create (+ Idee programmate e Bozze create), con riquadro principale cliccabile verso Idee contenuto.

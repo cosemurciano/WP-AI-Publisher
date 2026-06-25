@@ -42,16 +42,23 @@
 		html += '<div class="wpai-guide__cards">';
 		articles.forEach( function ( a ) {
 			html += '<a class="wpai-guide__card" href="' + encodeURI( a.url ) + '">';
+			html += '<span class="wpai-guide__card-media' + ( a.thumb ? '' : ' wpai-guide__card-media--empty' ) + '">';
 			if ( a.thumb ) {
-				html += '<span class="wpai-guide__card-media"><img src="' + encodeURI( a.thumb ) + '" alt="" loading="lazy"></span>';
-			} else {
-				html += '<span class="wpai-guide__card-media wpai-guide__card-media--empty"></span>';
+				html += '<img src="' + encodeURI( a.thumb ) + '" alt="" loading="lazy">';
 			}
+			if ( a.category ) {
+				html += '<span class="wpai-guide__card-cat">' + escapeHtml( a.category ) + '</span>';
+			}
+			html += '</span>';
 			html += '<span class="wpai-guide__card-body">';
+			if ( a.date ) {
+				html += '<span class="wpai-guide__card-meta">' + escapeHtml( a.date ) + '</span>';
+			}
 			html += '<span class="wpai-guide__card-title">' + escapeHtml( a.title ) + '</span>';
 			if ( a.excerpt ) {
 				html += '<span class="wpai-guide__card-excerpt">' + escapeHtml( a.excerpt ) + '</span>';
 			}
+			html += '<span class="wpai-guide__card-more">' + escapeHtml( i18n.readMore || 'Leggi l’articolo' ) + ' →</span>';
 			html += '</span></a>';
 		} );
 		html += '</div>';
