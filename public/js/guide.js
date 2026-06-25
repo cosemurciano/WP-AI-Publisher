@@ -133,9 +133,47 @@
 			status.classList.toggle( 'is-error', !! isError );
 		}
 
+		// Idle typewriter: type out the placeholder text as if it were being
+		// written, using the same effect as the generation loader. Stops as soon
+		// as the user interacts or a request starts.
+		var idleTimer = null;
+		var idleStopped = false;
+		function stopIdlePlaceholder() {
+			if ( idleStopped ) {
+				return;
+			}
+			idleStopped = true;
+			if ( idleTimer ) {
+				clearTimeout( idleTimer );
+				idleTimer = null;
+			}
+			if ( input ) {
+				input.setAttribute( 'placeholder', basePlaceholder );
+			}
+		}
+		function startIdlePlaceholder() {
+			if ( ! input || ! basePlaceholder || idleStopped ) {
+				return;
+			}
+			var i = 0;
+			input.setAttribute( 'placeholder', '' );
+			( function typeTick() {
+				if ( idleStopped ) {
+					return;
+				}
+				i++;
+				input.setAttribute( 'placeholder', basePlaceholder.slice( 0, i ) );
+				if ( i < basePlaceholder.length ) {
+					idleTimer = setTimeout( typeTick, 45 );
+				}
+			}() );
+		}
+
 		if ( input ) {
 			autoGrow( input );
+			input.addEventListener( 'focus', stopIdlePlaceholder );
 			input.addEventListener( 'input', function () {
+				stopIdlePlaceholder();
 				autoGrow( input );
 			} );
 			// Enter submits, Shift+Enter adds a newline (chat-style).
@@ -149,6 +187,7 @@
 					}
 				}
 			} );
+			startIdlePlaceholder();
 		}
 
 		form.addEventListener( 'submit', function ( e ) {
@@ -158,6 +197,7 @@
 				setStatus( i18n.tooShort, true );
 				return;
 			}
+			stopIdlePlaceholder();
 			submit.disabled = true;
 			root.classList.add( 'is-loading' );
 			result.hidden = true;
@@ -254,8 +294,10 @@
 			saveNote.scrollIntoView( { behavior: 'smooth', block: 'nearest' } );
 		}
 
-		// Quick-reply chips: fill the input with the saved request and submit.
-		var chips = root.querySelectorAll( '.wpai-guide__chip' );
+		// Quick-reply chips: button chips (no existing page) fill the input and
+		// submit; anchor chips link to the already-created guide page and are
+		// left to navigate natively.
+		var chips = root.querySelectorAll( 'button.wpai-guide__chip[data-query]' );
 		Array.prototype.forEach.call( chips, function ( chip ) {
 			chip.addEventListener( 'click', function () {
 				if ( ! input ) {

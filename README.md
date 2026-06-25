@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.60**
+Versione corrente: **0.5.61**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.61
+- Assistente Guide AI: bagliore sfumato dietro la hero + gradiente del titolo reso robusto (anti-override del tema); le risposte veloci con pagina già creata rimandano alla pagina esistente invece di rigenerare; placeholder del campo animato in stile typewriter.
 
 ### 0.5.60
 - Risposte veloci: "Etichetta chip" personalizzabile per ogni richiesta (se vuota usa la richiesta accorciata); al clic invia comunque la richiesta completa.

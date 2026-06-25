@@ -511,11 +511,21 @@ class Guide_Assistant {
 				<?php if ( ! empty( $quick_replies ) ) : ?>
 					<div class="wpai-guide__chips">
 						<?php foreach ( $quick_replies as $qr ) : ?>
-							<?php $qr_label = '' !== trim( (string) ( $qr->label ?? '' ) ) ? (string) $qr->label : wp_trim_words( (string) $qr->query, 7, '…' ); ?>
-							<button type="button" class="wpai-guide__chip" data-query="<?php echo esc_attr( (string) $qr->query ); ?>">
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-								<?php echo esc_html( $qr_label ); ?>
-							</button>
+							<?php
+							$qr_label = '' !== trim( (string) ( $qr->label ?? '' ) ) ? (string) $qr->label : wp_trim_words( (string) $qr->query, 7, '…' );
+							$qr_url   = (string) ( $qr->guide_url ?? '' );
+							?>
+							<?php if ( '' !== $qr_url ) : ?>
+								<a class="wpai-guide__chip" href="<?php echo esc_url( $qr_url ); ?>">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+									<?php echo esc_html( $qr_label ); ?>
+								</a>
+							<?php else : ?>
+								<button type="button" class="wpai-guide__chip" data-query="<?php echo esc_attr( (string) $qr->query ); ?>">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+									<?php echo esc_html( $qr_label ); ?>
+								</button>
+							<?php endif; ?>
 						<?php endforeach; ?>
 					</div>
 				<?php endif; ?>
@@ -1327,7 +1337,7 @@ class Guide_Assistant {
 		$table        = $this->db->get_guide_requests_table_name();
 		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders built from integer count.
-		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, query FROM {$table} WHERE id IN ({$placeholders})", $ids ) );
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, query, post_id FROM {$table} WHERE id IN ({$placeholders})", $ids ) );
 		$by_id = array();
 		foreach ( (array) $rows as $row ) {
 			$by_id[ (int) $row->id ] = $row;
@@ -1335,8 +1345,14 @@ class Guide_Assistant {
 		$ordered = array();
 		foreach ( $ids as $id ) {
 			if ( isset( $by_id[ $id ] ) ) {
-				$by_id[ $id ]->label = (string) ( $map[ $id ] ?? '' );
-				$ordered[]           = $by_id[ $id ];
+				$row        = $by_id[ $id ];
+				$row->label = (string) ( $map[ $id ] ?? '' );
+				// Link the chip to the already-created public guide page, if any,
+				// so a featured request shows the existing answer instead of
+				// re-generating it.
+				$guide_post_id = absint( $row->post_id ?? 0 );
+				$row->guide_url = ( $guide_post_id > 0 && 'publish' === get_post_status( $guide_post_id ) ) ? (string) get_permalink( $guide_post_id ) : '';
+				$ordered[]  = $row;
 			}
 		}
 		return $ordered;
