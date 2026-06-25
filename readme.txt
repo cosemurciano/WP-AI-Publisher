@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.63
+Stable tag: 0.5.64
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.64 =
+* Area membri: UI rinnovata e "flat" per registrazione, login e area personale (card moderne, palette azzurro/viola, messaggi chiari).
+* Flusso "Salva la tua guida" migliorato: se l'utente è loggato la guida viene salvata subito nella sua area (anche dalla pagina guida, con conferma); se non è loggato viene invitato a creare l'account con un messaggio chiaro ("Crea il tuo account e salva le tue guide") e la guida viene salvata automaticamente subito dopo la registrazione o l'accesso.
+* Area personale: stato vuoto con invito a creare la prima guida, elenco guide come card con apertura della pagina pubblica (o lettura inline) e rimozione.
 
 = 0.5.63 =
 * Pagina guida pubblica: rimossa la navigazione "articolo precedente/successivo" del tema (post-navigation) che mostrava link ad altre guide.

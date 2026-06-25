@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.63**
+Versione corrente: **0.5.64**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.64
+- Area membri: UI flat moderna per registrazione/login/area personale; flusso "Salva la tua guida" con auto-salvataggio dopo registrazione/login (intent), salvataggio inline per utenti loggati, messaggi chiari ("Crea il tuo account e salva le tue guide") e area personale a card con stato vuoto e CTA.
 
 ### 0.5.63
 - Pagina guida: rimossa la post-navigation del tema (link ad altre guide); pulsanti stampa/condivisione sia in alto (accanto alla data) sia in fondo; pulsante "Salva" evidenziato che punta alla pagina di login dell'area membri; fix allineamento card "Articoli per la tua guida" in righe da 3 (minmax(0,1fr)).

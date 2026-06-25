@@ -529,42 +529,113 @@
 	box-shadow: 0 12px 22px -6px rgba( 108, 92, 231, 0.7 );
 }
 
-/* ---- Membership: auth + account ---- */
-.wpai-guide-auth {
-	max-width: 420px;
-	margin: 2rem auto;
+/* ---- Membership: flat auth + account ---- */
+.wpai-guide-auth,
+.wpai-guide-account {
+	--wpai-azure: #159be0;
+	--wpai-azure-deep: #0e7fc2;
+	--wpai-violet: #6c5ce7;
+	--wpai-violet-deep: #5a48d6;
+	--wpai-navy: #1f2a44;
+	--wpai-border: #e9ebf1;
+	--wpai-muted: #7b8492;
+	color: #222b3a;
+	font-size: 16px;
 }
 
-.wpai-guide-auth__form input[type="text"],
-.wpai-guide-auth__form input[type="email"],
-.wpai-guide-auth__form input[type="password"] {
-	width: 100%;
-	padding: 10px 12px;
-	border: 1px solid rgba( 17, 17, 26, 0.18 );
-	border-radius: 10px;
-	font: inherit;
-	box-sizing: border-box;
+/* Page toast on the public guide page after an inline save. */
+.wpai-guide-page__toast {
+	margin-top: 16px;
+	padding: 12px 16px;
+	border-radius: 12px;
+	background: rgba( 21, 155, 224, 0.08 );
+	border: 1px solid var( --wpai-border );
+	color: var( --wpai-navy );
 }
 
-.wpai-guide-auth__submit,
-.wpai-guide-auth .wp-block-button__link,
-.wpai-guide-auth #wp-submit {
-	display: inline-block;
-	cursor: pointer;
-	border: 0;
-	border-radius: 10px;
-	padding: 11px 20px;
-	font: inherit;
+.wpai-guide-page__toast a {
+	color: var( --wpai-violet-deep );
 	font-weight: 600;
-	color: #fff;
-	background: #5b4bff;
+}
+
+/* Auth card */
+.wpai-guide-auth {
+	max-width: 440px;
+	margin: 2.5rem auto;
+}
+
+.wpai-guide-auth__card {
+	background: #fff;
+	border: 1px solid var( --wpai-border );
+	border-radius: 20px;
+	padding: 30px 28px;
+	box-shadow: 0 24px 60px -28px rgba( 31, 42, 68, 0.30 );
+	text-align: center;
+}
+
+.wpai-guide-auth__card--cta {
+	text-align: center;
+}
+
+.wpai-guide-auth__badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var( --wpai-azure-deep );
+	background: rgba( 21, 155, 224, 0.08 );
+	padding: 5px 12px;
+	border-radius: 999px;
+	margin-bottom: 16px;
+}
+
+.wpai-guide-auth__badge-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var( --wpai-azure );
+}
+
+.wpai-guide-auth__title {
+	font-size: 24px;
+	font-weight: 800;
+	letter-spacing: -0.6px;
+	line-height: 1.2;
+	margin: 0 0 8px;
+}
+
+.wpai-guide-auth__sub {
+	color: #566072;
+	font-size: 15px;
+	line-height: 1.5;
+	margin: 0 0 20px;
+}
+
+.wpai-guide-auth__banner {
+	margin: 0 0 18px;
+	padding: 12px 14px;
+	border-radius: 12px;
+	font-size: 14px;
+	background: rgba( 108, 92, 231, 0.08 );
+	border: 1px solid rgba( 108, 92, 231, 0.18 );
+	color: var( --wpai-navy );
+	text-align: left;
+}
+
+.wpai-guide-auth__banner--ok {
+	background: rgba( 22, 163, 74, 0.08 );
+	border-color: rgba( 22, 163, 74, 0.22 );
+	color: #15803d;
 }
 
 .wpai-guide-auth__notice {
-	margin: 0 0 1rem;
-	padding: 12px 16px;
-	border-radius: 10px;
-	border: 1px solid rgba( 17, 17, 26, 0.12 );
+	margin: 0 0 16px;
+	padding: 12px 14px;
+	border-radius: 12px;
+	border: 1px solid var( --wpai-border );
+	text-align: left;
+	font-size: 14px;
 }
 
 .wpai-guide-auth__notice--error {
@@ -573,69 +644,263 @@
 	border-color: #f3c7c4;
 }
 
-.wpai-guide-auth__alt {
-	margin-top: 1rem;
-	font-size: 0.95em;
+.wpai-guide-auth__form {
+	text-align: left;
 }
 
+.wpai-guide-auth__field {
+	display: block;
+	margin-bottom: 14px;
+}
+
+.wpai-guide-auth__label {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	color: var( --wpai-navy );
+	margin-bottom: 6px;
+}
+
+.wpai-guide-auth__form input[type="text"],
+.wpai-guide-auth__form input[type="email"],
+.wpai-guide-auth__form input[type="password"] {
+	width: 100%;
+	padding: 12px 14px;
+	border: 1px solid var( --wpai-border );
+	border-radius: 12px;
+	font: inherit;
+	background: #fff;
+	box-sizing: border-box;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.wpai-guide-auth__form input:focus {
+	outline: none;
+	border-color: rgba( 108, 92, 231, 0.55 );
+	box-shadow: 0 0 0 4px rgba( 108, 92, 231, 0.10 );
+}
+
+.wpai-guide-auth__hint {
+	display: block;
+	margin-top: 5px;
+	font-size: 12px;
+	color: var( --wpai-muted );
+}
+
+.wpai-guide-auth__remember {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	font-size: 14px;
+	color: var( --wpai-muted );
+	margin-bottom: 16px;
+}
+
+.wpai-guide-auth__submit {
+	display: inline-block;
+	width: 100%;
+	text-align: center;
+	cursor: pointer;
+	border: 0;
+	border-radius: 12px;
+	padding: 13px 20px;
+	font: inherit;
+	font-weight: 700;
+	color: #fff;
+	text-decoration: none;
+	background: linear-gradient( 135deg, var( --wpai-violet ), var( --wpai-violet-deep ) );
+	box-shadow: 0 12px 24px -10px rgba( 108, 92, 231, 0.7 );
+	transition: transform 0.12s ease, box-shadow 0.15s ease;
+}
+
+.wpai-guide-auth__submit:hover {
+	transform: translateY( -1px );
+	color: #fff;
+	box-shadow: 0 16px 28px -10px rgba( 108, 92, 231, 0.8 );
+}
+
+.wpai-guide-auth__ghost {
+	display: inline-block;
+	padding: 13px 20px;
+	border-radius: 12px;
+	border: 1px solid var( --wpai-border );
+	font-weight: 600;
+	color: var( --wpai-navy );
+	text-decoration: none;
+}
+
+.wpai-guide-auth__ghost:hover {
+	border-color: var( --wpai-violet );
+	color: var( --wpai-violet );
+}
+
+.wpai-guide-auth__cta-row {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.wpai-guide-auth__alt {
+	margin: 14px 0 0;
+	font-size: 14px;
+	color: var( --wpai-muted );
+}
+
+.wpai-guide-auth__alt a {
+	color: var( --wpai-violet-deep );
+	font-weight: 600;
+}
+
+/* Account area */
 .wpai-guide-account {
-	max-width: 820px;
-	margin: 2rem auto;
+	max-width: 880px;
+	margin: 2.5rem auto;
 }
 
 .wpai-guide-account__head {
 	display: flex;
 	justify-content: space-between;
-	align-items: center;
-	padding-bottom: 12px;
-	border-bottom: 1px solid rgba( 17, 17, 26, 0.12 );
+	align-items: flex-end;
+	gap: 14px;
+	flex-wrap: wrap;
+	padding-bottom: 16px;
+	margin-bottom: 8px;
+	border-bottom: 1px solid var( --wpai-border );
 }
 
-.wpai-guide-account__list {
-	list-style: none;
-	margin: 1rem 0 0;
-	padding: 0;
+.wpai-guide-account__greet {
+	font-size: 24px;
+	font-weight: 800;
+	letter-spacing: -0.6px;
+	margin: 0;
 }
 
-.wpai-guide-account__item {
-	border: 1px solid rgba( 17, 17, 26, 0.12 );
-	border-radius: 12px;
-	padding: 14px 18px;
-	margin-bottom: 12px;
+.wpai-guide-account__subtitle {
+	margin: 4px 0 0;
+	color: var( --wpai-muted );
+	font-size: 14px;
 }
 
-.wpai-guide-account__item summary {
-	cursor: pointer;
+.wpai-guide-account__logout {
+	color: var( --wpai-muted );
+	text-decoration: none;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.wpai-guide-account__logout:hover {
+	color: var( --wpai-violet );
+}
+
+.wpai-guide-account__empty {
+	text-align: center;
+	padding: 46px 20px;
+	color: var( --wpai-muted );
+}
+
+.wpai-guide-account__empty svg {
+	color: var( --wpai-violet );
+	opacity: 0.7;
+	margin-bottom: 10px;
+}
+
+.wpai-guide-account__empty p {
+	margin: 0 0 18px;
+}
+
+.wpai-guide-account__empty .wpai-guide-auth__submit {
+	width: auto;
+}
+
+.wpai-guide-account__cards {
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	gap: 16px;
+	margin-top: 20px;
+}
+
+.wpai-guide-account__card {
 	display: flex;
+	flex-direction: column;
 	justify-content: space-between;
-	gap: 12px;
-	align-items: baseline;
+	gap: 14px;
+	border: 1px solid var( --wpai-border );
+	border-radius: 16px;
+	padding: 18px 20px;
+	background: #fff;
+	transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.wpai-guide-account__card:hover {
+	transform: translateY( -2px );
+	box-shadow: 0 14px 30px -18px rgba( 31, 42, 68, 0.30 );
 }
 
 .wpai-guide-account__date {
-	color: rgba( 17, 17, 26, 0.55 );
-	font-size: 0.88em;
-	flex: 0 0 auto;
+	color: var( --wpai-muted );
+	font-size: 12.5px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.4px;
 }
 
-.wpai-guide-account__item .wpai-guide__content {
-	margin-top: 14px;
+.wpai-guide-account__card-title {
+	margin: 6px 0 0;
+	font-size: 17px;
+	line-height: 1.35;
+	font-weight: 700;
+}
+
+.wpai-guide-account__card-actions {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.wpai-guide-account__open {
+	display: inline-block;
+	padding: 9px 16px;
+	border-radius: 10px;
+	font-weight: 600;
+	text-decoration: none;
+	color: #fff;
+	background: linear-gradient( 135deg, var( --wpai-violet ), var( --wpai-violet-deep ) );
+}
+
+.wpai-guide-account__inline summary {
+	cursor: pointer;
+	font-weight: 600;
+	color: var( --wpai-violet-deep );
+}
+
+.wpai-guide-account__inline .wpai-guide__content {
+	margin-top: 12px;
 }
 
 .wpai-guide-account__remove {
-	margin-top: 10px;
 	cursor: pointer;
-	border: 1px solid rgba( 17, 17, 26, 0.18 );
+	border: 1px solid var( --wpai-border );
 	background: transparent;
-	border-radius: 8px;
-	padding: 6px 12px;
+	border-radius: 10px;
+	padding: 8px 14px;
 	font: inherit;
+	font-weight: 600;
 	color: #8a1f1b;
+	margin-left: auto;
+}
+
+.wpai-guide-account__remove:hover {
+	border-color: #e3a3a0;
+	background: #fdecea;
 }
 
 /* ---- Responsive ---- */
 @media ( max-width: 680px ) {
 	.wpai-guide__cards {
+		grid-template-columns: 1fr;
+	}
+
+	.wpai-guide-account__cards {
 		grid-template-columns: 1fr;
 	}
 }
