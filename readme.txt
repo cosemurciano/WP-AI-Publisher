@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.66
+Stable tag: 0.5.67
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,10 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.67 =
+* Guide AI: l'amministratore può ora modificare una guida creata (titolo e contenuto) tramite un pulsante "Modifica" — nell'elenco Richieste guide e direttamente sulla pagina pubblica della guida (visibile solo a chi può modificare) — e una pagina di modifica dedicata con editor. Il contenuto aggiornato viene sincronizzato anche con la versione mostrata nell'area membri.
+* Card "Articoli per la tua guida" ridisegnate in stile rivista (immagine con badge categoria, data, titolo, estratto e "Leggi l'articolo"), coerenti con i colori del sito (azzurro/viola), con hover ed effetto zoom.
 
 = 0.5.66 =
 * Bacheca: nuova area in evidenza con il numero di Idee create (più Idee programmate e Bozze create). Il riquadro principale è cliccabile e porta alla pagina Idee contenuto.

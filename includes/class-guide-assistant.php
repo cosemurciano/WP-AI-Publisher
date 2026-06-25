@@ -94,6 +94,8 @@ class Guide_Assistant {
 		add_action( 'admin_post_wpai_publisher_guide_request_to_idea', array( $this, 'handle_convert_to_idea' ) );
 		add_action( 'admin_post_wpai_publisher_delete_guide_request', array( $this, 'handle_delete_request' ) );
 		add_action( 'admin_post_wpai_publisher_save_guide_quick_replies', array( $this, 'handle_save_quick_replies' ) );
+		add_action( 'admin_menu', array( $this, 'register_edit_page' ), 12 );
+		add_action( 'admin_post_wpai_publisher_save_guide_edit', array( $this, 'handle_save_guide_edit' ) );
 
 		// Keep generated guide pages out of search engines and front-end search.
 		add_filter( 'wp_robots', array( $this, 'filter_guide_robots' ) );
@@ -294,13 +296,23 @@ class Guide_Assistant {
 			$cards = '<div class="wpai-guide__related"><h3 class="wpai-guide__related-title">' . esc_html__( 'Articoli per la tua guida', 'wp-ai-publisher' ) . '</h3><div class="wpai-guide__cards">';
 			foreach ( $articles as $a ) {
 				$cards .= '<a class="wpai-guide__card" href="' . esc_url( (string) $a['url'] ) . '">';
+				$cards .= '<span class="wpai-guide__card-media">';
 				if ( ! empty( $a['thumb'] ) ) {
-					$cards .= '<span class="wpai-guide__card-media"><img src="' . esc_url( (string) $a['thumb'] ) . '" alt="" loading="lazy"></span>';
+					$cards .= '<img src="' . esc_url( (string) $a['thumb'] ) . '" alt="" loading="lazy">';
 				}
-				$cards .= '<span class="wpai-guide__card-body"><span class="wpai-guide__card-title">' . esc_html( (string) $a['title'] ) . '</span>';
+				if ( ! empty( $a['category'] ) ) {
+					$cards .= '<span class="wpai-guide__card-cat">' . esc_html( (string) $a['category'] ) . '</span>';
+				}
+				$cards .= '</span>';
+				$cards .= '<span class="wpai-guide__card-body">';
+				if ( ! empty( $a['date'] ) ) {
+					$cards .= '<span class="wpai-guide__card-meta">' . esc_html( (string) $a['date'] ) . '</span>';
+				}
+				$cards .= '<span class="wpai-guide__card-title">' . esc_html( (string) $a['title'] ) . '</span>';
 				if ( ! empty( $a['excerpt'] ) ) {
 					$cards .= '<span class="wpai-guide__card-excerpt">' . esc_html( (string) $a['excerpt'] ) . '</span>';
 				}
+				$cards .= '<span class="wpai-guide__card-more">' . esc_html__( 'Leggi l’articolo', 'wp-ai-publisher' ) . ' →</span>';
 				$cards .= '</span></a>';
 			}
 			$cards .= '</div></div>';
@@ -312,8 +324,14 @@ class Guide_Assistant {
 		$wrapper_open  = '<div class="wpai-guide wpai-guide-page" data-title="' . esc_attr( get_the_title( $post_id ) ) . '">';
 		$wrapper_close = '</div>';
 
+		// Admins get an inline "edit this guide" link next to the date.
+		$admin_edit = '';
+		if ( current_user_can( 'edit_post', $post_id ) ) {
+			$admin_edit = ' <a class="wpai-guide-page__edit" href="' . esc_url( self::guide_edit_url( $post_id ) ) . '"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="vertical-align:-2px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> ' . esc_html__( 'Modifica guida', 'wp-ai-publisher' ) . '</a>';
+		}
+
 		// Tools to the right of the date at the top, and again at the very bottom.
-		$top_bar = '<div class="wpai-guide-page__bar">' . $meta . $tools . '</div>';
+		$top_bar = '<div class="wpai-guide-page__bar"><span class="wpai-guide-page__metawrap">' . $meta . $admin_edit . '</span>' . $tools . '</div>';
 
 		return $wrapper_open . $top_bar . '<div class="wpai-guide-page__content">' . $content . '</div>' . $cards . $tools . $wrapper_close;
 	}
@@ -680,6 +698,7 @@ class Guide_Assistant {
 					'error'      => __( 'Si è verificato un errore. Riprova più tardi.', 'wp-ai-publisher' ),
 					'tooShort'   => __( 'Scrivi una richiesta più dettagliata.', 'wp-ai-publisher' ),
 					'related'    => __( 'Articoli per la tua guida', 'wp-ai-publisher' ),
+					'readMore'   => __( 'Leggi l’articolo', 'wp-ai-publisher' ),
 					'printTitle' => __( 'Guida', 'wp-ai-publisher' ),
 					'waText'     => __( 'Ecco la guida che ho creato:', 'wp-ai-publisher' ),
 					'saveNote'   => __( 'Presto potrai registrarti per salvare e ritrovare tutte le tue guide. Funzione in arrivo!', 'wp-ai-publisher' ),
@@ -1148,12 +1167,17 @@ class Guide_Assistant {
 	private function build_recommended_articles( $candidates, $max ) {
 		$out = array();
 		foreach ( array_slice( $candidates, 0, max( 1, $max ) ) as $c ) {
-			$out[] = array(
-				'id'      => (int) $c['id'],
-				'title'   => $c['title'],
-				'url'     => $c['url'],
-				'excerpt' => wp_trim_words( (string) $c['excerpt'], 28 ),
-				'thumb'   => (string) get_the_post_thumbnail_url( (int) $c['id'], 'medium' ),
+			$pid       = (int) $c['id'];
+			$cats      = get_the_category( $pid );
+			$cat_name  = ( ! empty( $cats ) && ! is_wp_error( $cats ) ) ? (string) $cats[0]->name : '';
+			$out[]     = array(
+				'id'       => $pid,
+				'title'    => $c['title'],
+				'url'      => $c['url'],
+				'excerpt'  => wp_trim_words( (string) $c['excerpt'], 22 ),
+				'thumb'    => (string) get_the_post_thumbnail_url( $pid, 'medium' ),
+				'date'     => get_the_date( 'j M Y', $pid ),
+				'category' => $cat_name,
 			);
 		}
 		return $out;
@@ -1365,6 +1389,95 @@ class Guide_Assistant {
 		global $wpdb;
 		$table = $this->db->get_guide_requests_table_name();
 		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", absint( $id ) ) );
+	}
+
+	/* ---------------------------------------------------------------------
+	 * Admin: edit a generated guide (title + content)
+	 * ------------------------------------------------------------------- */
+
+	/**
+	 * Admin URL of the guide edit page for a given guide post.
+	 *
+	 * @param int $post_id Guide post ID.
+	 * @return string
+	 */
+	public static function guide_edit_url( $post_id ) {
+		return admin_url( 'admin.php?page=wp-ai-publisher-guide-edit&post=' . absint( $post_id ) );
+	}
+
+	/**
+	 * Register the hidden "edit guide" admin page.
+	 *
+	 * @return void
+	 */
+	public function register_edit_page() {
+		add_submenu_page(
+			'',
+			esc_html__( 'Modifica guida', 'wp-ai-publisher' ),
+			esc_html__( 'Modifica guida', 'wp-ai-publisher' ),
+			'edit_posts',
+			'wp-ai-publisher-guide-edit',
+			array( $this, 'render_edit_page' )
+		);
+	}
+
+	/**
+	 * Render the guide edit form (title + content).
+	 *
+	 * @return void
+	 */
+	public function render_edit_page() {
+		$post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0;
+		$guide   = $post_id ? get_post( $post_id ) : null;
+		if ( ! $guide || self::CPT !== $guide->post_type || ! current_user_can( 'edit_post', $post_id ) ) {
+			wp_die( esc_html__( 'Guida non trovata o permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+		require WPAIP_PLUGIN_DIR . 'admin/views/guide-edit.php';
+	}
+
+	/**
+	 * Save the edited guide title/content.
+	 *
+	 * @return void
+	 */
+	public function handle_save_guide_edit() {
+		$post_id = absint( $_POST['post_id'] ?? 0 );
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+		check_admin_referer( 'wpai_publisher_save_guide_edit_' . $post_id );
+
+		$guide = get_post( $post_id );
+		if ( ! $guide || self::CPT !== $guide->post_type ) {
+			wp_die( esc_html__( 'Guida non trovata.', 'wp-ai-publisher' ) );
+		}
+
+		$title   = sanitize_text_field( wp_unslash( $_POST['guide_title'] ?? '' ) );
+		$content = wp_kses_post( wp_unslash( $_POST['guide_content'] ?? '' ) );
+
+		wp_update_post(
+			array(
+				'ID'           => $post_id,
+				'post_title'   => '' !== $title ? $title : $guide->post_title,
+				'post_content' => $content,
+			)
+		);
+
+		// Keep the stored result HTML (used in the member area) in sync.
+		$request_id = absint( get_post_meta( $post_id, '_wpai_guide_request_id', true ) );
+		if ( $request_id > 0 ) {
+			global $wpdb;
+			$wpdb->update(
+				$this->db->get_guide_requests_table_name(),
+				array( 'result_html' => $content ),
+				array( 'id' => $request_id ),
+				array( '%s' ),
+				array( '%d' )
+			);
+		}
+
+		wp_safe_redirect( add_query_arg( 'updated', '1', self::guide_edit_url( $post_id ) ) );
+		exit;
 	}
 
 	/**

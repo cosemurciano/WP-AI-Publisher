@@ -84,6 +84,9 @@ $wpai_guide_notices = array(
 							if ( $wpai_req_post_id > 0 && get_post_status( $wpai_req_post_id ) ) :
 								?>
 								<a class="button button-small" href="<?php echo esc_url( (string) get_permalink( $wpai_req_post_id ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html__( 'Pagina', 'wp-ai-publisher' ); ?></a>
+								<?php if ( current_user_can( 'edit_post', $wpai_req_post_id ) ) : ?>
+									<a class="button button-small" href="<?php echo esc_url( \WPAIPublisher\Guide_Assistant::guide_edit_url( $wpai_req_post_id ) ); ?>"><?php echo esc_html__( 'Modifica', 'wp-ai-publisher' ); ?></a>
+								<?php endif; ?>
 							<?php endif; ?>
 							<?php if ( 'idea' !== $req->status ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
