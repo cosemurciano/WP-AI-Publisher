@@ -99,6 +99,9 @@ class Guide_Assistant {
 		add_filter( 'wp_robots', array( $this, 'filter_guide_robots' ) );
 		add_filter( 'the_content', array( $this, 'filter_guide_content' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'maybe_enqueue_single_guide_assets' ) );
+		// Suppress the theme's previous/next post navigation on guide pages.
+		add_filter( 'previous_post_link', array( $this, 'filter_guide_post_link' ) );
+		add_filter( 'next_post_link', array( $this, 'filter_guide_post_link' ) );
 
 		// Scheduled cleanup of old public guide pages (retention configurable).
 		add_action( 'init', array( $this, 'maybe_schedule_cleanup' ) );
@@ -254,6 +257,17 @@ class Guide_Assistant {
 	}
 
 	/**
+	 * Remove the adjacent (previous/next) post links on single guide pages so the
+	 * theme's post-navigation does not expose other guides.
+	 *
+	 * @param string $output Link HTML.
+	 * @return string
+	 */
+	public function filter_guide_post_link( $output ) {
+		return is_singular( self::CPT ) ? '' : $output;
+	}
+
+	/**
 	 * Append the recommended-article cards to a single guide's content.
 	 *
 	 * @param string $content Post content.
@@ -264,11 +278,12 @@ class Guide_Assistant {
 			return $content;
 		}
 		$post_id = get_the_ID();
+		$config  = $this->get_config();
 
 		// Formatted creation date (site locale + timezone).
 		$date_str = wp_date( (string) get_option( 'date_format', 'j F Y' ), get_post_timestamp( $post_id ) );
-		$meta = '<p class="wpai-guide-page__meta"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-			. esc_html( sprintf( __( 'Guida creata il %s', 'wp-ai-publisher' ), $date_str ) ) . '</p>';
+		$meta = '<span class="wpai-guide-page__meta"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+			. esc_html( sprintf( __( 'Guida creata il %s', 'wp-ai-publisher' ), $date_str ) ) . '</span>';
 
 		// Up to 6 recommended articles (real search results stored at generation).
 		$ids      = (array) json_decode( (string) get_post_meta( $post_id, '_wpai_guide_article_ids', true ), true );
@@ -291,16 +306,37 @@ class Guide_Assistant {
 			$cards .= '</div></div>';
 		}
 
-		// Print + share tools (same look as the home generator).
-		$tools = '<div class="wpai-guide__tools wpai-guide-page__tools">'
-			. '<button type="button" class="wpai-guide__tool wpai-guide__print" data-tooltip="' . esc_attr__( 'Salva come PDF', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Salva come PDF', 'wp-ai-publisher' ) . '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
-			. '<button type="button" class="wpai-guide__tool wpai-guide__whatsapp" data-tooltip="' . esc_attr__( 'Invia su WhatsApp', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Invia su WhatsApp', 'wp-ai-publisher' ) . '"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Z"/></svg></button>'
-			. '</div>';
+		$tools = $this->build_guide_page_tools( $config );
 
 		$wrapper_open  = '<div class="wpai-guide wpai-guide-page" data-title="' . esc_attr( get_the_title( $post_id ) ) . '">';
 		$wrapper_close = '</div>';
 
-		return $wrapper_open . $meta . '<div class="wpai-guide-page__content">' . $content . '</div>' . $cards . $tools . $wrapper_close;
+		// Tools to the right of the date at the top, and again at the very bottom.
+		$top_bar = '<div class="wpai-guide-page__bar">' . $meta . $tools . '</div>';
+
+		return $wrapper_open . $top_bar . '<div class="wpai-guide-page__content">' . $content . '</div>' . $cards . $tools . $wrapper_close;
+	}
+
+	/**
+	 * Build the print/share/save tools row used on a public guide page.
+	 *
+	 * @param array<string,mixed> $config Config.
+	 * @return string
+	 */
+	private function build_guide_page_tools( $config ) {
+		$tools = '<div class="wpai-guide__tools wpai-guide-page__tools">'
+			. '<button type="button" class="wpai-guide__tool wpai-guide__print" data-tooltip="' . esc_attr__( 'Salva come PDF', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Salva come PDF', 'wp-ai-publisher' ) . '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+			. '<button type="button" class="wpai-guide__tool wpai-guide__whatsapp" data-tooltip="' . esc_attr__( 'Invia su WhatsApp', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Invia su WhatsApp', 'wp-ai-publisher' ) . '"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Z"/></svg></button>';
+
+		// Prominent "Save" action linking to the membership login page.
+		$login_id  = absint( $config['login_page_id'] ) ?: absint( $config['register_page_id'] );
+		$login_url = $login_id ? get_permalink( $login_id ) : '';
+		if ( '' !== (string) $login_url ) {
+			$tools .= '<a class="wpai-guide__tool wpai-guide__save-link" href="' . esc_url( (string) $login_url ) . '" data-tooltip="' . esc_attr__( 'Salva la tua guida', 'wp-ai-publisher' ) . '" aria-label="' . esc_attr__( 'Salva la tua guida', 'wp-ai-publisher' ) . '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>';
+		}
+
+		$tools .= '</div>';
+		return $tools;
 	}
 
 	/**
