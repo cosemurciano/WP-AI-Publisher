@@ -154,8 +154,8 @@ final class Plugin {
 		$this->ai_provider   = new AI_Provider_Adapter();
 		$this->content_ideas = new Content_Ideas( $this->db, $this->ai_provider, $this->logger );
 		$this->article_type_repository = class_exists( __NAMESPACE__ . '\\Article_Type_Repository' ) ? new Article_Type_Repository() : null;
-		$this->guide_assistant = class_exists( __NAMESPACE__ . '\\Guide_Assistant' ) ? new Guide_Assistant( $this->db, $this->logger, $this->ai_provider, $this->content_ideas ) : null;
 		$this->access_control  = class_exists( __NAMESPACE__ . '\\Access_Control' ) ? new Access_Control() : null;
+		$this->guide_assistant = class_exists( __NAMESPACE__ . '\\Guide_Assistant' ) ? new Guide_Assistant( $this->db, $this->logger, $this->ai_provider, $this->content_ideas, $this->access_control ) : null;
 		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas, $this->article_type_repository, $this->guide_assistant, $this->access_control );
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );

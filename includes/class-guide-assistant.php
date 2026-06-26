@@ -65,18 +65,27 @@ class Guide_Assistant {
 	private $content_ideas;
 
 	/**
+	 * Access control service (optional).
+	 *
+	 * @var Access_Control|null
+	 */
+	private $access_control;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param DB                  $db DB service.
 	 * @param Logger              $logger Logger service.
 	 * @param AI_Provider_Adapter $ai_provider AI provider adapter.
 	 * @param Content_Ideas       $content_ideas Content ideas service.
+	 * @param Access_Control|null $access_control Access control service.
 	 */
-	public function __construct( DB $db, Logger $logger, AI_Provider_Adapter $ai_provider, Content_Ideas $content_ideas ) {
+	public function __construct( DB $db, Logger $logger, AI_Provider_Adapter $ai_provider, Content_Ideas $content_ideas, ?Access_Control $access_control = null ) {
 		$this->db            = $db;
 		$this->logger        = $logger;
 		$this->ai_provider   = $ai_provider;
 		$this->content_ideas = $content_ideas;
+		$this->access_control = $access_control;
 	}
 
 	/**
@@ -1432,6 +1441,7 @@ class Guide_Assistant {
 		if ( ! $guide || self::CPT !== $guide->post_type || ! current_user_can( 'edit_post', $post_id ) ) {
 			wp_die( esc_html__( 'Guida non trovata o permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
+		$access_control = $this->access_control;
 		require WPAIP_PLUGIN_DIR . 'admin/views/guide-edit.php';
 	}
 
@@ -1454,6 +1464,12 @@ class Guide_Assistant {
 
 		$title   = sanitize_text_field( wp_unslash( $_POST['guide_title'] ?? '' ) );
 		$content = wp_kses_post( wp_unslash( $_POST['guide_content'] ?? '' ) );
+
+		// Persist the access rule (if the access module is available) before the
+		// update so the save_post reindex picks up the new meta.
+		if ( $this->access_control instanceof Access_Control ) {
+			$this->access_control->save_post_control( $post_id );
+		}
 
 		wp_update_post(
 			array(
