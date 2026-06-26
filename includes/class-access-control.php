@@ -60,8 +60,8 @@ class Access_Control {
 		add_action( 'save_post', array( $this, 'reindex_post' ), 99, 1 );
 		add_action( 'deleted_post', array( $this, 'remove_post_from_index' ) );
 		add_action( 'created_term', array( $this, 'reindex_terms' ) );
-		add_action( 'edited_term', array( $this, 'reindex_terms' ) );
-		add_action( 'delete_term', array( $this, 'reindex_terms' ) );
+		add_action( 'edited_term', array( $this, 'on_term_edited' ), 10, 3 );
+		add_action( 'delete_term', array( $this, 'on_term_deleted' ), 10, 5 );
 		add_action( 'wp_update_nav_menu', array( $this, 'reindex_menu_items' ) );
 
 		add_action( 'admin_post_wpai_publisher_save_access', array( $this, 'handle_save_settings' ) );
@@ -329,6 +329,69 @@ class Access_Control {
 		}
 		$index          = $this->get_index();
 		$index['terms'] = $terms;
+		$this->save_index( $index );
+	}
+
+	/**
+	 * When a term's access changes, reindex the term set and propagate the new
+	 * rule immediately to the posts that belong to that term.
+	 *
+	 * @param int    $term_id  Term ID.
+	 * @param int    $tt_id    Term taxonomy ID.
+	 * @param string $taxonomy Taxonomy.
+	 * @return void
+	 */
+	public function on_term_edited( $term_id, $tt_id = 0, $taxonomy = '' ) {
+		$this->reindex_terms();
+		$object_ids = get_objects_in_term( (int) $term_id, $taxonomy ? $taxonomy : 'category' );
+		if ( ! is_wp_error( $object_ids ) && ! empty( $object_ids ) ) {
+			$this->reindex_posts_batch( array_map( 'absint', (array) $object_ids ) );
+		}
+	}
+
+	/**
+	 * When a term is deleted, reindex and recompute the posts that had it.
+	 *
+	 * @param int      $term         Term ID.
+	 * @param int      $tt_id        Term taxonomy ID.
+	 * @param string   $taxonomy     Taxonomy.
+	 * @param \WP_Term $deleted_term Deleted term.
+	 * @param array    $object_ids   Objects that had the term.
+	 * @return void
+	 */
+	public function on_term_deleted( $term, $tt_id = 0, $taxonomy = '', $deleted_term = null, $object_ids = array() ) {
+		$this->reindex_terms();
+		if ( ! empty( $object_ids ) ) {
+			$this->reindex_posts_batch( array_map( 'absint', (array) $object_ids ) );
+		}
+	}
+
+	/**
+	 * Recompute the effective rule for a set of posts in a single index write.
+	 *
+	 * @param array<int,int> $ids Post IDs.
+	 * @return void
+	 */
+	private function reindex_posts_batch( $ids ) {
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+		if ( empty( $ids ) ) {
+			return;
+		}
+		// Cap to keep a single term edit from triggering an unbounded recompute;
+		// beyond this a full rebuild (settings save) covers the rest.
+		$ids   = array_slice( $ids, 0, 5000 );
+		$index = $this->get_index();
+		foreach ( $ids as $pid ) {
+			if ( 'nav_menu_item' === get_post_type( $pid ) ) {
+				continue;
+			}
+			$rule = $this->compute_post_rule( $pid );
+			if ( $rule ) {
+				$index['posts'][ $pid ] = $rule;
+			} else {
+				unset( $index['posts'][ $pid ] );
+			}
+		}
 		$this->save_index( $index );
 	}
 
@@ -643,6 +706,34 @@ class Access_Control {
 		$roles = $rule['roles'] ?? array();
 		wp_nonce_field( 'wpai_access_meta', 'wpai_access_nonce' );
 		$this->render_control( $mode, $roles );
+	}
+
+	/**
+	 * Public helper: render the access control for a given post (used by custom
+	 * editors such as the guide edit screen). Outputs the nonce + control.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	public function render_post_control( $post_id ) {
+		$rule = $this->normalize_rule( get_post_meta( absint( $post_id ), self::META, true ) );
+		wp_nonce_field( 'wpai_access_meta', 'wpai_access_nonce' );
+		$this->render_control( $rule['mode'] ?? self::MODE_EVERYONE, $rule['roles'] ?? array() );
+	}
+
+	/**
+	 * Public helper: save the access rule for a post from the current request.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	public function save_post_control( $post_id ) {
+		$post_id = absint( $post_id );
+		if ( $post_id <= 0 || ! current_user_can( 'edit_post', $post_id ) ) {
+			return;
+		}
+		$this->store_rule( 'post', $post_id, $this->read_posted_rule() );
+		$this->reindex_post( $post_id );
 	}
 
 	/**

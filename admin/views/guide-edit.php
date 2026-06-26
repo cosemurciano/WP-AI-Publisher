@@ -35,6 +35,15 @@ $wpai_view_url = get_permalink( $guide );
 					<th scope="row"><label for="wpai-guide-title"><?php echo esc_html__( 'Titolo', 'wp-ai-publisher' ); ?></label></th>
 					<td><input type="text" id="wpai-guide-title" name="guide_title" class="large-text" value="<?php echo esc_attr( $guide->post_title ); ?>"></td>
 				</tr>
+				<?php if ( isset( $access_control ) && $access_control instanceof \WPAIPublisher\Access_Control ) : ?>
+					<tr>
+						<th scope="row"><?php echo esc_html__( 'Accesso', 'wp-ai-publisher' ); ?></th>
+						<td>
+							<?php $access_control->render_post_control( (int) $guide->ID ); ?>
+							<p class="description"><?php echo esc_html__( 'Limita la visualizzazione di questa guida (richiede il Controllo accessi attivo).', 'wp-ai-publisher' ); ?></p>
+						</td>
+					</tr>
+				<?php endif; ?>
 			</tbody>
 		</table>
 

@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.68
+Stable tag: 0.5.69
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,10 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.69 =
+* Controllo accessi: la regola di accesso può ora essere impostata anche per le singole guide AI, direttamente dalla pagina "Modifica guida".
+* Le modifiche alla regola di accesso di una categoria/tag si propagano subito ai contenuti che vi appartengono (ricalcolo immediato su modifica/eliminazione del termine), senza attendere il salvataggio dei singoli contenuti.
 
 = 0.5.68 =
 * Controllo accessi: nuova funzionalità per limitare la visualizzazione dei contenuti in base al login e ai ruoli utente. Per ogni contenuto (articoli, pagine, tipi di contenuto), categoria/tag e voce di menu è possibile scegliere l'accesso: Tutti (default), Solo utenti registrati, oppure Solo ruoli specifici. Gli amministratori vedono sempre tutto.
