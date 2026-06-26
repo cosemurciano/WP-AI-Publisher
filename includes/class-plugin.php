@@ -122,6 +122,13 @@ final class Plugin {
 	private $bulk_import;
 
 	/**
+	 * Access control service.
+	 *
+	 * @var Access_Control|null
+	 */
+	private $access_control;
+
+	/**
 	 * Return singleton instance.
 	 *
 	 * @return Plugin
@@ -148,7 +155,8 @@ final class Plugin {
 		$this->content_ideas = new Content_Ideas( $this->db, $this->ai_provider, $this->logger );
 		$this->article_type_repository = class_exists( __NAMESPACE__ . '\\Article_Type_Repository' ) ? new Article_Type_Repository() : null;
 		$this->guide_assistant = class_exists( __NAMESPACE__ . '\\Guide_Assistant' ) ? new Guide_Assistant( $this->db, $this->logger, $this->ai_provider, $this->content_ideas ) : null;
-		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas, $this->article_type_repository, $this->guide_assistant );
+		$this->access_control  = class_exists( __NAMESPACE__ . '\\Access_Control' ) ? new Access_Control() : null;
+		$this->admin         = new Admin( $this->db, $this->logger, $this->settings, $this->ai_provider, $this->job_queue, $this->content_ideas, $this->article_type_repository, $this->guide_assistant, $this->access_control );
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 		add_action( 'admin_init', array( $this->settings, 'register' ) );
@@ -185,6 +193,11 @@ final class Plugin {
 		if ( class_exists( __NAMESPACE__ . '\\Instagram_Integration' ) ) {
 			$this->instagram = new Instagram_Integration( $this->logger, $this->ai_provider );
 			$this->instagram->register();
+		}
+
+		// Content access control by login/role.
+		if ( $this->access_control instanceof Access_Control ) {
+			$this->access_control->register();
 		}
 
 		// Assistente Guide AI: public shortcode + REST guide generator.

@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.67**
+Versione corrente: **0.5.68**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.68
+- Controllo accessi: restrizione della visualizzazione dei contenuti per login/ruolo (post, pagine, CPT, categorie/tag, voci di menu). Modalità: Tutti (default), Solo registrati, Ruoli specifici; admin vede tutto. Indice precalcolato (autoload), applicazione a strati (template_redirect, pre_get_posts, menu, get_terms, REST, sitemap) senza meta_query per richiesta; non loggato → login area membri, ruolo non autorizzato → pagina dedicata; cache full-page esclusa sui contenuti riservati. Nuova pagina admin "Controllo accessi".
 
 ### 0.5.67
 - Guide AI: modifica admin della guida creata (titolo + contenuto) con pulsante "Modifica" (lista Richieste guide e pagina pubblica) e pagina di editor dedicata, con sync del result_html nell'area membri. Card "Articoli per la tua guida" ridisegnate in stile rivista (badge categoria, data, titolo, estratto, CTA) con hover/zoom.

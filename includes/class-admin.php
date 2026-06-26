@@ -72,6 +72,13 @@ class Admin {
 	private $guide_assistant;
 
 	/**
+	 * Access control service.
+	 *
+	 * @var Access_Control|null
+	 */
+	private $access_control;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param DB                           $db Database service.
@@ -82,8 +89,9 @@ class Admin {
 	 * @param Content_Ideas                $content_ideas Content ideas service.
 	 * @param Article_Type_Repository|null $article_type_repository Article type repository.
 	 * @param Guide_Assistant|null         $guide_assistant Guide assistant.
+	 * @param Access_Control|null          $access_control Access control service.
 	 */
-	public function __construct( DB $db, Logger $logger, Settings $settings, AI_Provider_Adapter $ai_provider, Job_Queue $job_queue, Content_Ideas $content_ideas, ?Article_Type_Repository $article_type_repository = null, ?Guide_Assistant $guide_assistant = null ) {
+	public function __construct( DB $db, Logger $logger, Settings $settings, AI_Provider_Adapter $ai_provider, Job_Queue $job_queue, Content_Ideas $content_ideas, ?Article_Type_Repository $article_type_repository = null, ?Guide_Assistant $guide_assistant = null, ?Access_Control $access_control = null ) {
 		$this->db            = $db;
 		$this->logger        = $logger;
 		$this->settings      = $settings;
@@ -92,6 +100,7 @@ class Admin {
 		$this->content_ideas = $content_ideas;
 		$this->article_type_repository = $article_type_repository;
 		$this->guide_assistant = $guide_assistant;
+		$this->access_control = $access_control;
 
 		add_action( 'admin_post_wpai_publisher_create_content_idea', array( $this, 'handle_create_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_approve_content_idea', array( $this, 'handle_approve_content_idea' ) );
@@ -209,6 +218,17 @@ class Admin {
 				wpai_publisher_capability(),
 				'wp-ai-publisher-guide-requests',
 				array( $this->guide_assistant, 'render_requests_page' )
+			);
+		}
+
+		if ( $this->access_control instanceof Access_Control ) {
+			add_submenu_page(
+				'wp-ai-publisher',
+				esc_html__( 'Controllo accessi', 'wp-ai-publisher' ),
+				esc_html__( 'Controllo accessi', 'wp-ai-publisher' ),
+				wpai_publisher_capability(),
+				'wp-ai-publisher-access',
+				array( $this->access_control, 'render_settings_page' )
 			);
 		}
 
