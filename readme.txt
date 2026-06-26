@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.67
+Stable tag: 0.5.68
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.68 =
+* Controllo accessi: nuova funzionalità per limitare la visualizzazione dei contenuti in base al login e ai ruoli utente. Per ogni contenuto (articoli, pagine, tipi di contenuto), categoria/tag e voce di menu è possibile scegliere l'accesso: Tutti (default), Solo utenti registrati, oppure Solo ruoli specifici. Gli amministratori vedono sempre tutto.
+* Applicazione a strati e ottimizzata: indice precalcolato dei soli contenuti riservati (opzione autoload), nessuna meta_query per richiesta. I contenuti riservati vengono nascosti da elenchi, menu, termini, feed, sitemap e REST; le pagine singole riservate sono protette (utente non loggato → reindirizzato al login dell'area membri; ruolo non autorizzato → pagina "accesso negato" configurabile o messaggio 403). Le pagine riservate non vengono memorizzate dalla cache full-page.
+* Una categoria/tag riservato rende riservati anche i contenuti che vi appartengono, salvo regola diversa sul singolo contenuto. Nuova pagina "Controllo accessi" nel menu del plugin (attivazione + scelta della pagina "accesso negato").
 
 = 0.5.67 =
 * Guide AI: l'amministratore può ora modificare una guida creata (titolo e contenuto) tramite un pulsante "Modifica" — nell'elenco Richieste guide e direttamente sulla pagina pubblica della guida (visibile solo a chi può modificare) — e una pagina di modifica dedicata con editor. Il contenuto aggiornato viene sincronizzato anche con la versione mostrata nell'area membri.
