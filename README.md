@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.75**
+Versione corrente: **0.5.76**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.76
+- Controllo accessi ↔ Area membri: riquadri esplicativi con cross-link in entrambe le pagine che chiariscono la complementarità (autorizzazione vs identità) e suggeriscono il preset "Solo ruoli → Membro Guide". I link deep-linkano alla scheda pertinente (hash URL nel componente a schede).
 
 ### 0.5.75
 - Stato sistema e Diagnostica AI accorpate in un'unica pagina a schede in fondo al menu ("Stato sistema e diagnostica AI"); diagnostica riorganizzata (test interattivi in evidenza, inventario tecnico in sezioni espandibili). Assistente Guide AI riorganizzato in schede tematiche. Componente a schede centralizzato negli asset admin condivisi. Nessuna modifica ai campi o ai salvataggi.

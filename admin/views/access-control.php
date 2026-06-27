@@ -21,6 +21,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php echo esc_html__( 'Limita la visualizzazione di contenuti (articoli, pagine, tipi di contenuto, categorie/tag e voci di menu) in base al login e ai ruoli utente. Imposta l’accesso direttamente nell’editor di ciascun contenuto, termine o voce di menu. Gli amministratori vedono sempre tutto.', 'wp-ai-publisher' ); ?>
 	</p>
 
+	<?php $wpai_membership_url = admin_url( 'admin.php?page=wp-ai-publisher-guide-assistant#wpai-gtab-membri' ); ?>
+	<div class="notice notice-info inline" style="margin:12px 0;">
+		<p>
+			<strong><?php echo esc_html__( 'Lavora insieme all’Area membri.', 'wp-ai-publisher' ); ?></strong>
+			<?php echo esc_html__( 'Il Controllo accessi decide chi può vedere i contenuti; l’Area membri (Assistente Guide AI) fornisce la registrazione, il login e gli account su cui queste regole si basano. Sono complementari: uno autorizza, l’altra crea gli utenti.', 'wp-ai-publisher' ); ?>
+			<?php
+			printf(
+				/* translators: %s: link to the Area membri settings. */
+				' ' . esc_html__( 'Per contenuti riservati ai membri, imposta l’accesso del contenuto su “Solo ruoli specifici → Membro Guide”. Configura registrazione e login in %s.', 'wp-ai-publisher' ),
+				'<a href="' . esc_url( $wpai_membership_url ) . '">' . esc_html__( 'Assistente Guide AI → Area membri', 'wp-ai-publisher' ) . '</a>'
+			);
+			?>
+		</p>
+	</div>
+
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="wpai_publisher_save_access">
 		<?php wp_nonce_field( 'wpai_publisher_save_access' ); ?>
