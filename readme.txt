@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.73
+Stable tag: 0.5.74
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.74 =
+* Impostazioni: la pagina è stata riorganizzata in schede tematiche (Generale, Generazione AI, Social, Telegram, Avanzate) per rendere più chiare le varie sezioni e funzionalità. Le opzioni social (Facebook/Instagram/LinkedIn + condivisione automatica) sono raggruppate insieme, i parametri AI e la knowledge base in un'unica scheda, e le impostazioni tecniche (sicurezza abilities, log, disinstallazione) spostate in "Avanzate". Nessuna modifica ai dati salvati: tutti i campi e il salvataggio restano invariati. La scheda corrente viene ricordata e, dopo una "Verifica connessione", si apre automaticamente la scheda pertinente.
 
 = 0.5.73 =
 * Condivisione automatica delle bozze importate: nuova opzione Impostazioni → Condivisione automatica per condividere sui social configurati (Facebook/Instagram/LinkedIn) le bozze create dall'importazione massiva al loro passaggio in pubblicazione, senza dover spuntare manualmente ogni rete. La scelta esplicita su ogni articolo (attiva/disattiva) ha sempre la precedenza sull'impostazione globale.
