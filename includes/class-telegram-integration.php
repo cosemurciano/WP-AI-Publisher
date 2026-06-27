@@ -536,10 +536,31 @@ class Telegram_Integration {
 				$state['categories'] = array();
 				$this->set_state( $idea_id, $state );
 				$this->answer_callback_query( $cb_id, __( 'Procedo senza categorie scelte.', 'wp-ai-publisher' ) );
-				$this->finalize_generation( $idea_id, $chat_id, $message_id );
+				$this->prompt_socials_or_generate( $idea_id, $chat_id, $message_id );
 				break;
 
-			case 'go': // Generate with the current selection.
+			case 'go': // Categories done → ask about socials (or generate).
+				$this->answer_callback_query( $cb_id, '' );
+				$this->prompt_socials_or_generate( $idea_id, $chat_id, $message_id );
+				break;
+
+			case 'so': // Toggle a social network.
+				$network  = isset( $parts[2] ) ? sanitize_key( (string) $parts[2] ) : '';
+				$selected = array_map( 'strval', (array) ( $state['socials'] ?? array() ) );
+				if ( '' !== $network ) {
+					if ( in_array( $network, $selected, true ) ) {
+						$selected = array_values( array_diff( $selected, array( $network ) ) );
+					} else {
+						$selected[] = $network;
+					}
+					$state['socials'] = array_values( array_unique( $selected ) );
+					$this->set_state( $idea_id, $state );
+					$this->edit_message_reply_markup( $chat_id, $message_id, $this->build_social_keyboard( $idea_id, $state['socials'], $this->configured_socials() ) );
+				}
+				$this->answer_callback_query( $cb_id, '' );
+				break;
+
+			case 'gos': // Generate with the chosen socials.
 				$this->answer_callback_query( $cb_id, __( 'Genero la bozza…', 'wp-ai-publisher' ) );
 				$this->finalize_generation( $idea_id, $chat_id, $message_id );
 				break;
@@ -595,6 +616,70 @@ class Telegram_Integration {
 			$this->maybe_reply( $chat_id, $text );
 		}
 		$this->enqueue_generation( $idea_id, $chat_id );
+	}
+
+	/**
+	 * The social networks that are configured for publishing.
+	 *
+	 * @return array<string,string> network key => label
+	 */
+	private function configured_socials() {
+		$s   = wpai_publisher_get_settings();
+		$out = array();
+		if ( ! empty( $s['facebook_enabled'] ) && '' !== trim( (string) ( $s['facebook_page_id'] ?? '' ) ) && '' !== wpai_publisher_get_facebook_access_token() ) {
+			$out['fb'] = 'Facebook';
+		}
+		if ( ! empty( $s['instagram_enabled'] ) && '' !== trim( (string) ( $s['instagram_user_id'] ?? '' ) ) && '' !== wpai_publisher_get_instagram_access_token() ) {
+			$out['ig'] = 'Instagram';
+		}
+		if ( function_exists( 'wpai_publisher_get_linkedin_access_token' ) && ! empty( $s['linkedin_enabled'] ) && '' !== trim( (string) ( $s['linkedin_org_id'] ?? '' ) ) && '' !== wpai_publisher_get_linkedin_access_token() ) {
+			$out['in'] = 'LinkedIn';
+		}
+		return $out;
+	}
+
+	/**
+	 * Ask whether to publish on the configured socials, or generate directly.
+	 *
+	 * @param int    $idea_id Idea ID.
+	 * @param string $chat_id Chat ID.
+	 * @param int    $message_id Message to edit.
+	 * @return void
+	 */
+	private function prompt_socials_or_generate( $idea_id, $chat_id, $message_id = 0 ) {
+		$configured = $this->configured_socials();
+		if ( empty( $configured ) ) {
+			$this->finalize_generation( $idea_id, $chat_id, $message_id );
+			return;
+		}
+		$state    = $this->get_state( $idea_id );
+		$selected = array_map( 'strval', (array) ( $state['socials'] ?? array() ) );
+		$keyboard = $this->build_social_keyboard( $idea_id, $selected, $configured );
+		$text     = __( '📣 Pubblicare anche sui social alla pubblicazione della bozza? Seleziona le reti e premi *Genera bozza*:', 'wp-ai-publisher' );
+		if ( $message_id > 0 ) {
+			$this->edit_message_text( $chat_id, $message_id, $text, $keyboard );
+		} else {
+			$this->send_message_with_markup( $chat_id, $text, $keyboard );
+		}
+	}
+
+	/**
+	 * Build the social multi-select inline keyboard.
+	 *
+	 * @param int                   $idea_id Idea ID.
+	 * @param array<int,string>     $selected Selected network keys.
+	 * @param array<string,string>  $configured Configured networks.
+	 * @return array<string,mixed>
+	 */
+	private function build_social_keyboard( $idea_id, $selected, $configured ) {
+		$selected = array_map( 'strval', (array) $selected );
+		$rows     = array();
+		foreach ( $configured as $key => $label ) {
+			$mark   = in_array( (string) $key, $selected, true ) ? '✅ ' : '▫️ ';
+			$rows[] = array( array( 'text' => $mark . $label, 'callback_data' => 'so:' . $idea_id . ':' . $key ) );
+		}
+		$rows[] = array( array( 'text' => __( '✅ Genera bozza', 'wp-ai-publisher' ), 'callback_data' => 'gos:' . $idea_id ) );
+		return array( 'inline_keyboard' => $rows );
 	}
 
 	/**
@@ -849,11 +934,23 @@ class Telegram_Integration {
 		$post_id = is_array( $result ) ? absint( $result['post_id'] ?? 0 ) : 0;
 
 		if ( $success && $post_id > 0 ) {
+			// Apply the social choices made in the interactive flow: pre-enable the
+			// per-post share so the network integrations publish on draft→publish.
+			$state   = $this->get_state( $idea_id );
+			$socials = array_map( 'strval', (array) ( $state['socials'] ?? array() ) );
+			$meta_map = array( 'fb' => '_wpai_fb_share', 'ig' => '_wpai_ig_share', 'in' => '_wpai_linkedin_share' );
+			foreach ( $socials as $network ) {
+				if ( isset( $meta_map[ $network ] ) ) {
+					update_post_meta( $post_id, $meta_map[ $network ], '1' );
+				}
+			}
+
 			// Build the edit URL directly: get_edit_post_link() needs a current
 			// user/capabilities, which are absent in the cron context.
 			$edit_link = admin_url( 'post.php?post=' . $post_id . '&action=edit' );
 			$title     = get_the_title( $post_id );
-			$this->maybe_reply( $chat_id, sprintf( __( "✅ Bozza creata: %1\$s\n%2\$s", 'wp-ai-publisher' ), $title, $edit_link ) );
+			$social_note = ! empty( $socials ) ? "\n" . sprintf( __( 'Social pre-attivati: %s', 'wp-ai-publisher' ), implode( ', ', $socials ) ) : '';
+			$this->maybe_reply( $chat_id, sprintf( __( "✅ Bozza creata: %1\$s\n%2\$s%3\$s", 'wp-ai-publisher' ), $title, $edit_link, $social_note ) );
 		} else {
 			$message = is_array( $result ) ? (string) ( $result['message'] ?? '' ) : '';
 			$this->maybe_reply( $chat_id, sprintf( __( '⚠️ Generazione bozza non riuscita: %s', 'wp-ai-publisher' ), '' !== $message ? $message : __( 'errore sconosciuto', 'wp-ai-publisher' ) ) );

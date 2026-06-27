@@ -1096,6 +1096,12 @@ class Content_Ideas {
 				update_post_meta( $post_id, $meta_key, $value );
 			}
 		}
+
+		// Flag drafts that originate from the bulk CSV import so the optional
+		// "auto-share imported drafts" behaviour can target them on publish.
+		if ( false !== strpos( (string) ( $idea->notes ?? '' ), 'Importazione massiva' ) ) {
+			update_post_meta( $post_id, '_wpai_imported', '1' );
+		}
 	}
 
 	private function maybe_generate_featured_image( $post_id, $idea_id, $article_type, $featured_alt = '', $idea_image_prompt = '' ) {

@@ -101,6 +101,13 @@ final class Plugin {
 	private $instagram;
 
 	/**
+	 * LinkedIn integration.
+	 *
+	 * @var Linkedin_Integration|null
+	 */
+	private $linkedin;
+
+	/**
 	 * Guide assistant.
 	 *
 	 * @var Guide_Assistant|null
@@ -193,6 +200,12 @@ final class Plugin {
 		if ( class_exists( __NAMESPACE__ . '\\Instagram_Integration' ) ) {
 			$this->instagram = new Instagram_Integration( $this->logger, $this->ai_provider );
 			$this->instagram->register();
+		}
+
+		// LinkedIn integration: share to a company page on publish.
+		if ( class_exists( __NAMESPACE__ . '\\Linkedin_Integration' ) ) {
+			$this->linkedin = new Linkedin_Integration( $this->logger, $this->ai_provider );
+			$this->linkedin->register();
 		}
 
 		// Content access control by login/role.

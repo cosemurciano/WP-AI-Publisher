@@ -185,7 +185,7 @@ class Facebook_Integration {
 		if ( ! $this->is_configured() ) {
 			return;
 		}
-		if ( '1' !== (string) get_post_meta( $post->ID, self::META_SHARE, true ) ) {
+		if ( ! wpai_publisher_should_share_on_publish( $post->ID, get_post_meta( $post->ID, self::META_SHARE, true ) ) ) {
 			return;
 		}
 		// Anti-duplicate: skip when already shared.

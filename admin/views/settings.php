@@ -67,6 +67,17 @@ $language_options = array(
 			);
 		}
 	}
+	if ( isset( $_GET['wpai_notice'] ) && 'linkedin_test' === sanitize_key( wp_unslash( $_GET['wpai_notice'] ) ) ) {
+		$wpai_in_notice = get_transient( 'wpai_publisher_linkedin_notice_' . get_current_user_id() );
+		if ( is_array( $wpai_in_notice ) ) {
+			delete_transient( 'wpai_publisher_linkedin_notice_' . get_current_user_id() );
+			printf(
+				'<div class="notice %1$s is-dismissible"><p>%2$s</p></div>',
+				! empty( $wpai_in_notice['ok'] ) ? 'notice-success' : 'notice-error',
+				esc_html( (string) ( $wpai_in_notice['message'] ?? '' ) )
+			);
+		}
+	}
 	?>
 	<p class="wpai-lead"><?php echo esc_html__( 'Configura le impostazioni operative del plugin. Le chiamate AI useranno esclusivamente il sistema AI di WordPress già configurato sul sito; non vengono gestite chiavi OpenAI personalizzate.', 'wp-ai-publisher' ); ?></p>
 
@@ -456,6 +467,78 @@ $language_options = array(
 						<?php $wpai_ig_test_url = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_instagram_test' ), 'wpai_publisher_instagram_test' ); ?>
 						<a href="<?php echo esc_url( $wpai_ig_test_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Verifica connessione Instagram', 'wp-ai-publisher' ); ?></a>
 						<p class="description"><?php echo esc_html__( 'Controlla che il token raggiunga l’account Instagram indicato. Salva prima le impostazioni.', 'wp-ai-publisher' ); ?></p>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<h2><?php echo esc_html__( 'LinkedIn', 'wp-ai-publisher' ); ?></h2>
+		<p><?php echo esc_html__( 'Condividi automaticamente l’articolo su una Pagina aziendale (organizzazione) LinkedIn quando viene pubblicato. Attiva la condivisione per singolo articolo dalla casella “WP AI Publisher — LinkedIn” nell’editor.', 'wp-ai-publisher' ); ?></p>
+		<details style="margin:0 0 12px;">
+			<summary style="cursor:pointer; font-weight:600;"><?php echo esc_html__( 'Prerequisiti e come recuperare l’ID organizzazione e il token', 'wp-ai-publisher' ); ?></summary>
+			<div style="margin-top:8px;">
+				<ul style="list-style:disc; margin-left:20px;">
+					<li><?php echo wp_kses( __( 'Crea un’app LinkedIn e richiedi il prodotto <strong>Community Management API</strong> con gli scope <code>w_organization_social</code> e <code>r_organization_social</code>.', 'wp-ai-publisher' ), array( 'strong' => array(), 'code' => array() ) ); ?></li>
+					<li><?php echo wp_kses( __( 'L’account che genera il token deve essere <strong>amministratore</strong> della Pagina aziendale.', 'wp-ai-publisher' ), array( 'strong' => array() ) ); ?></li>
+					<li><?php echo wp_kses( __( 'L’<strong>ID organizzazione</strong> è il numero nell’URL della pagina admin (es. linkedin.com/company/<strong>12345678</strong>/admin/): inserisci solo il numero.', 'wp-ai-publisher' ), array( 'strong' => array() ) ); ?></li>
+					<li><?php echo wp_kses( __( 'Il token NON si salva nel database: definiscilo in wp-config.php:<br><code>define( \'WPAIP_LINKEDIN_ACCESS_TOKEN\', \'AQX...\' );</code>', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array() ) ); ?></li>
+				</ul>
+			</div>
+		</details>
+		<?php $wpai_in_token_present = '' !== wpai_publisher_get_linkedin_access_token(); ?>
+		<table class="form-table" role="presentation">
+			<tbody>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Abilita LinkedIn', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[linkedin_enabled]" value="1" <?php checked( ! empty( $settings['linkedin_enabled'] ) ); ?>> <?php echo esc_html__( 'Consenti la pubblicazione automatica su LinkedIn.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-in-org"><?php echo esc_html__( 'ID organizzazione', 'wp-ai-publisher' ); ?></label></th>
+					<td><input type="text" id="wpai-in-org" name="wpai_publisher_settings[linkedin_org_id]" class="regular-text" value="<?php echo esc_attr( (string) ( $settings['linkedin_org_id'] ?? '' ) ); ?>" placeholder="12345678"><p class="description"><?php echo esc_html__( 'Solo il numero (vedi la guida sopra).', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Token di accesso', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<?php if ( $wpai_in_token_present ) : ?>
+							<span class="wpai-badge wpai-badge--ok"><?php echo esc_html__( 'Rilevato', 'wp-ai-publisher' ); ?></span>
+						<?php else : ?>
+							<span class="wpai-badge wpai-badge--not-verified"><?php echo esc_html__( 'Non rilevato', 'wp-ai-publisher' ); ?></span>
+						<?php endif; ?>
+						<p class="description"><?php echo wp_kses( __( 'Definito tramite la costante <code>WPAIP_LINKEDIN_ACCESS_TOKEN</code> (mai salvato nel database).', 'wp-ai-publisher' ), array( 'code' => array() ) ); ?></p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="wpai-in-template"><?php echo esc_html__( 'Testo del post', 'wp-ai-publisher' ); ?></label></th>
+					<td><textarea id="wpai-in-template" name="wpai_publisher_settings[linkedin_message_template]" rows="4" class="large-text code"><?php echo esc_textarea( (string) ( $settings['linkedin_message_template'] ?? '' ) ); ?></textarea><p class="description"><?php echo esc_html__( 'Segnaposto: {title}, {meta_title}, {meta_description}, {excerpt}, {hashtags}, {link}.', 'wp-ai-publisher' ); ?></p></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Caption con AI', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[linkedin_use_ai_caption]" value="1" <?php checked( ! empty( $settings['linkedin_use_ai_caption'] ) ); ?>> <?php echo esc_html__( 'Genera il testo con l’AI. Se fallisce, uso il template.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Pre-attiva condivisione', 'wp-ai-publisher' ); ?></th>
+					<td><label><input type="checkbox" name="wpai_publisher_settings[linkedin_default_share]" value="1" <?php checked( ! empty( $settings['linkedin_default_share'] ) ); ?>> <?php echo esc_html__( 'Pre-attiva la condivisione per gli articoli generati dal plugin.', 'wp-ai-publisher' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Verifica connessione', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<?php $wpai_in_test_url = wp_nonce_url( admin_url( 'admin-post.php?action=wpai_publisher_linkedin_test' ), 'wpai_publisher_linkedin_test' ); ?>
+						<a href="<?php echo esc_url( $wpai_in_test_url ); ?>" class="button button-secondary"><?php echo esc_html__( 'Verifica connessione LinkedIn', 'wp-ai-publisher' ); ?></a>
+						<p class="description"><?php echo esc_html__( 'Controlla che il token raggiunga l’organizzazione indicata. Salva prima le impostazioni.', 'wp-ai-publisher' ); ?></p>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<h2><?php echo esc_html__( 'Condivisione automatica', 'wp-ai-publisher' ); ?></h2>
+		<p><?php echo esc_html__( 'Regola la condivisione sui social configurati per le bozze importate tramite l’importazione massiva.', 'wp-ai-publisher' ); ?></p>
+		<table class="form-table" role="presentation">
+			<tbody>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Bozze importate', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<label><input type="checkbox" name="wpai_publisher_settings[auto_share_imported]" value="1" <?php checked( ! empty( $settings['auto_share_imported'] ) ); ?>> <?php echo esc_html__( 'Condividi automaticamente sui social configurati al passaggio in pubblicazione delle bozze importate.', 'wp-ai-publisher' ); ?></label>
+						<p class="description"><?php echo esc_html__( 'Vale per le bozze create dall’importazione massiva. La scelta esplicita su ogni articolo (attiva/disattiva) ha sempre la precedenza su questa impostazione.', 'wp-ai-publisher' ); ?></p>
 					</td>
 				</tr>
 			</tbody>

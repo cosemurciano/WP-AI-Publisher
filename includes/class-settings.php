@@ -90,6 +90,12 @@ class Settings {
 		$output['instagram_caption_template']    = isset( $input['instagram_caption_template'] ) ? sanitize_textarea_field( (string) $input['instagram_caption_template'] ) : $defaults['instagram_caption_template'];
 		$output['instagram_use_ai_caption']      = ! empty( $input['instagram_use_ai_caption'] );
 		$output['instagram_default_share']       = ! empty( $input['instagram_default_share'] );
+		$output['linkedin_enabled']              = ! empty( $input['linkedin_enabled'] );
+		$output['linkedin_org_id']               = isset( $input['linkedin_org_id'] ) ? sanitize_text_field( (string) $input['linkedin_org_id'] ) : $defaults['linkedin_org_id'];
+		$output['linkedin_message_template']     = isset( $input['linkedin_message_template'] ) ? sanitize_textarea_field( (string) $input['linkedin_message_template'] ) : $defaults['linkedin_message_template'];
+		$output['linkedin_use_ai_caption']       = ! empty( $input['linkedin_use_ai_caption'] );
+		$output['linkedin_default_share']        = ! empty( $input['linkedin_default_share'] );
+		$output['auto_share_imported']           = ! empty( $input['auto_share_imported'] );
 		$output['site_context']                  = $this->sanitize_site_context( $input['site_context'] ?? array() );
 
 		return $output;
