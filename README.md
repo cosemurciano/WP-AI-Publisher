@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.73**
+Versione corrente: **0.5.74**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.74
+- Impostazioni: UI/UX riorganizzata in schede tematiche (Generale, Generazione AI, Social, Telegram, Avanzate) con scheda ricordata e apertura automatica della scheda pertinente dopo una verifica connessione. Nessuna modifica ai campi o al salvataggio.
 
 ### 0.5.73
 - Condivisione automatica delle bozze importate: opzione Impostazioni → Condivisione automatica per condividere sui social configurati (FB/IG/LinkedIn) le bozze dell'importazione massiva al passaggio in pubblicazione; la scelta esplicita per-articolo prevale sempre. Fix salvataggio impostazioni LinkedIn.
