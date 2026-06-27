@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.75
+Stable tag: 0.5.76
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -67,6 +67,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.76 =
+* Controllo accessi e Area membri: chiarito che sono funzioni complementari, non alternative. Aggiunto un riquadro esplicativo con collegamento incrociato in entrambe le pagine: il Controllo accessi decide chi vede i contenuti, l'Area membri (Assistente Guide AI) crea gli account "Membro Guide" su cui le regole si basano. Suggerito il preset "Solo ruoli specifici → Membro Guide" per i contenuti riservati ai membri. I collegamenti aprono direttamente la scheda pertinente (deep-link via hash URL nel componente a schede).
 
 = 0.5.75 =
 * Stato sistema e Diagnostica AI accorpate: la voce "Diagnostica AI" non è più una pagina separata nel menu ma una scheda dentro "Stato sistema" (rinominata "Stato sistema e diagnostica AI"), in fondo al menu del plugin. La diagnostica è riorganizzata per usabilità: riepilogo e raccomandazioni, test interattivi (test AI controllato + connettività OpenAI) in evidenza, percorsi di generazione, e l'inventario tecnico dettagliato (funzioni, classi, REST, opzioni, abilities, plugin, esperimenti) raccolto in sezioni espandibili. Dopo un test la scheda Diagnostica AI si riapre automaticamente con il risultato.

@@ -208,6 +208,20 @@ $wpai_guide_selected_ct = array_map( 'absint', (array) ( $config['search_categor
 					<?php echo esc_html__( 'Permette ai visitatori di registrarsi con un ruolo dedicato (Membro Guide) e salvare le proprie guide in un’area pubblica del sito. I membri non accedono alla bacheca di WordPress. Inserisci gli shortcode nelle pagine corrispondenti:', 'wp-ai-publisher' ); ?>
 					<code>[wpai_guide_register]</code>, <code>[wpai_guide_login]</code>, <code>[wpai_guide_account]</code>
 				</p>
+				<?php $wpai_access_url = admin_url( 'admin.php?page=wp-ai-publisher-access' ); ?>
+				<div class="notice notice-info inline" style="margin:0 0 12px;">
+					<p>
+						<strong><?php echo esc_html__( 'Si integra con il Controllo accessi.', 'wp-ai-publisher' ); ?></strong>
+						<?php echo esc_html__( 'Gli account “Membro Guide” creati qui possono essere usati dal Controllo accessi per riservare i contenuti: imposta l’accesso di un contenuto su “Solo ruoli specifici → Membro Guide”. Sono funzioni complementari, non alternative: questa crea gli utenti, il Controllo accessi decide cosa possono vedere.', 'wp-ai-publisher' ); ?>
+						<?php
+						printf(
+							/* translators: %s: link to the Access control settings. */
+							' ' . esc_html__( 'Apri %s.', 'wp-ai-publisher' ),
+							'<a href="' . esc_url( $wpai_access_url ) . '">' . esc_html__( 'Controllo accessi', 'wp-ai-publisher' ) . '</a>'
+						);
+						?>
+					</p>
+				</div>
 				<table class="form-table" role="presentation">
 					<tbody>
 						<tr>

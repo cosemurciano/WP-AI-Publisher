@@ -77,7 +77,19 @@
 				} );
 			} );
 
-			var initial = wrap.getAttribute( 'data-wpai-initial' ) || '';
+			// Priority: URL hash (deep link / cross-link) > server hint >
+			// last used > first tab.
+			var initial = '';
+			var hash = ( window.location.hash || '' ).replace( /^#/, '' );
+			if ( hash ) {
+				var hashPanel = wrap.querySelector( '.wpai-tab-panel#' + ( window.CSS && CSS.escape ? CSS.escape( hash ) : hash ) );
+				if ( hashPanel ) {
+					initial = hashPanel.getAttribute( 'data-wpai-panel' ) || '';
+				}
+			}
+			if ( ! initial ) {
+				initial = wrap.getAttribute( 'data-wpai-initial' ) || '';
+			}
 			if ( ! initial ) {
 				try {
 					initial = window.localStorage.getItem( storeKey ) || '';
