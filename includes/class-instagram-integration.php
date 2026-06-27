@@ -353,6 +353,13 @@ class Instagram_Integration {
 		$link       = (string) get_permalink( $post_id );
 		$hashtags   = $this->build_hashtags( $post_id );
 
+		$custom_prompt = trim( (string) get_post_meta( $post_id, '_wpai_social_instagram', true ) );
+		if ( '' !== $custom_prompt && method_exists( $this->ai_provider, 'generate_short_text' ) ) {
+			$caption = $this->generate_ai_caption( $title, $meta_desc ? $meta_desc : $excerpt, $hashtags, $link, $custom_prompt );
+			if ( '' !== $caption ) {
+				return $this->trim_caption( $caption );
+			}
+		}
 		if ( ! empty( $settings['instagram_use_ai_caption'] ) && method_exists( $this->ai_provider, 'generate_short_text' ) ) {
 			$caption = $this->generate_ai_caption( $title, $meta_desc ? $meta_desc : $excerpt, $hashtags, $link );
 			if ( '' !== $caption ) {
@@ -420,13 +427,21 @@ class Instagram_Integration {
 	 * @param string $link Link.
 	 * @return string Caption or empty string on failure.
 	 */
-	private function generate_ai_caption( $title, $description, $hashtags, $link ) {
-		$prompt = sprintf(
-			"Scrivi una caption per un post Instagram che promuove questo articolo. Tono coinvolgente, in italiano, 2-4 frasi, con qualche emoji pertinente e una call-to-action. Su Instagram i link non sono cliccabili: invita a leggere l'articolo dal link in bio o dal sito. NON scrivere l'URL (verrà aggiunto a parte). Titolo: %s. Descrizione: %s. Hashtag suggeriti: %s.",
-			$title,
-			$description,
-			$hashtags
-		);
+	private function generate_ai_caption( $title, $description, $hashtags, $link, $custom_prompt = '' ) {
+		if ( '' !== trim( (string) $custom_prompt ) ) {
+			$prompt = trim( (string) $custom_prompt ) . "\n\n" . sprintf(
+				"Contesto: Titolo \"%s\". Descrizione: %s. Su Instagram i link non sono cliccabili: NON scrivere l'URL (verrà aggiunto a parte).",
+				$title,
+				$description
+			);
+		} else {
+			$prompt = sprintf(
+				"Scrivi una caption per un post Instagram che promuove questo articolo. Tono coinvolgente, in italiano, 2-4 frasi, con qualche emoji pertinente e una call-to-action. Su Instagram i link non sono cliccabili: invita a leggere l'articolo dal link in bio o dal sito. NON scrivere l'URL (verrà aggiunto a parte). Titolo: %s. Descrizione: %s. Hashtag suggeriti: %s.",
+				$title,
+				$description,
+				$hashtags
+			);
+		}
 		$result = $this->ai_provider->generate_short_text( $prompt, __( 'Sei un social media manager esperto di Instagram. Rispondi solo con il testo della caption.', 'wp-ai-publisher' ) );
 		if ( is_wp_error( $result ) ) {
 			$this->logger->warning( __( 'Caption AI per Instagram non generata; uso il template.', 'wp-ai-publisher' ), array( 'source' => 'instagram', 'event' => 'ai_caption_failed', 'message' => $result->get_error_message() ) );

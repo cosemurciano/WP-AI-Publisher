@@ -159,20 +159,36 @@ class Content_Ideas {
 			$this->db->ensure_content_ideas_category_ids_column();
 		}
 
+		if ( method_exists( $this->db, 'ensure_content_ideas_media_columns' ) ) {
+			$this->db->ensure_content_ideas_media_columns();
+		}
+
+		$update = array(
+			'updated_at'      => current_time( 'mysql' ),
+			'status'          => $status,
+			'scheduled_at'    => '' !== $scheduled_at ? $scheduled_at : null,
+			'topic'           => $topic,
+			'keyword'         => sanitize_text_field( (string) ( $data['keyword'] ?? '' ) ),
+			'language'        => $language,
+			'article_type_id' => $article_type_id,
+			'category_ids'    => ! empty( $category_ids ) ? wp_json_encode( $category_ids ) : null,
+		);
+		$formats = array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' );
+
+		// Update media/social prompts only when explicitly provided (so other
+		// callers that don't pass them leave the existing values untouched).
+		foreach ( array( 'image_prompt', 'social_facebook', 'social_instagram', 'social_linkedin' ) as $field ) {
+			if ( array_key_exists( $field, $data ) ) {
+				$update[ $field ] = $this->clean_prompt( $data[ $field ] );
+				$formats[]        = '%s';
+			}
+		}
+
 		$updated = $wpdb->update(
 			$this->get_table_name(),
-			array(
-				'updated_at'      => current_time( 'mysql' ),
-				'status'          => $status,
-				'scheduled_at'    => '' !== $scheduled_at ? $scheduled_at : null,
-				'topic'           => $topic,
-				'keyword'         => sanitize_text_field( (string) ( $data['keyword'] ?? '' ) ),
-				'language'        => $language,
-				'article_type_id' => $article_type_id,
-				'category_ids'    => ! empty( $category_ids ) ? wp_json_encode( $category_ids ) : null,
-			),
+			$update,
 			array( 'id' => $id ),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' ),
+			$formats,
 			array( '%d' )
 		);
 
@@ -234,23 +250,31 @@ class Content_Ideas {
 			return new WP_Error( 'wpai_content_ideas_table_missing', __( 'La tabella delle idee contenuto non è disponibile. Apri Stato sistema o riattiva il plugin per eseguire la migrazione.', 'wp-ai-publisher' ) );
 		}
 
+		if ( method_exists( $this->db, 'ensure_content_ideas_media_columns' ) ) {
+			$this->db->ensure_content_ideas_media_columns();
+		}
+
 		$inserted = $wpdb->insert(
 			$table_name,
 			array(
-				'created_at'      => current_time( 'mysql' ),
-				'updated_at'      => null,
-				'status'          => $status,
-				'scheduled_at'    => '' !== $scheduled_at ? $scheduled_at : null,
-				'topic'           => $topic,
-				'keyword'         => sanitize_text_field( (string) ( $data['keyword'] ?? '' ) ),
-				'language'        => $language,
-				'target_audience' => '',
-				'tutorial_level'  => null,
-				'article_type_id' => $article_type_id,
-				'category_ids'    => ! empty( $category_ids ) ? wp_json_encode( $category_ids ) : null,
-				'notes'           => sanitize_textarea_field( (string) ( $data['notes'] ?? '' ) ),
+				'created_at'       => current_time( 'mysql' ),
+				'updated_at'       => null,
+				'status'           => $status,
+				'scheduled_at'     => '' !== $scheduled_at ? $scheduled_at : null,
+				'topic'            => $topic,
+				'keyword'          => sanitize_text_field( (string) ( $data['keyword'] ?? '' ) ),
+				'language'         => $language,
+				'target_audience'  => '',
+				'tutorial_level'   => null,
+				'article_type_id'  => $article_type_id,
+				'category_ids'     => ! empty( $category_ids ) ? wp_json_encode( $category_ids ) : null,
+				'image_prompt'     => $this->clean_prompt( $data['image_prompt'] ?? '' ),
+				'social_facebook'  => $this->clean_prompt( $data['social_facebook'] ?? '' ),
+				'social_instagram' => $this->clean_prompt( $data['social_instagram'] ?? '' ),
+				'social_linkedin'  => $this->clean_prompt( $data['social_linkedin'] ?? '' ),
+				'notes'            => sanitize_textarea_field( (string) ( $data['notes'] ?? '' ) ),
 			),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s' )
 		);
 
 		if ( false === $inserted ) {
@@ -373,6 +397,17 @@ class Content_Ideas {
 	 * @param mixed $value IDs as array or comma-separated string.
 	 * @return array<int,int>
 	 */
+	/**
+	 * Sanitize a multi-line prompt; return null when empty (for nullable columns).
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string|null
+	 */
+	private function clean_prompt( $value ) {
+		$value = sanitize_textarea_field( (string) $value );
+		return '' !== trim( $value ) ? $value : null;
+	}
+
 	private function sanitize_category_ids( $value ) {
 		// Accept an array of IDs, or a comma-separated string of IDs/names (the
 		// tag-box UI submits category names separated by commas).
@@ -802,9 +837,16 @@ class Content_Ideas {
 		}
 
 		$this->logger->info( __( 'Bozza creata da idea + tipologia.', 'wp-ai-publisher' ), array( 'source' => 'content_ideas', 'idea_id' => $idea_id, 'event' => 'draft_created', 'step' => 'draft_created', 'post_id' => absint( $post_id ) ) );
+
+		// Carry the per-idea social prompts onto the draft so the Facebook /
+		// Instagram (and future LinkedIn) integrations can use them at publish time.
+		$this->store_social_prompts_on_post( absint( $post_id ), $idea );
+
 		// Featured image first (independent, most visible asset) so it is set
-		// even if the slower inline-image phase is interrupted.
-		$this->maybe_generate_featured_image( absint( $post_id ), $idea_id, $article_type, $output['featured_image_alt'] );
+		// even if the slower inline-image phase is interrupted. The idea's own
+		// image prompt (a SINGLE cover image) overrides the article-type default;
+		// inline body images stay driven by the article type and markers.
+		$this->maybe_generate_featured_image( absint( $post_id ), $idea_id, $article_type, $output['featured_image_alt'], (string) ( $idea->image_prompt ?? '' ) );
 		$this->maybe_generate_inline_images( absint( $post_id ), $idea_id, $article_type );
 
 		/**
@@ -1032,7 +1074,31 @@ class Content_Ideas {
 	 * @param array<string,mixed> $article_type Article type config.
 	 * @return void
 	 */
-	private function maybe_generate_featured_image( $post_id, $idea_id, $article_type, $featured_alt = '' ) {
+	/**
+	 * Save the idea's social prompts (Facebook/Instagram/LinkedIn) as post meta on
+	 * the generated draft, so social integrations can use them at publish time.
+	 *
+	 * @param int         $post_id Draft post ID.
+	 * @param object|null $idea Idea row.
+	 * @return void
+	 */
+	private function store_social_prompts_on_post( $post_id, $idea ) {
+		if ( ! $idea || $post_id <= 0 ) {
+			return;
+		}
+		$map = array(
+			'_wpai_social_facebook'  => (string) ( $idea->social_facebook ?? '' ),
+			'_wpai_social_instagram' => (string) ( $idea->social_instagram ?? '' ),
+			'_wpai_social_linkedin'  => (string) ( $idea->social_linkedin ?? '' ),
+		);
+		foreach ( $map as $meta_key => $value ) {
+			if ( '' !== trim( $value ) ) {
+				update_post_meta( $post_id, $meta_key, $value );
+			}
+		}
+	}
+
+	private function maybe_generate_featured_image( $post_id, $idea_id, $article_type, $featured_alt = '', $idea_image_prompt = '' ) {
 		$post_id = absint( $post_id );
 		if ( $post_id <= 0 || ! function_exists( 'set_post_thumbnail' ) ) {
 			return;
@@ -1050,12 +1116,18 @@ class Content_Ideas {
 
 		$this->raise_runtime_limits_for_images();
 
-		$image_prompt = trim( (string) ( $article_type['image_prompt'] ?? '' ) );
-		$title        = get_the_title( $post_id );
-		if ( '' === $image_prompt ) {
-			$image_prompt = sprintf( __( 'Immagine di copertina editoriale, professionale e pertinente, per un articolo intitolato: %s. Senza testo nell’immagine.', 'wp-ai-publisher' ), $title );
+		$title              = get_the_title( $post_id );
+		$idea_image_prompt  = trim( (string) $idea_image_prompt );
+		if ( '' !== $idea_image_prompt ) {
+			// Per-idea cover image prompt wins: it describes exactly ONE image.
+			$image_prompt = $idea_image_prompt . "\n" . sprintf( __( 'Argomento dell’articolo: %s. Senza testo nell’immagine.', 'wp-ai-publisher' ), $title );
 		} else {
-			$image_prompt .= "\n" . sprintf( __( 'Argomento dell’articolo: %s.', 'wp-ai-publisher' ), $title );
+			$image_prompt = trim( (string) ( $article_type['image_prompt'] ?? '' ) );
+			if ( '' === $image_prompt ) {
+				$image_prompt = sprintf( __( 'Immagine di copertina editoriale, professionale e pertinente, per un articolo intitolato: %s. Senza testo nell’immagine.', 'wp-ai-publisher' ), $title );
+			} else {
+				$image_prompt .= "\n" . sprintf( __( 'Argomento dell’articolo: %s.', 'wp-ai-publisher' ), $title );
+			}
 		}
 
 		// The image's own descriptive title/alt drives its file name and media

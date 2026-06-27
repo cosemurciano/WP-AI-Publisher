@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.69**
+Versione corrente: **0.5.70**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.70
+- Import idee: categorie a 2 livelli "PRINCIPALE | sub1; sub2" con creazione automatica della gerarchia (opzionale); nuove colonne prompt immagine (sola copertina, priorità sulla Tipologia) e prompt social Facebook/Instagram/LinkedIn (salvati sulla bozza, usati da FB/IG alla pubblicazione, LinkedIn in arrivo). Campi modificabili anche da "Modifica idea". Schema 12 non distruttivo, retrocompatibile.
 
 ### 0.5.69
 - Controllo accessi: regola impostabile anche per le singole guide AI (dalla pagina "Modifica guida"); le modifiche alla regola di una categoria/tag si propagano subito ai contenuti collegati (ricalcolo su edited_term/delete_term, batch a scrittura singola).

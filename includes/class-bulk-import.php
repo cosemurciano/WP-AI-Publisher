@@ -124,16 +124,51 @@ class Bulk_Import {
 		header( 'Content-Type: text/csv; charset=utf-8' );
 		header( 'Content-Disposition: attachment; filename="esempio-idee.csv"' );
 
-		// Use real category names as the example when available.
-		$cats          = get_categories( array( 'hide_empty' => false, 'number' => 2 ) );
-		$example_cats  = ! empty( $cats ) ? implode( ', ', wp_list_pluck( $cats, 'name' ) ) : __( 'Guide, Tutorial', 'wp-ai-publisher' );
-
 		$out = fopen( 'php://output', 'w' );
 		// UTF-8 BOM so Excel opens accented characters correctly.
 		fwrite( $out, "\xEF\xBB\xBF" );
-		fputcsv( $out, array( 'Argomento principale', 'Lingua', 'Tipologia articolo', 'Programma creazione', 'Categorie' ) );
-		fputcsv( $out, array( 'Come scegliere una bici da città', 'it', $example_type, $tomorrow, $example_cats ) );
-		fputcsv( $out, array( 'Best lightweight laptops for travel', 'en', $example_type, $after, $example_cats ) );
+		fputcsv(
+			$out,
+			array(
+				'Argomento principale (Titolo dell\'articolo)',
+				'Lingua (IT)',
+				'Tipologia articolo',
+				'Programma creazione',
+				'Categorie | Sottocategorie',
+				'Prompt dell\'immagine da inserire',
+				'Prompt Social Facebook',
+				'Prompt Social Instagram',
+				'Prompt Social LinkedIn',
+			)
+		);
+		fputcsv(
+			$out,
+			array(
+				'Come scegliere una bici da città',
+				'it',
+				$example_type,
+				$tomorrow,
+				'GUIDE | Bici da città; Mobilità urbana',
+				'Foto editoriale di una bici da città parcheggiata, luce naturale, senza testo.',
+				'Scrivi un post Facebook coinvolgente collegato all\'articolo, 2-3 frasi, con invito alla lettura.',
+				'Scrivi una caption Instagram breve con 3-5 hashtag pertinenti.',
+				'Scrivi un post LinkedIn professionale collegato all\'articolo.',
+			)
+		);
+		fputcsv(
+			$out,
+			array(
+				'Best lightweight laptops for travel',
+				'en',
+				$example_type,
+				$after,
+				'TECH | Laptop; Travel gear',
+				'Editorial photo of a lightweight laptop on a desk, soft light, no text.',
+				'',
+				'',
+				'',
+			)
+		);
 		fclose( $out );
 		exit;
 	}
@@ -190,8 +225,9 @@ class Bulk_Import {
 			$this->store_feedback_and_redirect( $feedback );
 		}
 
-		$type_map = $this->article_type_name_map();
-		$line     = 1; // header is line 1.
+		$type_map     = $this->article_type_name_map();
+		$create_terms = ! empty( $_POST['wpai_create_terms'] );
+		$line         = 1; // header is line 1.
 
 		foreach ( $rows as $row ) {
 			$line++;
@@ -225,16 +261,17 @@ class Bulk_Import {
 				$article_type_id = (int) $type_map[ $key ];
 			}
 
-			// Resolve category names (comma-separated) to existing category IDs.
-			// Unknown names are reported but do not block the import.
+			// Resolve categories. Supports the 2-level format
+			// "PRIMARIA | sub1; sub2" (creating the hierarchy when allowed) and
+			// the legacy comma-separated list of existing names.
 			$category_ids = array();
 			if ( '' !== $cats_raw ) {
-				$resolved     = $this->resolve_category_names( $cats_raw );
+				$resolved     = $this->resolve_categories( $cats_raw, $create_terms );
 				$category_ids = $resolved['ids'];
 				if ( ! empty( $resolved['unknown'] ) ) {
 					$feedback['errors'][] = sprintf(
 						/* translators: 1: line, 2: category names */
-						__( 'Riga %1$d: categorie ignorate (inesistenti): %2$s', 'wp-ai-publisher' ),
+						__( 'Riga %1$d: categorie ignorate (inesistenti, attiva “Crea categorie mancanti”): %2$s', 'wp-ai-publisher' ),
 						$line,
 						implode( ', ', $resolved['unknown'] )
 					);
@@ -243,12 +280,16 @@ class Bulk_Import {
 
 			$idea_id = $this->content_ideas->create_idea_programmatic(
 				array(
-					'topic'           => $topic,
-					'language'        => $language,
-					'article_type_id' => $article_type_id,
-					'category_ids'    => $category_ids,
-					'scheduled_at'    => $this->parse_datetime( $schedule ),
-					'notes'           => __( 'Importazione massiva CSV', 'wp-ai-publisher' ),
+					'topic'            => $topic,
+					'language'         => $language,
+					'article_type_id'  => $article_type_id,
+					'category_ids'     => $category_ids,
+					'image_prompt'     => trim( (string) ( $row['image'] ?? '' ) ),
+					'social_facebook'  => trim( (string) ( $row['facebook'] ?? '' ) ),
+					'social_instagram' => trim( (string) ( $row['instagram'] ?? '' ) ),
+					'social_linkedin'  => trim( (string) ( $row['linkedin'] ?? '' ) ),
+					'scheduled_at'     => $this->parse_datetime( $schedule ),
+					'notes'            => __( 'Importazione massiva CSV', 'wp-ai-publisher' ),
 				)
 			);
 
@@ -321,11 +362,15 @@ class Bulk_Import {
 				continue; // blank line.
 			}
 			$rows[] = array(
-				'topic'      => (string) ( $data[ $cols['topic'] ] ?? '' ),
-				'language'   => (string) ( $data[ $cols['language'] ] ?? '' ),
-				'type'       => (string) ( $data[ $cols['type'] ] ?? '' ),
-				'schedule'   => (string) ( $data[ $cols['schedule'] ] ?? '' ),
-				'categories' => (string) ( $data[ $cols['categories'] ] ?? '' ),
+				'topic'        => (string) ( $data[ $cols['topic'] ] ?? '' ),
+				'language'     => (string) ( $data[ $cols['language'] ] ?? '' ),
+				'type'         => (string) ( $data[ $cols['type'] ] ?? '' ),
+				'schedule'     => (string) ( $data[ $cols['schedule'] ] ?? '' ),
+				'categories'   => (string) ( $data[ $cols['categories'] ] ?? '' ),
+				'image'        => isset( $cols['image'] ) ? (string) ( $data[ $cols['image'] ] ?? '' ) : '',
+				'facebook'     => isset( $cols['facebook'] ) ? (string) ( $data[ $cols['facebook'] ] ?? '' ) : '',
+				'instagram'    => isset( $cols['instagram'] ) ? (string) ( $data[ $cols['instagram'] ] ?? '' ) : '',
+				'linkedin'     => isset( $cols['linkedin'] ) ? (string) ( $data[ $cols['linkedin'] ] ?? '' ) : '',
 			);
 		}
 		fclose( $handle );
@@ -346,14 +391,22 @@ class Bulk_Import {
 		$cols = array( 'topic' => 0, 'language' => 1, 'type' => 2, 'schedule' => 3, 'categories' => 4 );
 		foreach ( (array) $header as $index => $name ) {
 			$norm = $this->normalize_key( $name );
-			if ( false !== strpos( $norm, 'argomento' ) ) {
+			if ( false !== strpos( $norm, 'argomento' ) || false !== strpos( $norm, 'titolo' ) ) {
 				$cols['topic'] = $index;
 			} elseif ( false !== strpos( $norm, 'lingua' ) ) {
 				$cols['language'] = $index;
 			} elseif ( false !== strpos( $norm, 'tipolog' ) ) {
 				$cols['type'] = $index;
-			} elseif ( false !== strpos( $norm, 'categor' ) ) {
+			} elseif ( false !== strpos( $norm, 'categor' ) || false !== strpos( $norm, 'sottocategor' ) ) {
 				$cols['categories'] = $index;
+			} elseif ( false !== strpos( $norm, 'immagine' ) || false !== strpos( $norm, 'image' ) ) {
+				$cols['image'] = $index;
+			} elseif ( false !== strpos( $norm, 'facebook' ) ) {
+				$cols['facebook'] = $index;
+			} elseif ( false !== strpos( $norm, 'instagram' ) ) {
+				$cols['instagram'] = $index;
+			} elseif ( false !== strpos( $norm, 'linkedin' ) ) {
+				$cols['linkedin'] = $index;
 			} elseif ( false !== strpos( $norm, 'programma' ) || false !== strpos( $norm, 'data' ) ) {
 				$cols['schedule'] = $index;
 			}
@@ -448,7 +501,7 @@ class Bulk_Import {
 	 * @param string $raw Comma-separated names.
 	 * @return array{ids:array<int,int>,unknown:array<int,string>}
 	 */
-	private function resolve_category_names( $raw ) {
+	private function resolve_category_names( $raw, $create = false ) {
 		$ids     = array();
 		$unknown = array();
 		foreach ( explode( ',', (string) $raw ) as $name ) {
@@ -456,9 +509,9 @@ class Bulk_Import {
 			if ( '' === $name ) {
 				continue;
 			}
-			$term = get_term_by( 'name', $name, 'category' );
-			if ( $term && ! is_wp_error( $term ) ) {
-				$ids[] = (int) $term->term_id;
+			$id = $this->get_or_create_category( $name, 0, $create );
+			if ( $id > 0 ) {
+				$ids[] = $id;
 			} else {
 				$unknown[] = $name;
 			}
@@ -467,6 +520,88 @@ class Bulk_Import {
 			'ids'     => array_values( array_unique( $ids ) ),
 			'unknown' => array_values( array_unique( $unknown ) ),
 		);
+	}
+
+	/**
+	 * Resolve a "Categorie | Sottocategorie" cell.
+	 *
+	 * Format: "PRIMARIA | sub1; sub2" — the primary category is created (when
+	 * allowed) as a top-level term and each subcategory as its child. Without the
+	 * "|" separator the value is treated as a legacy comma-separated list.
+	 *
+	 * @param string $raw    Raw cell value.
+	 * @param bool   $create Whether missing categories may be created.
+	 * @return array{ids:array<int,int>,unknown:array<int,string>}
+	 */
+	private function resolve_categories( $raw, $create = false ) {
+		$raw = (string) $raw;
+		if ( false === strpos( $raw, '|' ) ) {
+			return $this->resolve_category_names( $raw, $create );
+		}
+
+		$ids     = array();
+		$unknown = array();
+		$parts   = explode( '|', $raw, 2 );
+		$primary = trim( wp_strip_all_tags( (string) ( $parts[0] ?? '' ) ) );
+		$subs    = preg_split( '/[;,]/', (string) ( $parts[1] ?? '' ) );
+
+		$parent_id = 0;
+		if ( '' !== $primary ) {
+			$parent_id = $this->get_or_create_category( $primary, 0, $create );
+			if ( $parent_id > 0 ) {
+				$ids[] = $parent_id;
+			} else {
+				$unknown[] = $primary;
+			}
+		}
+
+		foreach ( (array) $subs as $sub ) {
+			$sub = trim( wp_strip_all_tags( (string) $sub ) );
+			if ( '' === $sub ) {
+				continue;
+			}
+			$sid = $this->get_or_create_category( $sub, $parent_id, $create );
+			if ( $sid > 0 ) {
+				$ids[] = $sid;
+			} else {
+				$unknown[] = $sub;
+			}
+		}
+
+		return array(
+			'ids'     => array_values( array_unique( array_map( 'absint', $ids ) ) ),
+			'unknown' => array_values( array_unique( $unknown ) ),
+		);
+	}
+
+	/**
+	 * Find an existing category by name (optionally under a parent), creating it
+	 * when allowed.
+	 *
+	 * @param string $name   Category name.
+	 * @param int    $parent Desired parent (0 = top level).
+	 * @param bool   $create Whether to create when missing.
+	 * @return int Category ID, or 0 when not found and not created.
+	 */
+	private function get_or_create_category( $name, $parent = 0, $create = false ) {
+		$name = trim( wp_strip_all_tags( (string) $name ) );
+		if ( '' === $name ) {
+			return 0;
+		}
+		// Prefer a term with the matching parent; otherwise reuse any same-name term.
+		$match = get_term_by( 'name', $name, 'category' );
+		if ( $match && ! is_wp_error( $match ) ) {
+			return (int) $match->term_id;
+		}
+		if ( ! $create || ! current_user_can( 'manage_categories' ) ) {
+			return 0;
+		}
+		$inserted = wp_insert_term( $name, 'category', array( 'parent' => absint( $parent ) ) );
+		if ( is_wp_error( $inserted ) ) {
+			$existing = $inserted->get_error_data( 'term_exists' );
+			return $existing ? absint( $existing ) : 0;
+		}
+		return absint( $inserted['term_id'] ?? 0 );
 	}
 
 	private function flag_for_notify( $idea_id ) {

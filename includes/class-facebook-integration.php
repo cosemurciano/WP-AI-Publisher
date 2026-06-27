@@ -298,7 +298,15 @@ class Facebook_Integration {
 		$link        = (string) get_permalink( $post_id );
 		$hashtags    = $this->build_hashtags( $post_id );
 
-		// Optional AI caption.
+		// A per-article prompt (e.g. from a bulk-imported idea) takes priority,
+		// then the global "use AI caption" option.
+		$custom_prompt = trim( (string) get_post_meta( $post_id, '_wpai_social_facebook', true ) );
+		if ( '' !== $custom_prompt && method_exists( $this->ai_provider, 'generate_short_text' ) ) {
+			$caption = $this->generate_ai_caption( $title, $meta_desc ?: $excerpt, $hashtags, $link, $custom_prompt );
+			if ( '' !== $caption ) {
+				return $caption;
+			}
+		}
 		if ( ! empty( $settings['facebook_use_ai_caption'] ) && method_exists( $this->ai_provider, 'generate_short_text' ) ) {
 			$caption = $this->generate_ai_caption( $title, $meta_desc ?: $excerpt, $hashtags, $link );
 			if ( '' !== $caption ) {
@@ -355,13 +363,21 @@ class Facebook_Integration {
 	 * @param string $link Link.
 	 * @return string Caption or empty string on failure.
 	 */
-	private function generate_ai_caption( $title, $description, $hashtags, $link ) {
-		$prompt = sprintf(
-			"Scrivi un breve testo per un post Facebook che promuove questo articolo. Tono coinvolgente ma professionale, 1-3 frasi, in italiano, senza emoji eccessive. Includi un invito alla lettura. NON inserire il link (verrà aggiunto a parte). Titolo: %s. Descrizione: %s. Hashtag suggeriti: %s.",
-			$title,
-			$description,
-			$hashtags
-		);
+	private function generate_ai_caption( $title, $description, $hashtags, $link, $custom_prompt = '' ) {
+		if ( '' !== trim( (string) $custom_prompt ) ) {
+			$prompt = trim( (string) $custom_prompt ) . "\n\n" . sprintf(
+				"Contesto: Titolo \"%s\". Descrizione: %s. NON inserire il link (verrà aggiunto a parte).",
+				$title,
+				$description
+			);
+		} else {
+			$prompt = sprintf(
+				"Scrivi un breve testo per un post Facebook che promuove questo articolo. Tono coinvolgente ma professionale, 1-3 frasi, in italiano, senza emoji eccessive. Includi un invito alla lettura. NON inserire il link (verrà aggiunto a parte). Titolo: %s. Descrizione: %s. Hashtag suggeriti: %s.",
+				$title,
+				$description,
+				$hashtags
+			);
+		}
 		$result = $this->ai_provider->generate_short_text( $prompt, __( 'Sei un social media manager. Rispondi solo con il testo del post.', 'wp-ai-publisher' ) );
 		if ( is_wp_error( $result ) ) {
 			$this->logger->warning( __( 'Caption AI per Facebook non generata; uso il template.', 'wp-ai-publisher' ), array( 'source' => 'facebook', 'event' => 'ai_caption_failed', 'message' => $result->get_error_message() ) );
