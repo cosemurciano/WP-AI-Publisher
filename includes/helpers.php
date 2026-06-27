@@ -80,6 +80,11 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'instagram_caption_template'    => "{title}\n\n{meta_description}\n\n{hashtags}\n\n🔗 {link}",
 			'instagram_use_ai_caption'      => false,
 			'instagram_default_share'       => false,
+			'linkedin_enabled'              => false,
+			'linkedin_org_id'               => '',
+			'linkedin_message_template'     => "{title}\n\n{meta_description}\n\n{hashtags}\n🔗 {link}",
+			'linkedin_use_ai_caption'       => false,
+			'linkedin_default_share'        => false,
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -154,6 +159,11 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['instagram_caption_template']    = (string) ( $settings['instagram_caption_template'] ?? '' );
 		$settings['instagram_use_ai_caption']      = ! empty( $settings['instagram_use_ai_caption'] );
 		$settings['instagram_default_share']       = ! empty( $settings['instagram_default_share'] );
+		$settings['linkedin_enabled']              = ! empty( $settings['linkedin_enabled'] );
+		$settings['linkedin_org_id']               = sanitize_text_field( (string) ( $settings['linkedin_org_id'] ?? '' ) );
+		$settings['linkedin_message_template']     = (string) ( $settings['linkedin_message_template'] ?? '' );
+		$settings['linkedin_use_ai_caption']       = ! empty( $settings['linkedin_use_ai_caption'] );
+		$settings['linkedin_default_share']        = ! empty( $settings['linkedin_default_share'] );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );
@@ -654,6 +664,27 @@ if ( ! function_exists( 'wpai_publisher_get_instagram_access_token' ) ) {
 		 * @param string $token Access token.
 		 */
 		return trim( (string) apply_filters( 'wpai_publisher_instagram_access_token', $token ) );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_get_linkedin_access_token' ) ) {
+	/**
+	 * Resolve the LinkedIn access token (company page posting).
+	 *
+	 * Never stored in the DB: read from the WPAIP_LINKEDIN_ACCESS_TOKEN constant
+	 * or the wpai_publisher_linkedin_access_token filter.
+	 *
+	 * @return string
+	 */
+	function wpai_publisher_get_linkedin_access_token() {
+		$token = defined( 'WPAIP_LINKEDIN_ACCESS_TOKEN' ) ? (string) WPAIP_LINKEDIN_ACCESS_TOKEN : '';
+
+		/**
+		 * Filter the LinkedIn access token.
+		 *
+		 * @param string $token Access token.
+		 */
+		return trim( (string) apply_filters( 'wpai_publisher_linkedin_access_token', $token ) );
 	}
 }
 

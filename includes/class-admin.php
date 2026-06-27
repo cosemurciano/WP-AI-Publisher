@@ -110,6 +110,7 @@ class Admin {
 		add_action( 'admin_post_wpai_publisher_assign_article_type_to_idea', array( $this, 'handle_assign_article_type_to_idea' ) );
 		add_action( 'admin_post_wpai_publisher_update_content_idea', array( $this, 'handle_update_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_delete_content_idea', array( $this, 'handle_delete_content_idea' ) );
+		add_action( 'admin_post_wpai_publisher_bulk_delete_ideas', array( $this, 'handle_bulk_delete_ideas' ) );
 		add_action( 'admin_post_wpai_publisher_save_article_type', array( $this, 'handle_save_article_type' ) );
 		add_action( 'admin_post_wpai_publisher_delete_article_type', array( $this, 'handle_delete_article_type' ) );
 		add_action( 'admin_post_wpai_publisher_toggle_article_type', array( $this, 'handle_toggle_article_type' ) );
@@ -377,6 +378,31 @@ class Admin {
 		}
 
 		$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_updated' ) );
+	}
+
+	/**
+	 * Handle bulk deletion of selected content ideas.
+	 *
+	 * @return void
+	 */
+	public function handle_bulk_delete_ideas() {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+		check_admin_referer( 'wpai_publisher_bulk_delete_ideas' );
+
+		$ids = isset( $_POST['idea_ids'] ) && is_array( $_POST['idea_ids'] )
+			? array_values( array_filter( array_map( 'absint', wp_unslash( $_POST['idea_ids'] ) ) ) )
+			: array();
+
+		$deleted = 0;
+		foreach ( $ids as $idea_id ) {
+			if ( $this->content_ideas->delete_idea( $idea_id ) ) {
+				$deleted++;
+			}
+		}
+
+		$this->redirect_content_ideas( array( 'wpai_notice' => $deleted > 0 ? 'ideas_bulk_deleted' : 'idea_delete_failed', 'wpai_count' => $deleted ) );
 	}
 
 	public function handle_assign_article_type_to_idea() {

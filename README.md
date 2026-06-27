@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.71**
+Versione corrente: **0.5.72**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.72
+- Integrazione LinkedIn (Pagina aziendale, token WPAIP_LINKEDIN_ACCESS_TOKEN) con condivisione su pubblicazione, caption template/AI e test connessione. Telegram: passo opzionale "pubblica sui social" (FB/IG/LinkedIn configurati) che pre-attiva la condivisione sulla bozza. Idee contenuto: selezione multipla + eliminazione in blocco.
 
 ### 0.5.71
 - Idee contenuto: campi Prompt immagine (copertina) e Prompt Social FB/IG/LinkedIn disponibili anche nel form "Nuova idea" (oltre a import e modifica).

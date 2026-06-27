@@ -37,6 +37,7 @@ $notices    = array(
 	'idea_scheduled'            => array( 'success', __( 'Idea programmata: la bozza verrà generata alla data impostata.', 'wp-ai-publisher' ) ),
 	'idea_deleted'              => array( 'success', __( 'Idea contenuto eliminata.', 'wp-ai-publisher' ) ),
 	'idea_delete_failed'        => array( 'error', __( 'Impossibile eliminare l’idea contenuto.', 'wp-ai-publisher' ) ),
+	'ideas_bulk_deleted'        => array( 'success', __( 'Idee selezionate eliminate.', 'wp-ai-publisher' ) ),
 	'idea_updated'              => array( 'success', __( 'Idea contenuto aggiornata.', 'wp-ai-publisher' ) ),
 	'idea_update_failed'        => array( 'error', __( 'Impossibile aggiornare l’idea contenuto.', 'wp-ai-publisher' ) ),
 );
@@ -262,9 +263,15 @@ $render_list = static function ( $items ) {
 		};
 		$render_ideas_nav();
 		?>
+		<form id="wpai-ideas-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Eliminare le idee selezionate?', 'wp-ai-publisher' ) ); ?>');">
+			<input type="hidden" name="action" value="wpai_publisher_bulk_delete_ideas">
+			<?php wp_nonce_field( 'wpai_publisher_bulk_delete_ideas' ); ?>
+			<p style="margin:8px 0;"><button type="submit" class="button button-link-delete"><?php echo esc_html__( 'Elimina selezionate', 'wp-ai-publisher' ); ?></button></p>
+		</form>
 		<table class="widefat striped wpai-status-table wpai-ideas-table">
 			<thead>
 				<tr>
+					<td class="check-column"><input type="checkbox" id="wpai-ideas-select-all" title="<?php echo esc_attr__( 'Seleziona tutto', 'wp-ai-publisher' ); ?>"></td>
 					<th scope="col"><?php echo esc_html__( 'ID', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Stato', 'wp-ai-publisher' ); ?></th>
 					<th scope="col"><?php echo esc_html__( 'Argomento', 'wp-ai-publisher' ); ?></th>
@@ -299,6 +306,7 @@ $render_list = static function ( $items ) {
 					}
 					?>
 					<tr>
+						<th scope="row" class="check-column"><input type="checkbox" class="wpai-idea-check" name="idea_ids[]" form="wpai-ideas-bulk" value="<?php echo esc_attr( (string) $idea_id ); ?>"></th>
 						<td><?php echo esc_html( (string) $idea->id ); ?></td>
 						<td><span class="<?php echo esc_attr( wpai_publisher_badge_class( $idea_status_display ) ); ?>"><?php echo esc_html( $idea_status_label ); ?></span>
 							<?php if ( 'scheduled' === $idea_status_display && ! empty( $idea->scheduled_at ) ) : ?>
@@ -585,6 +593,15 @@ $render_list = static function ( $items ) {
 		<?php echo esc_html__( 'Importazione massiva', 'wp-ai-publisher' ); ?>
 	</a>
 </div>
+<script>
+( function () {
+	var all = document.getElementById( 'wpai-ideas-select-all' );
+	if ( ! all ) { return; }
+	all.addEventListener( 'change', function () {
+		document.querySelectorAll( '.wpai-idea-check' ).forEach( function ( c ) { c.checked = all.checked; } );
+	} );
+}() );
+</script>
 
 <style>
 .wpai-fab{position:fixed;right:28px;bottom:28px;z-index:9990;display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:24px;box-shadow:0 4px 16px rgba(0,0,0,.2);}
