@@ -85,6 +85,25 @@ $wpai_error = isset( $_GET['wpai_error'] ) ? sanitize_text_field( wp_unslash( $_
 							<p class="description"><?php echo esc_html__( 'Lascia vuoto per riportare l’idea allo stato “nuova”. Con data e ora, l’idea resta programmata.', 'wp-ai-publisher' ); ?></p>
 						</td>
 					</tr>
+					<tr>
+						<th scope="row"><label for="wpai-edit-image-prompt"><?php echo esc_html__( 'Prompt immagine (copertina)', 'wp-ai-publisher' ); ?></label></th>
+						<td>
+							<textarea id="wpai-edit-image-prompt" name="image_prompt" rows="3" class="large-text"><?php echo esc_textarea( (string) ( $edit_idea->image_prompt ?? '' ) ); ?></textarea>
+							<p class="description"><?php echo esc_html__( 'Descrizione per generare la sola immagine in evidenza. Le eventuali immagini nel corpo restano gestite dalla Tipologia articolo.', 'wp-ai-publisher' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wpai-edit-fb"><?php echo esc_html__( 'Prompt Social Facebook', 'wp-ai-publisher' ); ?></label></th>
+						<td><textarea id="wpai-edit-fb" name="social_facebook" rows="2" class="large-text"><?php echo esc_textarea( (string) ( $edit_idea->social_facebook ?? '' ) ); ?></textarea></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wpai-edit-ig"><?php echo esc_html__( 'Prompt Social Instagram', 'wp-ai-publisher' ); ?></label></th>
+						<td><textarea id="wpai-edit-ig" name="social_instagram" rows="2" class="large-text"><?php echo esc_textarea( (string) ( $edit_idea->social_instagram ?? '' ) ); ?></textarea></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wpai-edit-in"><?php echo esc_html__( 'Prompt Social LinkedIn', 'wp-ai-publisher' ); ?></label></th>
+						<td><textarea id="wpai-edit-in" name="social_linkedin" rows="2" class="large-text"><?php echo esc_textarea( (string) ( $edit_idea->social_linkedin ?? '' ) ); ?></textarea><p class="description"><?php echo esc_html__( 'LinkedIn: l’integrazione di pubblicazione sarà aggiunta in seguito; il prompt viene salvato fin da ora.', 'wp-ai-publisher' ); ?></p></td>
+					</tr>
 				</tbody>
 			</table>
 

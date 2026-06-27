@@ -271,12 +271,16 @@ class Admin {
 		$posted_categories = isset( $_POST['tax_input']['category'] ) ? sanitize_text_field( wp_unslash( $_POST['tax_input']['category'] ) ) : '';
 		$idea_id = $this->content_ideas->create_idea(
 			array(
-				'topic'           => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
-				'language'        => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
-				'article_type_id' => absint( $_POST['article_type_id'] ?? 0 ),
-				'category_ids'    => $posted_categories,
-				'scheduled_at'    => $scheduled_at,
-				'_wpnonce'        => sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ?? '' ) ),
+				'topic'            => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
+				'language'         => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
+				'article_type_id'  => absint( $_POST['article_type_id'] ?? 0 ),
+				'category_ids'     => $posted_categories,
+				'image_prompt'     => sanitize_textarea_field( wp_unslash( $_POST['image_prompt'] ?? '' ) ),
+				'social_facebook'  => sanitize_textarea_field( wp_unslash( $_POST['social_facebook'] ?? '' ) ),
+				'social_instagram' => sanitize_textarea_field( wp_unslash( $_POST['social_instagram'] ?? '' ) ),
+				'social_linkedin'  => sanitize_textarea_field( wp_unslash( $_POST['social_linkedin'] ?? '' ) ),
+				'scheduled_at'     => $scheduled_at,
+				'_wpnonce'         => sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ?? '' ) ),
 			)
 		);
 
@@ -349,11 +353,15 @@ class Admin {
 		$result = $this->content_ideas->update_idea(
 			$idea_id,
 			array(
-				'topic'           => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
-				'language'        => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
-				'article_type_id' => absint( $_POST['article_type_id'] ?? 0 ),
-				'category_ids'    => $posted_categories,
-				'scheduled_at'    => sanitize_text_field( wp_unslash( $_POST['wpai_scheduled_at'] ?? '' ) ),
+				'topic'            => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
+				'language'         => sanitize_text_field( wp_unslash( $_POST['language'] ?? 'it' ) ),
+				'article_type_id'  => absint( $_POST['article_type_id'] ?? 0 ),
+				'category_ids'     => $posted_categories,
+				'image_prompt'     => sanitize_textarea_field( wp_unslash( $_POST['image_prompt'] ?? '' ) ),
+				'social_facebook'  => sanitize_textarea_field( wp_unslash( $_POST['social_facebook'] ?? '' ) ),
+				'social_instagram' => sanitize_textarea_field( wp_unslash( $_POST['social_instagram'] ?? '' ) ),
+				'social_linkedin'  => sanitize_textarea_field( wp_unslash( $_POST['social_linkedin'] ?? '' ) ),
+				'scheduled_at'     => sanitize_text_field( wp_unslash( $_POST['wpai_scheduled_at'] ?? '' ) ),
 			)
 		);
 

@@ -56,7 +56,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<li><strong><?php echo esc_html__( 'Lingua', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'codice (it, en, fr, es, de) o nome. Default: it.', 'wp-ai-publisher' ); ?></li>
 			<li><strong><?php echo esc_html__( 'Tipologia articolo', 'wp-ai-publisher' ); ?></strong>: <?php echo $article_types_enabled ? esc_html__( 'nome esatto di una tipologia attiva (obbligatorio).', 'wp-ai-publisher' ) : esc_html__( 'ignorata (tipologie non attive).', 'wp-ai-publisher' ); ?></li>
 			<li><strong><?php echo esc_html__( 'Programma creazione', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'obbligatorio. Formato consigliato: AAAA-MM-GG HH:MM (es. 2026-07-01 09:30), nel fuso orario del sito.', 'wp-ai-publisher' ); ?></li>
-			<li><strong><?php echo esc_html__( 'Categorie', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'opzionale. Uno o più nomi di categorie già esistenti, separati da virgola. Vengono assegnate alla bozza e comunicate all’AI per orientare il contenuto. I nomi inesistenti vengono ignorati.', 'wp-ai-publisher' ); ?></li>
+			<li><strong><?php echo esc_html__( 'Categorie | Sottocategorie', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'opzionale. Categoria principale, poi il simbolo | e le sottocategorie separate da punto e virgola. Esempio: "GUIDE | Bici da città; Mobilità urbana". Con l’opzione qui sotto, categorie e gerarchie mancanti vengono create automaticamente. È supportato anche il vecchio formato (nomi separati da virgola).', 'wp-ai-publisher' ); ?></li>
+			<li><strong><?php echo esc_html__( 'Prompt dell’immagine da inserire', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'opzionale. Descrizione per generare l’immagine in evidenza (una sola immagine di copertina).', 'wp-ai-publisher' ); ?></li>
+			<li><strong><?php echo esc_html__( 'Prompt Social Facebook / Instagram / LinkedIn', 'wp-ai-publisher' ); ?></strong>: <?php echo esc_html__( 'opzionale. Istruzioni salvate sulla bozza e usate dalle integrazioni social alla pubblicazione (LinkedIn sarà integrato in seguito).', 'wp-ai-publisher' ); ?></li>
 		</ul>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="wpai_publisher_download_idea_sample" />
@@ -71,6 +73,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<input type="hidden" name="action" value="wpai_publisher_import_ideas" />
 			<?php wp_nonce_field( 'wpai_publisher_import_ideas' ); ?>
 			<p><input type="file" name="wpai_csv" accept=".csv,text/csv" required /></p>
+			<p>
+				<label>
+					<input type="checkbox" name="wpai_create_terms" value="1" checked />
+					<?php echo esc_html__( 'Crea automaticamente le categorie mancanti (incluse le sottocategorie/gerarchie).', 'wp-ai-publisher' ); ?>
+				</label>
+			</p>
 			<p class="submit"><button type="submit" class="button button-primary"><?php echo esc_html__( 'Importa idee', 'wp-ai-publisher' ); ?></button></p>
 		</form>
 	</section>

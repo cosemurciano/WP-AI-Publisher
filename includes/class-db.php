@@ -138,6 +138,10 @@ class DB {
 			tutorial_level VARCHAR(50) NULL,
 			article_type_id BIGINT unsigned NULL,
 			category_ids LONGTEXT NULL,
+			image_prompt LONGTEXT NULL,
+			social_facebook LONGTEXT NULL,
+			social_instagram LONGTEXT NULL,
+			social_linkedin LONGTEXT NULL,
 			notes LONGTEXT NULL,
 			dry_run_output LONGTEXT NULL,
 			validation_notes LONGTEXT NULL,
@@ -211,6 +215,7 @@ class DB {
 		$this->ensure_content_ideas_article_type_column();
 		$this->ensure_content_ideas_scheduled_column();
 		$this->ensure_content_ideas_category_ids_column();
+		$this->ensure_content_ideas_media_columns();
 		$this->ensure_article_types_image_prompt_column();
 	}
 
@@ -228,6 +233,31 @@ class DB {
 		$columns = (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
 		if ( ! in_array( 'category_ids', $columns, true ) ) {
 			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN category_ids LONGTEXT NULL AFTER article_type_id" );
+		}
+	}
+
+	/**
+	 * Ensure schema 12 media/social prompt columns exist on the content ideas table.
+	 *
+	 * @return void
+	 */
+	public function ensure_content_ideas_media_columns() {
+		global $wpdb;
+		$table = $this->get_content_ideas_table_name();
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+			return;
+		}
+		$columns = (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+		$add     = array(
+			'image_prompt'     => 'ADD COLUMN image_prompt LONGTEXT NULL AFTER category_ids',
+			'social_facebook'  => 'ADD COLUMN social_facebook LONGTEXT NULL AFTER image_prompt',
+			'social_instagram' => 'ADD COLUMN social_instagram LONGTEXT NULL AFTER social_facebook',
+			'social_linkedin'  => 'ADD COLUMN social_linkedin LONGTEXT NULL AFTER social_instagram',
+		);
+		foreach ( $add as $column => $sql ) {
+			if ( ! in_array( $column, $columns, true ) ) {
+				$wpdb->query( "ALTER TABLE {$table} {$sql}" );
+			}
 		}
 	}
 
