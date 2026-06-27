@@ -85,6 +85,7 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'linkedin_message_template'     => "{title}\n\n{meta_description}\n\n{hashtags}\n🔗 {link}",
 			'linkedin_use_ai_caption'       => false,
 			'linkedin_default_share'        => false,
+			'auto_share_imported'           => false,
 			'site_context'                  => wpai_publisher_default_site_context(),
 		);
 	}
@@ -164,6 +165,7 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['linkedin_message_template']     = (string) ( $settings['linkedin_message_template'] ?? '' );
 		$settings['linkedin_use_ai_caption']       = ! empty( $settings['linkedin_use_ai_caption'] );
 		$settings['linkedin_default_share']        = ! empty( $settings['linkedin_default_share'] );
+		$settings['auto_share_imported']           = ! empty( $settings['auto_share_imported'] );
 
 		$allowed = array_keys( $defaults );
 		return array_intersect_key( $settings, array_flip( $allowed ) );
@@ -664,6 +666,37 @@ if ( ! function_exists( 'wpai_publisher_get_instagram_access_token' ) ) {
 		 * @param string $token Access token.
 		 */
 		return trim( (string) apply_filters( 'wpai_publisher_instagram_access_token', $token ) );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_should_share_on_publish' ) ) {
+	/**
+	 * Decide whether a post should be auto-shared to a social network on publish.
+	 *
+	 * Rules:
+	 * - Per-post checkbox '1' → always share.
+	 * - Per-post checkbox '0' (explicitly off) → never share.
+	 * - Empty (never set, e.g. a programmatically created/imported draft) →
+	 *   share only when "auto-share imported drafts" is enabled and the post is
+	 *   flagged as imported (_wpai_imported).
+	 *
+	 * @param int    $post_id     Post ID.
+	 * @param string $stored_meta The per-post share meta value.
+	 * @return bool
+	 */
+	function wpai_publisher_should_share_on_publish( $post_id, $stored_meta ) {
+		$stored_meta = (string) $stored_meta;
+		if ( '1' === $stored_meta ) {
+			return true;
+		}
+		if ( '0' === $stored_meta ) {
+			return false;
+		}
+		$settings = wpai_publisher_get_settings();
+		if ( empty( $settings['auto_share_imported'] ) ) {
+			return false;
+		}
+		return '1' === (string) get_post_meta( absint( $post_id ), '_wpai_imported', true );
 	}
 }
 

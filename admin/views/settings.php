@@ -530,6 +530,20 @@ $language_options = array(
 			</tbody>
 		</table>
 
+		<h2><?php echo esc_html__( 'Condivisione automatica', 'wp-ai-publisher' ); ?></h2>
+		<p><?php echo esc_html__( 'Regola la condivisione sui social configurati per le bozze importate tramite l’importazione massiva.', 'wp-ai-publisher' ); ?></p>
+		<table class="form-table" role="presentation">
+			<tbody>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Bozze importate', 'wp-ai-publisher' ); ?></th>
+					<td>
+						<label><input type="checkbox" name="wpai_publisher_settings[auto_share_imported]" value="1" <?php checked( ! empty( $settings['auto_share_imported'] ) ); ?>> <?php echo esc_html__( 'Condividi automaticamente sui social configurati al passaggio in pubblicazione delle bozze importate.', 'wp-ai-publisher' ); ?></label>
+						<p class="description"><?php echo esc_html__( 'Vale per le bozze create dall’importazione massiva. La scelta esplicita su ogni articolo (attiva/disattiva) ha sempre la precedenza su questa impostazione.', 'wp-ai-publisher' ); ?></p>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
 		<h2><?php echo esc_html__( 'Profilo sito', 'wp-ai-publisher' ); ?></h2>
 		<p><?php echo esc_html__( 'Contesto generale del sito. Le Tipologie Articolo restano la fonte principale per tono, struttura, tag e istruzioni specifiche.', 'wp-ai-publisher' ); ?></p>
 

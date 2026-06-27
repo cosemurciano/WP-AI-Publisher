@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.72
+Stable tag: 0.5.73
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -68,6 +68,10 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.73 =
+* Condivisione automatica delle bozze importate: nuova opzione Impostazioni → Condivisione automatica per condividere sui social configurati (Facebook/Instagram/LinkedIn) le bozze create dall'importazione massiva al loro passaggio in pubblicazione, senza dover spuntare manualmente ogni rete. La scelta esplicita su ogni articolo (attiva/disattiva) ha sempre la precedenza sull'impostazione globale.
+* Fix: salvataggio delle impostazioni LinkedIn (abilitazione, ID organizzazione, template, caption AI, pre-attivazione) ora persistito correttamente.
 
 = 0.5.72 =
 * Integrazione LinkedIn: condivisione automatica dell'articolo su una Pagina aziendale (organizzazione) LinkedIn alla pubblicazione, con casella "Condividi su LinkedIn" nell'editor, testo da template o generato dall'AI (usa il Prompt Social LinkedIn per-articolo se presente), pubblicazione in background (anti-duplicato). Token tramite costante WPAIP_LINKEDIN_ACCESS_TOKEN (mai nel database). Nuova sezione Impostazioni → LinkedIn con ID organizzazione e "Verifica connessione".

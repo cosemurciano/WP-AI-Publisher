@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.72**
+Versione corrente: **0.5.73**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.73
+- Condivisione automatica delle bozze importate: opzione Impostazioni → Condivisione automatica per condividere sui social configurati (FB/IG/LinkedIn) le bozze dell'importazione massiva al passaggio in pubblicazione; la scelta esplicita per-articolo prevale sempre. Fix salvataggio impostazioni LinkedIn.
 
 ### 0.5.72
 - Integrazione LinkedIn (Pagina aziendale, token WPAIP_LINKEDIN_ACCESS_TOKEN) con condivisione su pubblicazione, caption template/AI e test connessione. Telegram: passo opzionale "pubblica sui social" (FB/IG/LinkedIn configurati) che pre-attiva la condivisione sulla bozza. Idee contenuto: selezione multipla + eliminazione in blocco.
