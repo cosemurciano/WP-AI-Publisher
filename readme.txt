@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.74
+Stable tag: 0.5.75
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -24,10 +24,9 @@ Questa versione può creare una bozza WordPress solo da un dry-run approvato. No
 2. Attiva WP AI Publisher dalla schermata Plugin.
 3. Apri WP AI Publisher > Bacheca.
 4. Apri WP AI Publisher > Idee contenuto per salvare un argomento editoriale ed eseguire un dry-run.
-5. Apri WP AI Publisher > Diagnostica AI per analizzare il runtime AI.
-6. Controlla WP AI Publisher > Coda job.
-7. Controlla WP AI Publisher > Impostazioni.
-8. Controlla WP AI Publisher > Stato sistema.
+5. Controlla WP AI Publisher > Coda job.
+6. Controlla WP AI Publisher > Impostazioni.
+7. Controlla WP AI Publisher > Stato sistema (include la scheda Diagnostica AI per analizzare il runtime AI).
 
 == Note sviluppo ==
 
@@ -68,6 +67,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.75 =
+* Stato sistema e Diagnostica AI accorpate: la voce "Diagnostica AI" non è più una pagina separata nel menu ma una scheda dentro "Stato sistema" (rinominata "Stato sistema e diagnostica AI"), in fondo al menu del plugin. La diagnostica è riorganizzata per usabilità: riepilogo e raccomandazioni, test interattivi (test AI controllato + connettività OpenAI) in evidenza, percorsi di generazione, e l'inventario tecnico dettagliato (funzioni, classi, REST, opzioni, abilities, plugin, esperimenti) raccolto in sezioni espandibili. Dopo un test la scheda Diagnostica AI si riapre automaticamente con il risultato.
+* Assistente Guide AI: pagina impostazioni riorganizzata in schede tematiche (Generale, Ricerca e fonti, Pagine e pubblicazione, Area membri, Limiti e cache). Nessuna modifica ai campi o al salvataggio.
+* UI: componente a schede centralizzato negli asset admin (CSS/JS condivisi) e riusato da Impostazioni, Assistente Guide AI e Stato sistema; scheda attiva ricordata per pagina, fallback completo senza JavaScript.
 
 = 0.5.74 =
 * Impostazioni: la pagina è stata riorganizzata in schede tematiche (Generale, Generazione AI, Social, Telegram, Avanzate) per rendere più chiare le varie sezioni e funzionalità. Le opzioni social (Facebook/Instagram/LinkedIn + condivisione automatica) sono raggruppate insieme, i parametri AI e la knowledge base in un'unica scheda, e le impostazioni tecniche (sicurezza abilities, log, disinstallazione) spostate in "Avanzate". Nessuna modifica ai dati salvati: tutti i campi e il salvataggio restano invariati. La scheda corrente viene ricordata e, dopo una "Verifica connessione", si apre automaticamente la scheda pertinente.

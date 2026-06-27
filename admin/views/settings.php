@@ -106,23 +106,10 @@ if ( isset( $_GET['wpai_notice'] ) ) {
 		</p>
 	</div>
 
-	<style>
-		.wpai-tabs .wpai-tab-panel{display:block;}
-		.wpai-tabs.wpai-tabs-ready .wpai-tab-panel{display:none;}
-		.wpai-tabs.wpai-tabs-ready .wpai-tab-panel.is-active{display:block;}
-		.wpai-tabs .wpai-nav{margin:0 0 1.2em;}
-		.wpai-tab-panel > h2:first-child,
-		.wpai-section > h2:first-child{margin-top:.3em;}
-		.wpai-section{margin:0 0 2em;padding:4px 0 0;}
-		.wpai-section + .wpai-section{margin-top:2.4em;padding-top:1.4em;border-top:1px solid #e2e4e7;}
-		.wpai-tab-intro{max-width:52em;color:#50575e;}
-		.wpai-tab-panel .form-table th{width:280px;}
-	</style>
-
 	<form method="post" action="options.php" class="wpai-settings-form">
 		<?php settings_fields( 'wpai_publisher_settings_group' ); ?>
 
-		<div class="wpai-tabs" data-wpai-initial="<?php echo esc_attr( $wpai_active_tab ); ?>">
+		<div class="wpai-tabs" data-wpai-store="settings" data-wpai-initial="<?php echo esc_attr( $wpai_active_tab ); ?>">
 			<h2 class="nav-tab-wrapper wpai-nav">
 				<a href="#wpai-tab-generale" class="nav-tab nav-tab-active" data-wpai-tab="generale"><?php echo esc_html__( 'Generale', 'wp-ai-publisher' ); ?></a>
 				<a href="#wpai-tab-ai" class="nav-tab" data-wpai-tab="ai"><?php echo esc_html__( 'Generazione AI', 'wp-ai-publisher' ); ?></a>
@@ -722,56 +709,4 @@ if ( isset( $_GET['wpai_notice'] ) ) {
 
 		<?php submit_button( __( 'Salva impostazioni', 'wp-ai-publisher' ) ); ?>
 	</form>
-
-	<script>
-		( function () {
-			var wrap = document.querySelector( '.wpai-tabs' );
-			if ( ! wrap ) {
-				return;
-			}
-			var tabs   = wrap.querySelectorAll( '.wpai-nav .nav-tab' );
-			var panels = wrap.querySelectorAll( '.wpai-tab-panel' );
-			var STORE_KEY = 'wpaiPublisherSettingsTab';
-
-			function activate( id, persist ) {
-				var matched = false;
-				panels.forEach( function ( panel ) {
-					var isMatch = panel.getAttribute( 'data-wpai-panel' ) === id;
-					panel.classList.toggle( 'is-active', isMatch );
-					if ( isMatch ) {
-						matched = true;
-					}
-				} );
-				tabs.forEach( function ( tab ) {
-					tab.classList.toggle( 'nav-tab-active', tab.getAttribute( 'data-wpai-tab' ) === id );
-				} );
-				if ( matched && persist ) {
-					try {
-						window.localStorage.setItem( STORE_KEY, id );
-					} catch ( e ) {}
-				}
-				return matched;
-			}
-
-			wrap.classList.add( 'wpai-tabs-ready' );
-
-			tabs.forEach( function ( tab ) {
-				tab.addEventListener( 'click', function ( event ) {
-					event.preventDefault();
-					activate( tab.getAttribute( 'data-wpai-tab' ), true );
-				} );
-			} );
-
-			// Priority: server-set tab (after a connection test) > last used > first tab.
-			var initial = wrap.getAttribute( 'data-wpai-initial' ) || '';
-			if ( ! initial ) {
-				try {
-					initial = window.localStorage.getItem( STORE_KEY ) || '';
-				} catch ( e ) {}
-			}
-			if ( ! initial || ! activate( initial, false ) ) {
-				activate( tabs[0].getAttribute( 'data-wpai-tab' ), false );
-			}
-		} )();
-	</script>
 </div>

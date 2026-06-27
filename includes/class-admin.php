@@ -186,15 +186,6 @@ class Admin {
 
 		add_submenu_page(
 			'wp-ai-publisher',
-			esc_html__( 'Diagnostica AI', 'wp-ai-publisher' ),
-			esc_html__( 'Diagnostica AI', 'wp-ai-publisher' ),
-			wpai_publisher_capability(),
-			'wp-ai-publisher-ai-diagnostics',
-			array( $this, 'render_ai_diagnostics' )
-		);
-
-		add_submenu_page(
-			'wp-ai-publisher',
 			esc_html__( 'Coda job', 'wp-ai-publisher' ),
 			esc_html__( 'Coda job', 'wp-ai-publisher' ),
 			wpai_publisher_capability(),
@@ -769,30 +760,6 @@ class Admin {
 	 *
 	 * @return void
 	 */
-	public function render_ai_diagnostics() {
-		if ( ! current_user_can( wpai_publisher_capability() ) ) {
-			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
-		}
-
-		$diagnostics = new AI_Diagnostics( $this->ai_provider, $this->logger );
-		$test_result = null;
-		$connectivity_result = null;
-
-		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) && isset( $_POST['wpai_publisher_ai_diagnostics_action'] ) ) {
-			check_admin_referer( 'wpai_publisher_ai_diagnostics_test', 'wpai_publisher_ai_diagnostics_nonce' );
-
-			$action = sanitize_key( wp_unslash( $_POST['wpai_publisher_ai_diagnostics_action'] ) );
-			if ( 'run_safe_generation_test' === $action ) {
-				$test_result = $diagnostics->run_safe_generation_test();
-			} elseif ( 'run_connectivity_test' === $action ) {
-				$connectivity_result = $diagnostics->run_openai_connectivity_test();
-			}
-		}
-
-		$report = $diagnostics->get_report();
-		include WPAIP_PLUGIN_DIR . 'admin/views/ai-diagnostics.php';
-	}
-
 	/**
 	 * Render jobs queue page.
 	 *
@@ -872,7 +839,11 @@ class Admin {
 	}
 
 	/**
-	 * Render system status page.
+	 * Render the combined "Stato sistema e diagnostica AI" page.
+	 *
+	 * Merges the former standalone "Diagnostica AI" page into a tabbed
+	 * sub-section here, so both read-only diagnostics live at the end of the
+	 * plugin menu. The diagnostics manual tests post back to this page.
 	 *
 	 * @return void
 	 */
@@ -881,9 +852,33 @@ class Admin {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
 
+		// System status checks.
 		$system_status = new System_Status( $this->db, $this->logger, $this->ai_provider );
 		$checks        = $system_status->get_checks();
 		$critical_logs = $system_status->get_last_critical_errors();
+
+		// AI diagnostics (read-only report + optional manual tests).
+		$diagnostics         = new AI_Diagnostics( $this->ai_provider, $this->logger );
+		$test_result         = null;
+		$connectivity_result = null;
+		$wpai_diag_initial   = '';
+
+		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) && isset( $_POST['wpai_publisher_ai_diagnostics_action'] ) ) {
+			check_admin_referer( 'wpai_publisher_ai_diagnostics_test', 'wpai_publisher_ai_diagnostics_nonce' );
+
+			$action = sanitize_key( wp_unslash( $_POST['wpai_publisher_ai_diagnostics_action'] ) );
+			if ( 'run_safe_generation_test' === $action ) {
+				$test_result = $diagnostics->run_safe_generation_test();
+			} elseif ( 'run_connectivity_test' === $action ) {
+				$connectivity_result = $diagnostics->run_openai_connectivity_test();
+			}
+
+			// Reopen the Diagnostica AI tab so the test result is visible.
+			$wpai_diag_initial = 'diagnostica';
+		}
+
+		$report = $diagnostics->get_report();
+
 		include WPAIP_PLUGIN_DIR . 'admin/views/system-status.php';
 	}
 }
