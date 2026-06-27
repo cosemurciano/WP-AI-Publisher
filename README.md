@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.70**
+Versione corrente: **0.5.71**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.71
+- Idee contenuto: campi Prompt immagine (copertina) e Prompt Social FB/IG/LinkedIn disponibili anche nel form "Nuova idea" (oltre a import e modifica).
 
 ### 0.5.70
 - Import idee: categorie a 2 livelli "PRINCIPALE | sub1; sub2" con creazione automatica della gerarchia (opzionale); nuove colonne prompt immagine (sola copertina, priorità sulla Tipologia) e prompt social Facebook/Instagram/LinkedIn (salvati sulla bozza, usati da FB/IG alla pubblicazione, LinkedIn in arrivo). Campi modificabili anche da "Modifica idea". Schema 12 non distruttivo, retrocompatibile.

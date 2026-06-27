@@ -147,6 +147,25 @@ $render_list = static function ( $items ) {
 							<p class="description"><?php echo esc_html__( 'Imposta data e ora e usa il pulsante “Programma” per generare la bozza automaticamente in seguito.', 'wp-ai-publisher' ); ?></p>
 						</td>
 					</tr>
+					<tr>
+						<th scope="row"><label for="wpai-content-image-prompt"><?php echo esc_html__( 'Prompt immagine (copertina)', 'wp-ai-publisher' ); ?></label></th>
+						<td>
+							<textarea id="wpai-content-image-prompt" name="image_prompt" rows="3" class="large-text"></textarea>
+							<p class="description"><?php echo esc_html__( 'Opzionale. Descrizione per generare la sola immagine in evidenza. Ha priorità sul prompt immagine della Tipologia; le immagini nel corpo restano gestite dalla Tipologia.', 'wp-ai-publisher' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wpai-content-fb"><?php echo esc_html__( 'Prompt Social Facebook', 'wp-ai-publisher' ); ?></label></th>
+						<td><textarea id="wpai-content-fb" name="social_facebook" rows="2" class="large-text"></textarea></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wpai-content-ig"><?php echo esc_html__( 'Prompt Social Instagram', 'wp-ai-publisher' ); ?></label></th>
+						<td><textarea id="wpai-content-ig" name="social_instagram" rows="2" class="large-text"></textarea></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wpai-content-in"><?php echo esc_html__( 'Prompt Social LinkedIn', 'wp-ai-publisher' ); ?></label></th>
+						<td><textarea id="wpai-content-in" name="social_linkedin" rows="2" class="large-text"></textarea><p class="description"><?php echo esc_html__( 'Opzionale. I prompt social vengono salvati sulla bozza e usati dalle integrazioni alla pubblicazione (LinkedIn in arrivo).', 'wp-ai-publisher' ); ?></p></td>
+					</tr>
 				</tbody>
 			</table>
 
