@@ -19,6 +19,12 @@ class Bulk_Import {
 	const PAGE          = 'wp-ai-publisher-import-ideas';
 	const NOTIFY_OPTION = 'wpai_publisher_bulk_import_notify';
 
+	/** Per-user transient prefix holding the parsed file awaiting confirmation. */
+	const PENDING_PREFIX = 'wpai_publisher_import_pending_';
+
+	/** Maximum number of data rows handled per batch (preview + import). */
+	const MAX_ROWS = 2000;
+
 	/**
 	 * DB service.
 	 *
@@ -60,7 +66,9 @@ class Bulk_Import {
 	 */
 	public function register() {
 		add_action( 'admin_menu', array( $this, 'register_page' ), 11 );
+		add_action( 'admin_post_wpai_publisher_preview_ideas', array( $this, 'handle_preview' ) );
 		add_action( 'admin_post_wpai_publisher_import_ideas', array( $this, 'handle_import' ) );
+		add_action( 'admin_post_wpai_publisher_cancel_import', array( $this, 'handle_cancel' ) );
 		add_action( 'admin_post_wpai_publisher_download_idea_sample', array( $this, 'handle_download_sample' ) );
 	}
 
@@ -191,9 +199,27 @@ class Bulk_Import {
 		if ( $feedback ) {
 			delete_transient( 'wpai_publisher_import_feedback_' . get_current_user_id() );
 		}
+
+		// A pending preview (file uploaded, awaiting confirmation) takes over the
+		// page until the user confirms or cancels it.
+		$preview = null;
+		$pending = get_transient( $this->pending_key() );
+		if ( is_array( $pending ) && ! empty( $pending['report'] ) ) {
+			$preview = $pending['report'];
+		}
+
 		$article_types_enabled = wpai_publisher_article_types_enabled();
 		$ideas_url             = admin_url( 'admin.php?page=wp-ai-publisher-content-ideas' );
 		require WPAIP_PLUGIN_DIR . 'admin/views/import-ideas.php';
+	}
+
+	/**
+	 * Per-user transient key holding the file awaiting confirmation.
+	 *
+	 * @return string
+	 */
+	private function pending_key() {
+		return self::PENDING_PREFIX . get_current_user_id();
 	}
 
 	/* ---------------------------------------------------------------------
@@ -201,15 +227,16 @@ class Bulk_Import {
 	 * ------------------------------------------------------------------- */
 
 	/**
-	 * Handle the CSV upload.
+	 * Step 1: parse the uploaded CSV, build a preview report and stash the
+	 * parsed rows for confirmation. Nothing is written yet.
 	 *
 	 * @return void
 	 */
-	public function handle_import() {
+	public function handle_preview() {
 		if ( ! current_user_can( wpai_publisher_capability() ) ) {
 			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
 		}
-		check_admin_referer( 'wpai_publisher_import_ideas' );
+		check_admin_referer( 'wpai_publisher_preview_ideas' );
 
 		$feedback = array( 'created' => 0, 'skipped' => 0, 'errors' => array(), 'total' => 0 );
 
@@ -225,12 +252,76 @@ class Bulk_Import {
 			$this->store_feedback_and_redirect( $feedback );
 		}
 
-		$type_map     = $this->article_type_name_map();
+		$truncated = false;
+		if ( count( $rows ) > self::MAX_ROWS ) {
+			$rows      = array_slice( $rows, 0, self::MAX_ROWS );
+			$truncated = true;
+		}
+
 		$create_terms = ! empty( $_POST['wpai_create_terms'] );
-		$line         = 1; // header is line 1.
+
+		$report                 = $this->analyze_rows( $rows, $create_terms );
+		$report['truncated']    = $truncated;
+		$report['create_terms'] = $create_terms;
+		$report['filename']     = isset( $_FILES['wpai_csv']['name'] ) ? sanitize_file_name( wp_unslash( $_FILES['wpai_csv']['name'] ) ) : '';
+
+		set_transient(
+			$this->pending_key(),
+			array(
+				'rows'         => $rows,
+				'create_terms' => $create_terms,
+				'report'       => $report,
+			),
+			30 * MINUTE_IN_SECONDS
+		);
+
+		wp_safe_redirect( self::page_url() );
+		exit;
+	}
+
+	/**
+	 * Step 2 (confirm): import the previously parsed rows, in file order, up to
+	 * the requested quantity. Categories and ideas are created here.
+	 *
+	 * @return void
+	 */
+	public function handle_import() {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+		check_admin_referer( 'wpai_publisher_import_ideas' );
+
+		$feedback = array( 'created' => 0, 'skipped' => 0, 'errors' => array(), 'total' => 0, 'limit' => 0, 'file_total' => 0 );
+
+		$pending = get_transient( $this->pending_key() );
+		if ( ! is_array( $pending ) || empty( $pending['rows'] ) ) {
+			$feedback['errors'][] = __( 'Sessione di importazione scaduta o non trovata. Ricarica il file ed esegui di nuovo l’anteprima.', 'wp-ai-publisher' );
+			$this->store_feedback_and_redirect( $feedback );
+		}
+
+		$rows                  = $pending['rows'];
+		$create_terms          = ! empty( $pending['create_terms'] );
+		$feedback['file_total'] = count( $rows );
+
+		// Quantity to import, following file order. Empty / "all" => everything.
+		$import_all = ! empty( $_POST['wpai_import_all'] );
+		$limit      = isset( $_POST['wpai_limit'] ) ? absint( wp_unslash( $_POST['wpai_limit'] ) ) : 0;
+		if ( $import_all || $limit < 1 ) {
+			$limit = count( $rows );
+		}
+		$limit            = min( $limit, count( $rows ) );
+		$feedback['limit'] = $limit;
+
+		$type_map  = $this->article_type_name_map();
+		$line      = 1; // header is line 1.
+		$processed = 0;
 
 		foreach ( $rows as $row ) {
 			$line++;
+			if ( $processed >= $limit ) {
+				break;
+			}
+			$processed++;
 			$feedback['total']++;
 
 			$topic    = trim( (string) ( $row['topic'] ?? '' ) );
@@ -303,12 +394,228 @@ class Bulk_Import {
 			$feedback['created']++;
 		}
 
+		delete_transient( $this->pending_key() );
+
 		$this->logger->info(
 			__( 'Importazione massiva idee completata.', 'wp-ai-publisher' ),
 			array( 'source' => 'bulk_import', 'event' => 'import_done', 'created' => $feedback['created'], 'skipped' => $feedback['skipped'] )
 		);
 
 		$this->store_feedback_and_redirect( $feedback );
+	}
+
+	/**
+	 * Discard a pending preview without importing.
+	 *
+	 * @return void
+	 */
+	public function handle_cancel() {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'wp-ai-publisher' ) );
+		}
+		check_admin_referer( 'wpai_publisher_cancel_import' );
+		delete_transient( $this->pending_key() );
+		wp_safe_redirect( self::page_url() );
+		exit;
+	}
+
+	/**
+	 * Build a non-destructive preview report from parsed rows.
+	 *
+	 * Validates each row exactly as the importer will, but creates nothing:
+	 * category existence is probed read-only. Returns aggregate counts, the
+	 * scheduling window, per-type / per-language breakdowns, the categories that
+	 * would be created vs left missing, duplicate topics and row-level errors.
+	 *
+	 * @param array<int,array<string,string>> $rows         Parsed rows.
+	 * @param bool                             $create_terms Whether missing categories may be created on import.
+	 * @return array<string,mixed>
+	 */
+	private function analyze_rows( $rows, $create_terms ) {
+		$type_map      = $this->article_type_name_map();
+		$types_enabled = wpai_publisher_article_types_enabled();
+
+		$report = array(
+			'total'               => 0,
+			'valid'               => 0,
+			'invalid'             => 0,
+			'errors'              => array(),
+			'warnings'            => array(),
+			'schedule_min'        => '',
+			'schedule_max'        => '',
+			'by_type'             => array(),
+			'by_language'         => array(),
+			'categories_create'   => array(),
+			'categories_missing'  => array(),
+			'duplicates'          => array(),
+			'rows'                => array(),
+		);
+
+		$seen_topics = array();
+		$line        = 1; // header is line 1.
+
+		foreach ( $rows as $row ) {
+			$line++;
+			$report['total']++;
+
+			$topic        = trim( (string) ( $row['topic'] ?? '' ) );
+			$language     = $this->normalize_language( (string) ( $row['language'] ?? '' ) );
+			$schedule_raw = trim( (string) ( $row['schedule'] ?? '' ) );
+			$schedule     = $this->parse_datetime( $schedule_raw );
+			$type_raw     = trim( (string) ( $row['type'] ?? '' ) );
+			$cats_raw     = trim( (string) ( $row['categories'] ?? '' ) );
+
+			$row_errors = array();
+
+			if ( '' === $topic ) {
+				$row_errors[] = __( 'argomento principale mancante', 'wp-ai-publisher' );
+			}
+			if ( '' === $schedule_raw ) {
+				$row_errors[] = __( 'data/ora di programmazione mancante', 'wp-ai-publisher' );
+			} elseif ( '' === $schedule ) {
+				$row_errors[] = __( 'data/ora di programmazione non valida', 'wp-ai-publisher' );
+			}
+
+			$type_name = '';
+			if ( $types_enabled ) {
+				$key = $this->normalize_key( $type_raw );
+				if ( '' === $key || ! isset( $type_map[ $key ] ) ) {
+					$row_errors[] = sprintf( __( 'Tipologia articolo "%s" non trovata o non attiva', 'wp-ai-publisher' ), $type_raw );
+				} else {
+					$type_name = $type_raw;
+				}
+			}
+
+			// Read-only category resolution preview.
+			if ( '' !== $cats_raw ) {
+				$cat_preview = $this->preview_categories( $cats_raw, $create_terms );
+				foreach ( $cat_preview['to_create'] as $name ) {
+					$report['categories_create'][] = $name;
+				}
+				foreach ( $cat_preview['unknown'] as $name ) {
+					$report['categories_missing'][] = $name;
+					$report['warnings'][]           = sprintf(
+						/* translators: 1: line, 2: category name */
+						__( 'Riga %1$d: categoria "%2$s" non trovata e non verrà creata (attiva “Crea categorie mancanti”).', 'wp-ai-publisher' ),
+						$line,
+						$name
+					);
+				}
+			}
+
+			$is_valid = empty( $row_errors );
+			if ( $is_valid ) {
+				$report['valid']++;
+				if ( '' !== $schedule ) {
+					if ( '' === $report['schedule_min'] || $schedule < $report['schedule_min'] ) {
+						$report['schedule_min'] = $schedule;
+					}
+					if ( '' === $report['schedule_max'] || $schedule > $report['schedule_max'] ) {
+						$report['schedule_max'] = $schedule;
+					}
+				}
+				$type_label                          = $types_enabled ? ( '' !== $type_name ? $type_name : __( '(predefinita)', 'wp-ai-publisher' ) ) : __( '(tipologie non attive)', 'wp-ai-publisher' );
+				$report['by_type'][ $type_label ]    = ( $report['by_type'][ $type_label ] ?? 0 ) + 1;
+				$report['by_language'][ $language ]  = ( $report['by_language'][ $language ] ?? 0 ) + 1;
+			} else {
+				$report['invalid']++;
+				foreach ( $row_errors as $err ) {
+					$report['errors'][] = sprintf( __( 'Riga %1$d: %2$s.', 'wp-ai-publisher' ), $line, $err );
+				}
+			}
+
+			// Duplicate topic detection (within the file).
+			if ( '' !== $topic ) {
+				$tkey = $this->normalize_key( $topic );
+				if ( isset( $seen_topics[ $tkey ] ) ) {
+					$report['duplicates'][ $topic ] = ( $report['duplicates'][ $topic ] ?? 1 ) + 1;
+				} else {
+					$seen_topics[ $tkey ] = true;
+				}
+			}
+
+			// Light per-row summary for the on-screen table (capped at display).
+			if ( count( $report['rows'] ) < 200 ) {
+				$report['rows'][] = array(
+					'line'     => $line,
+					'topic'    => $topic,
+					'language' => $language,
+					'type'     => $type_raw,
+					'schedule' => $schedule,
+					'valid'    => $is_valid,
+					'errors'   => $row_errors,
+				);
+			}
+		}
+
+		$report['categories_create']  = array_values( array_unique( $report['categories_create'] ) );
+		$report['categories_missing'] = array_values( array_unique( $report['categories_missing'] ) );
+
+		// Keep the stored report bounded.
+		foreach ( array( 'errors', 'warnings' ) as $bucket ) {
+			if ( count( $report[ $bucket ] ) > 100 ) {
+				$report[ $bucket ]   = array_slice( $report[ $bucket ], 0, 100 );
+				$report[ $bucket ][] = __( '… altri non mostrati.', 'wp-ai-publisher' );
+			}
+		}
+
+		return $report;
+	}
+
+	/**
+	 * Read-only preview of how a "Categorie | Sottocategorie" cell resolves,
+	 * without creating any term.
+	 *
+	 * @param string $raw    Raw cell value.
+	 * @param bool   $create Whether missing categories may be created on import.
+	 * @return array{existing:array<int,string>,to_create:array<int,string>,unknown:array<int,string>}
+	 */
+	private function preview_categories( $raw, $create ) {
+		$raw   = (string) $raw;
+		$names = array();
+
+		if ( false === strpos( $raw, '|' ) ) {
+			foreach ( explode( ',', $raw ) as $name ) {
+				$name = trim( wp_strip_all_tags( $name ) );
+				if ( '' !== $name ) {
+					$names[] = $name;
+				}
+			}
+		} else {
+			$parts   = explode( '|', $raw, 2 );
+			$primary = trim( wp_strip_all_tags( (string) ( $parts[0] ?? '' ) ) );
+			if ( '' !== $primary ) {
+				$names[] = $primary;
+			}
+			foreach ( preg_split( '/[;,]/', (string) ( $parts[1] ?? '' ) ) as $sub ) {
+				$sub = trim( wp_strip_all_tags( (string) $sub ) );
+				if ( '' !== $sub ) {
+					$names[] = $sub;
+				}
+			}
+		}
+
+		$existing   = array();
+		$to_create  = array();
+		$unknown    = array();
+		$can_create = $create && current_user_can( 'manage_categories' );
+
+		foreach ( $names as $name ) {
+			$term = get_term_by( 'name', $name, 'category' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$existing[] = $name;
+			} elseif ( $can_create ) {
+				$to_create[] = $name;
+			} else {
+				$unknown[] = $name;
+			}
+		}
+
+		return array(
+			'existing'  => array_values( array_unique( $existing ) ),
+			'to_create' => array_values( array_unique( $to_create ) ),
+			'unknown'   => array_values( array_unique( $unknown ) ),
+		);
 	}
 
 	/**

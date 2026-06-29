@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.76
+Stable tag: 0.5.77
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -67,6 +67,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.77 =
+* Importazione massiva idee: nuovo flusso in due passaggi. Dopo il caricamento del CSV viene mostrato un report di anteprima prima di importare, con: quantità totale di idee, numero di idee valide/da correggere, periodo (dal–al) di creazione bozze, categorie che verranno create e categorie non trovate, ripartizione per tipologia e per lingua, argomenti duplicati nel file, elenco degli errori per riga (campi mancanti, data non valida, tipologia non trovata) e un'anteprima tabellare delle righe. Si sceglie quante idee importare — tutte oppure le prime N seguendo l'ordine dei record del file — e solo dopo la conferma parte l'import (le categorie e le idee vengono create solo in questo momento). Limite per batch: 2000 righe.
 
 = 0.5.76 =
 * Controllo accessi e Area membri: chiarito che sono funzioni complementari, non alternative. Aggiunto un riquadro esplicativo con collegamento incrociato in entrambe le pagine: il Controllo accessi decide chi vede i contenuti, l'Area membri (Assistente Guide AI) crea gli account "Membro Guide" su cui le regole si basano. Suggerito il preset "Solo ruoli specifici → Membro Guide" per i contenuti riservati ai membri. I collegamenti aprono direttamente la scheda pertinente (deep-link via hash URL nel componente a schede).
