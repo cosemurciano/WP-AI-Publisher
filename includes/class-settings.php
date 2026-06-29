@@ -71,6 +71,7 @@ class Settings {
 		$output['use_openai_file_search']        = ! empty( $input['use_openai_file_search'] );
 		$output['openai_vector_store_ids']       = isset( $input['openai_vector_store_ids'] ) ? sanitize_textarea_field( (string) $input['openai_vector_store_ids'] ) : $defaults['openai_vector_store_ids'];
 		$output['openai_responses_model']        = isset( $input['openai_responses_model'] ) ? sanitize_text_field( (string) $input['openai_responses_model'] ) : $defaults['openai_responses_model'];
+		$output['file_search_instruction']       = isset( $input['file_search_instruction'] ) ? sanitize_textarea_field( (string) $input['file_search_instruction'] ) : $defaults['file_search_instruction'];
 		$output['telegram_enabled']              = ! empty( $input['telegram_enabled'] );
 		$output['telegram_allowed_chat_ids']     = isset( $input['telegram_allowed_chat_ids'] ) ? sanitize_textarea_field( (string) $input['telegram_allowed_chat_ids'] ) : $defaults['telegram_allowed_chat_ids'];
 		$output['telegram_article_type_id']      = isset( $input['telegram_article_type_id'] ) ? absint( $input['telegram_article_type_id'] ) : $defaults['telegram_article_type_id'];
