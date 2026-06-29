@@ -137,8 +137,8 @@ $render_list = static function ( $items ) {
 						<tr>
 							<th scope="row"><label><?php echo esc_html__( 'Categorie', 'wp-ai-publisher' ); ?></label></th>
 							<td>
-								<?php wpai_publisher_render_category_tagbox( array() ); ?>
-								<p class="description"><?php echo esc_html__( 'Opzionale. Le categorie indicate vengono assegnate alla bozza e comunicate all’AI. Lascia vuoto per far scegliere l’AI.', 'wp-ai-publisher' ); ?></p>
+								<?php wpai_publisher_render_category_checklist( array() ); ?>
+								<p class="description"><?php echo esc_html__( 'Opzionale. Le categorie selezionate vengono assegnate alla bozza e comunicate all’AI. Lascia vuoto per far scegliere l’AI.', 'wp-ai-publisher' ); ?></p>
 							</td>
 						</tr>
 						<tr>

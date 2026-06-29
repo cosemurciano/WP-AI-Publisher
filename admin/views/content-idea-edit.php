@@ -74,8 +74,8 @@ $wpai_error = isset( $_GET['wpai_error'] ) ? sanitize_text_field( wp_unslash( $_
 						<tr>
 							<th scope="row"><label><?php echo esc_html__( 'Categorie', 'wp-ai-publisher' ); ?></label></th>
 							<td>
-								<?php wpai_publisher_render_category_tagbox( $content_ideas->get_idea_category_names( $edit_idea ) ); ?>
-								<p class="description"><?php echo esc_html__( 'Le categorie indicate vengono assegnate alla bozza e comunicate all’AI. Lascia vuoto per far scegliere l’AI.', 'wp-ai-publisher' ); ?></p>
+								<?php wpai_publisher_render_category_checklist( $content_ideas->get_idea_category_ids( $edit_idea ) ); ?>
+								<p class="description"><?php echo esc_html__( 'Le categorie selezionate vengono assegnate alla bozza e comunicate all’AI. Lascia vuoto per far scegliere l’AI.', 'wp-ai-publisher' ); ?></p>
 							</td>
 						</tr>
 						<tr>

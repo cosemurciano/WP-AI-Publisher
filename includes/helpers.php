@@ -805,34 +805,70 @@ if ( ! function_exists( 'wpai_publisher_get_article_type_config_safe' ) ) {
 	}
 }
 
-if ( ! function_exists( 'wpai_publisher_render_category_tagbox' ) ) {
+if ( ! function_exists( 'wpai_publisher_render_category_checklist_branch' ) ) {
 	/**
-	 * Render a WordPress tag-box style field for selecting categories by name.
+	 * Render one level of the category checklist (recursive).
 	 *
-	 * The native tagBox JS turns this markup into removable token chips with
-	 * autocomplete. On submit, the chosen category names arrive in
-	 * $_POST['tax_input']['category'] as a comma-separated string.
-	 *
-	 * @param array<int,string> $selected_names Currently selected category names.
+	 * @param int                              $parent_id    Parent term ID (0 = top level).
+	 * @param array<int,array<int,\WP_Term>>   $by_parent    Terms grouped by parent ID.
+	 * @param array<int,int>                   $selected_ids Currently selected term IDs.
 	 * @return void
 	 */
-	function wpai_publisher_render_category_tagbox( $selected_names = array() ) {
-		$value = implode( ', ', array_map( 'sanitize_text_field', (array) $selected_names ) );
+	function wpai_publisher_render_category_checklist_branch( $parent_id, $by_parent, $selected_ids ) {
+		if ( empty( $by_parent[ $parent_id ] ) ) {
+			return;
+		}
+		foreach ( $by_parent[ $parent_id ] as $term ) {
+			$tid = (int) $term->term_id;
+			?>
+			<li class="wpai-cat-item">
+				<label class="wpai-cat-label">
+					<input type="checkbox" name="tax_input[category][]" value="<?php echo esc_attr( (string) $tid ); ?>" <?php checked( in_array( $tid, $selected_ids, true ) ); ?> />
+					<span class="wpai-cat-name"><?php echo esc_html( $term->name ); ?></span>
+				</label>
+				<?php if ( ! empty( $by_parent[ $tid ] ) ) : ?>
+					<ul class="children">
+						<?php wpai_publisher_render_category_checklist_branch( $tid, $by_parent, $selected_ids ); ?>
+					</ul>
+				<?php endif; ?>
+			</li>
+			<?php
+		}
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_render_category_checklist' ) ) {
+	/**
+	 * Render a scrollable, hierarchical checklist of categories (like the post
+	 * editor's Categories box) with a client-side filter. Every category is
+	 * visible at a glance and selected by ticking the box.
+	 *
+	 * On submit the chosen term IDs arrive as an array in
+	 * $_POST['tax_input']['category'].
+	 *
+	 * @param array<int,int> $selected_ids Currently selected category IDs.
+	 * @return void
+	 */
+	function wpai_publisher_render_category_checklist( $selected_ids = array() ) {
+		$selected_ids = array_values( array_filter( array_map( 'absint', (array) $selected_ids ) ) );
+		$terms        = get_categories( array( 'hide_empty' => false, 'orderby' => 'name' ) );
+
+		if ( empty( $terms ) ) {
+			echo '<p class="description">' . esc_html__( 'Nessuna categoria disponibile.', 'wp-ai-publisher' ) . '</p>';
+			return;
+		}
+
+		$by_parent = array();
+		foreach ( $terms as $term ) {
+			$by_parent[ (int) $term->parent ][] = $term;
+		}
 		?>
-		<div class="tagsdiv wpai-tagsdiv" id="category">
-			<div class="jaxtag">
-				<div class="nojs-tags hide-if-js">
-					<label for="tax-input-category"><?php echo esc_html__( 'Categorie separate da virgole', 'wp-ai-publisher' ); ?></label>
-					<p><textarea name="tax_input[category]" rows="3" cols="20" class="the-tags" id="tax-input-category"><?php echo esc_textarea( $value ); ?></textarea></p>
-				</div>
-				<div class="ajaxtag hide-if-no-js">
-					<label class="screen-reader-text" for="new-tag-category"><?php echo esc_html__( 'Aggiungi nuova categoria', 'wp-ai-publisher' ); ?></label>
-					<input type="text" id="new-tag-category" name="newtag[category]" class="newtag form-input-tip" size="16" autocomplete="off" aria-describedby="new-tag-category-desc" value="" />
-					<input type="button" class="button tagadd" value="<?php echo esc_attr__( 'Aggiungi', 'wp-ai-publisher' ); ?>" />
-				</div>
-			</div>
-			<p class="howto" id="new-tag-category-desc"><?php echo esc_html__( 'Digita il nome di una categoria esistente e premi Invio. Le categorie devono già esistere.', 'wp-ai-publisher' ); ?></p>
-			<ul class="tagchecklist" role="list"></ul>
+		<div class="wpai-cat-field">
+			<input type="search" class="wpai-cat-filter regular-text" placeholder="<?php echo esc_attr__( 'Filtra categorie…', 'wp-ai-publisher' ); ?>" aria-label="<?php echo esc_attr__( 'Filtra categorie', 'wp-ai-publisher' ); ?>" autocomplete="off" />
+			<ul class="wpai-cat-checklist">
+				<?php wpai_publisher_render_category_checklist_branch( 0, $by_parent, $selected_ids ); ?>
+			</ul>
+			<p class="wpai-cat-empty description" hidden><?php echo esc_html__( 'Nessuna categoria corrisponde al filtro.', 'wp-ai-publisher' ); ?></p>
 		</div>
 		<?php
 	}

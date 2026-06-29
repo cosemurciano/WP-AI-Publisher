@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.78**
+Versione corrente: **0.5.79**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.79
+- Idee contenuto: il campo Categorie (Nuova idea e Modifica idea) passa dal box a digitazione/autocompletamento a una checklist scorrevole e gerarchica con filtro di ricerca — tutte le categorie sono visibili e si selezionano con le caselle. Salvataggio invariato (retrocompatibile).
 
 ### 0.5.78
 - Importazione massiva idee: ripristinato l'import in un solo passaggio (come prima della 0.5.77), senza schermata di anteprima/conferma.

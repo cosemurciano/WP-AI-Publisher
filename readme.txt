@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.78
+Stable tag: 0.5.79
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -67,6 +67,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.79 =
+* Idee contenuto: nuova selezione categorie più comoda. Il campo "Categorie" (sia in "Nuova idea" sia in "Modifica idea") non usa più il box a digitazione/autocompletamento ma un elenco a caselle (checklist) scorrevole e gerarchico, in cui tutte le categorie sono visibili a colpo d'occhio, con un campo di ricerca per filtrarle rapidamente. Nessuna modifica al salvataggio: le categorie scelte vengono assegnate alla bozza come prima (retrocompatibile).
 
 = 0.5.78 =
 * Importazione massiva idee: ripristinato l'import in un solo passaggio (come prima della 0.5.77). Si carica il CSV e l'importazione parte subito, senza schermata di anteprima/conferma intermedia.
