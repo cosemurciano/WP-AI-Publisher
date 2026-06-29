@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.79**
+Versione corrente: **0.5.80**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.80
+- Knowledge base OpenAI (file_search): istruzione di sistema rafforzata con direttiva anti-plagio — i documenti/vector store dello storage OpenAI vanno usati come riferimento autorevole ma riscritti con parole e terminologia proprie, mai copiati verbatim. Regola centralizzata nel plugin (vale per tutte le Tipologie e per l'Assistente Guide AI) e personalizzabile via filtro `wpai_publisher_file_search_system_instruction`.
 
 ### 0.5.79
 - Idee contenuto: il campo Categorie (Nuova idea e Modifica idea) passa dal box a digitazione/autocompletamento a una checklist scorrevole e gerarchica con filtro di ricerca — tutte le categorie sono visibili e si selezionano con le caselle. Salvataggio invariato (retrocompatibile).
