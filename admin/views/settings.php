@@ -296,6 +296,13 @@ if ( isset( $_GET['wpai_notice'] ) ) {
 								<td><input type="text" id="wpai-openai-model" name="wpai_publisher_settings[openai_responses_model]" class="regular-text" value="<?php echo esc_attr( (string) ( $settings['openai_responses_model'] ?? '' ) ); ?>" placeholder="gpt-4.1-mini"><p class="description"><?php echo esc_html__( 'Modello OpenAI per la Responses API. Se vuoto, usa il modello dei Parametri AI o un valore predefinito.', 'wp-ai-publisher' ); ?></p></td>
 							</tr>
 							<tr>
+								<th scope="row"><label for="wpai-fs-instruction"><?php echo esc_html__( 'Regola di riscrittura (anti-plagio)', 'wp-ai-publisher' ); ?></label></th>
+								<td>
+									<textarea id="wpai-fs-instruction" name="wpai_publisher_settings[file_search_instruction]" rows="4" class="large-text" placeholder="<?php echo esc_attr( wpai_publisher_default_file_search_instruction() ); ?>"><?php echo esc_textarea( (string) ( $settings['file_search_instruction'] ?? '' ) ); ?></textarea>
+									<p class="description"><?php echo esc_html__( 'Istruzione data all’AI su come usare i documenti e i vector store dello storage OpenAI: usarli come riferimento autorevole ma riscriverli con parole proprie, senza copia-incolla. Lascia vuoto per usare il testo predefinito (mostrato come segnaposto).', 'wp-ai-publisher' ); ?></p>
+								</td>
+							</tr>
+							<tr>
 								<th scope="row"><?php echo esc_html__( 'Chiave API OpenAI', 'wp-ai-publisher' ); ?></th>
 								<td>
 									<?php if ( $wpai_openai_key_present ) : ?>

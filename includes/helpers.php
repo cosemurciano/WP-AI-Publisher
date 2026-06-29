@@ -63,6 +63,7 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'use_openai_file_search'        => false,
 			'openai_vector_store_ids'       => '',
 			'openai_responses_model'        => '',
+			'file_search_instruction'       => '',
 			'telegram_enabled'              => false,
 			'telegram_allowed_chat_ids'     => '',
 			'telegram_article_type_id'      => 0,
@@ -141,6 +142,7 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['use_openai_file_search']        = ! empty( $settings['use_openai_file_search'] );
 		$settings['openai_vector_store_ids']       = sanitize_textarea_field( (string) ( $settings['openai_vector_store_ids'] ?? '' ) );
 		$settings['openai_responses_model']        = sanitize_text_field( (string) ( $settings['openai_responses_model'] ?? '' ) );
+		$settings['file_search_instruction']       = sanitize_textarea_field( (string) ( $settings['file_search_instruction'] ?? '' ) );
 		$settings['telegram_enabled']              = ! empty( $settings['telegram_enabled'] );
 		$settings['telegram_allowed_chat_ids']     = sanitize_textarea_field( (string) ( $settings['telegram_allowed_chat_ids'] ?? '' ) );
 		$settings['telegram_article_type_id']      = absint( $settings['telegram_article_type_id'] ?? 0 );
@@ -546,6 +548,34 @@ if ( ! function_exists( 'wpai_publisher_get_openai_api_key' ) ) {
 		$key = (string) apply_filters( 'wpai_publisher_openai_api_key', $key );
 
 		return trim( $key );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_default_file_search_instruction' ) ) {
+	/**
+	 * Default anti-verbatim grounding directive for OpenAI file_search.
+	 *
+	 * Used both as the built-in fallback at generation time and as the
+	 * placeholder/example text in the settings field.
+	 *
+	 * @return string
+	 */
+	function wpai_publisher_default_file_search_instruction() {
+		return __( 'Usa i documenti recuperati tramite file_search come riferimento importante e fonte autorevole, ma NON copiarli né trascriverli alla lettera: rielabora e sintetizza i contenuti con parole, struttura e terminologia tue, evitando il plagio. Riporta fatti, dati e concetti dalle fonti, non il loro testo verbatim.', 'wp-ai-publisher' );
+	}
+}
+
+if ( ! function_exists( 'wpai_publisher_get_file_search_instruction' ) ) {
+	/**
+	 * The active file_search grounding directive: the admin setting when set,
+	 * otherwise the built-in default.
+	 *
+	 * @return string
+	 */
+	function wpai_publisher_get_file_search_instruction() {
+		$settings = wpai_publisher_get_settings();
+		$custom   = trim( (string) ( $settings['file_search_instruction'] ?? '' ) );
+		return '' !== $custom ? $custom : wpai_publisher_default_file_search_instruction();
 	}
 }
 

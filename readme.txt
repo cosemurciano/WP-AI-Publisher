@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.80
+Stable tag: 0.5.81
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -67,6 +67,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.81 =
+* Knowledge base OpenAI (file_search): la regola anti-plagio è ora modificabile da Impostazioni → Generazione AI → Knowledge base OpenAI (campo "Regola di riscrittura (anti-plagio)"). Si può personalizzare il testo dell'istruzione data all'AI su come usare i documenti/vector store dello storage OpenAI; lasciando il campo vuoto si usa il testo predefinito (mostrato come segnaposto). Resta disponibile anche il filtro wpai_publisher_file_search_system_instruction per gli sviluppatori.
 
 = 0.5.80 =
 * Knowledge base OpenAI (file_search): rafforzata l'istruzione di sistema usata quando la bozza è ancorata ai documenti e ai vector store dello storage OpenAI. Ora l'AI usa i contenuti recuperati come riferimento importante e fonte autorevole, ma NON li copia né li trascrive alla lettera: li rielabora e sintetizza con parole, struttura e terminologia proprie, riportando fatti e dati ma evitando il testo verbatim (anti-plagio). La regola è centralizzata nel plugin (vale per ogni Tipologia articolo e anche per l'Assistente Guide AI) ed è personalizzabile dagli sviluppatori tramite il filtro wpai_publisher_file_search_system_instruction.

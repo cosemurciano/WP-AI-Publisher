@@ -1032,7 +1032,7 @@ class AI_Provider_Adapter {
 	 * @return string
 	 */
 	private function file_search_grounding_instruction( $prefix = '', $suffix = '', $context = 'default' ) {
-		$directive = __( 'Usa i documenti recuperati tramite file_search come riferimento importante e fonte autorevole, ma NON copiarli né trascriverli alla lettera: rielabora e sintetizza i contenuti con parole, struttura e terminologia tue, evitando il plagio. Riporta fatti, dati e concetti dalle fonti, non il loro testo verbatim.', 'wp-ai-publisher' );
+		$directive = wpai_publisher_get_file_search_instruction();
 
 		$parts       = array_filter( array( trim( (string) $prefix ), $directive, trim( (string) $suffix ) ) );
 		$instruction = implode( ' ', $parts );
