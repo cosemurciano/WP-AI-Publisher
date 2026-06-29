@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.77**
+Versione corrente: **0.5.78**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.78
+- Importazione massiva idee: ripristinato l'import in un solo passaggio (come prima della 0.5.77), senza schermata di anteprima/conferma.
 
 ### 0.5.77
 - Importazione massiva idee: flusso in due passaggi con **report di anteprima** prima dell'import (totale idee, valide/da correggere, periodo dal–al di creazione bozze, categorie da creare/non trovate, ripartizione per tipologia e lingua, duplicati, errori per riga, anteprima righe). Si sceglie quante idee importare (tutte o le prime N nell'ordine del file); categorie e idee vengono create solo dopo la conferma. Limite per batch: 2000 righe.
