@@ -1019,6 +1019,35 @@ class AI_Provider_Adapter {
 	}
 
 	/**
+	 * Build the system instruction for OpenAI file_search grounding.
+	 *
+	 * Always includes the anti-verbatim directive: the retrieved documents must
+	 * be used as an important reference but rewritten in the model's own words and
+	 * terminology, never copied verbatim. The whole instruction can be overridden
+	 * via the wpai_publisher_file_search_system_instruction filter.
+	 *
+	 * @param string $prefix  Text placed before the directive (e.g. a role line).
+	 * @param string $suffix  Text placed after the directive (e.g. output format).
+	 * @param string $context Call context ('article', 'short_text', ...).
+	 * @return string
+	 */
+	private function file_search_grounding_instruction( $prefix = '', $suffix = '', $context = 'default' ) {
+		$directive = __( 'Usa i documenti recuperati tramite file_search come riferimento importante e fonte autorevole, ma NON copiarli né trascriverli alla lettera: rielabora e sintetizza i contenuti con parole, struttura e terminologia tue, evitando il plagio. Riporta fatti, dati e concetti dalle fonti, non il loro testo verbatim.', 'wp-ai-publisher' );
+
+		$parts       = array_filter( array( trim( (string) $prefix ), $directive, trim( (string) $suffix ) ) );
+		$instruction = implode( ' ', $parts );
+
+		/**
+		 * Filter the system instruction used for OpenAI file_search grounding.
+		 *
+		 * @param string $instruction Full instruction sent to the model.
+		 * @param string $directive   Just the anti-verbatim grounding directive.
+		 * @param string $context     Call context ('article', 'short_text', ...).
+		 */
+		return (string) apply_filters( 'wpai_publisher_file_search_system_instruction', $instruction, $directive, $context );
+	}
+
+	/**
 	 * Generate plain text grounded on the OpenAI vector stores (file_search / RAG).
 	 *
 	 * Mirrors {@see try_generate_with_openai_responses()} but returns free text
@@ -1042,7 +1071,7 @@ class AI_Provider_Adapter {
 
 		$body = array(
 			'model'        => $model,
-			'instructions' => '' !== trim( (string) $system ) ? (string) $system : __( 'Usa i documenti recuperati come fonte autorevole.', 'wp-ai-publisher' ),
+			'instructions' => $this->file_search_grounding_instruction( (string) $system, '', 'short_text' ),
 			'input'        => (string) $prompt,
 			'tools'        => array(
 				array(
@@ -1114,7 +1143,11 @@ class AI_Provider_Adapter {
 		$params = $this->get_ai_generation_params();
 		$model  = $this->resolve_openai_model( $settings, $params );
 
-		$system = __( 'Sei un assistente editoriale WordPress. Usa i documenti recuperati come fonte autorevole. Restituisci esclusivamente l\'oggetto JSON richiesto.', 'wp-ai-publisher' );
+		$system = $this->file_search_grounding_instruction(
+			__( 'Sei un assistente editoriale WordPress.', 'wp-ai-publisher' ),
+			__( 'Restituisci esclusivamente l\'oggetto JSON richiesto.', 'wp-ai-publisher' ),
+			'article'
+		);
 
 		$body = array(
 			'model'        => $model,
