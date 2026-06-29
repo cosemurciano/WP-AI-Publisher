@@ -314,13 +314,10 @@ final class Plugin {
 			WPAIP_VERSION
 		);
 
-		// The WordPress tag-box UI powers the per-idea category field.
-		wp_enqueue_script( 'tags-box' );
-
 		wp_enqueue_script(
 			'wpai-publisher-admin',
 			WPAIP_PLUGIN_URL . 'admin/js/admin.js',
-			array( 'jquery', 'tags-box' ),
+			array(),
 			WPAIP_VERSION,
 			true
 		);

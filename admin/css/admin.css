@@ -227,6 +227,53 @@ a.wpai-stat:hover {
 	width: 280px;
 }
 
+/* Category checklist (idea create/edit). */
+.wpai-cat-field {
+	max-width: 460px;
+}
+
+.wpai-cat-filter {
+	width: 100%;
+	margin-bottom: 6px;
+}
+
+.wpai-cat-checklist {
+	max-height: 220px;
+	overflow-y: auto;
+	margin: 0;
+	padding: 8px 12px;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	background: #fff;
+}
+
+.wpai-cat-checklist,
+.wpai-cat-checklist .children {
+	list-style: none;
+}
+
+.wpai-cat-checklist .children {
+	margin: 0 0 0 22px;
+}
+
+.wpai-cat-item {
+	margin: 0;
+}
+
+.wpai-cat-label {
+	display: block;
+	padding: 3px 0;
+	cursor: pointer;
+}
+
+.wpai-cat-label:hover .wpai-cat-name {
+	color: #2271b1;
+}
+
+.wpai-cat-label input {
+	margin-right: 6px;
+}
+
 /* Collapsible diagnostic inventory groups. */
 .wpai-diag-group {
 	margin: 0 0 10px;

@@ -6,18 +6,55 @@
 		remoteCallsEnabled: false
 	};
 
-	// Initialise the WordPress tag-box UI for our category fields (idea
-	// create/edit). The native tagBox renders removable token chips and wires
-	// the ajax category autocomplete.
 	document.addEventListener( 'DOMContentLoaded', function () {
-		if ( window.tagBox && document.querySelector( '.wpai-tagsdiv' ) ) {
-			try {
-				window.tagBox.init();
-			} catch ( e ) {}
-		}
-
 		initTabs();
+		initCategoryFilters();
 	} );
+
+	/**
+	 * Live client-side filter for the category checklist(s). Typing narrows the
+	 * visible categories; ancestors of a match stay visible so the hierarchy
+	 * still reads correctly.
+	 */
+	function initCategoryFilters() {
+		document.querySelectorAll( '.wpai-cat-field' ).forEach( function ( field ) {
+			var filter = field.querySelector( '.wpai-cat-filter' );
+			var list   = field.querySelector( '.wpai-cat-checklist' );
+			var empty  = field.querySelector( '.wpai-cat-empty' );
+			if ( ! filter || ! list ) {
+				return;
+			}
+			var items = Array.prototype.slice.call( list.querySelectorAll( '.wpai-cat-item' ) );
+
+			filter.addEventListener( 'input', function () {
+				var q = filter.value.trim().toLowerCase();
+
+				if ( '' === q ) {
+					items.forEach( function ( item ) { item.hidden = false; } );
+					if ( empty ) { empty.hidden = true; }
+					return;
+				}
+
+				// Pass 1: flag each item by its own name.
+				items.forEach( function ( item ) {
+					var label = item.querySelector( ':scope > .wpai-cat-label .wpai-cat-name' );
+					var name  = label ? label.textContent.toLowerCase() : '';
+					item.setAttribute( 'data-wpai-own', name.indexOf( q ) !== -1 ? '1' : '0' );
+				} );
+
+				// Pass 2: show an item if it matches or has a matching descendant
+				// (which also keeps ancestors of a match visible).
+				var anyVisible = false;
+				items.forEach( function ( item ) {
+					var show = '1' === item.getAttribute( 'data-wpai-own' ) || !! item.querySelector( '.wpai-cat-item[data-wpai-own="1"]' );
+					item.hidden = ! show;
+					if ( show ) { anyVisible = true; }
+				} );
+
+				if ( empty ) { empty.hidden = anyVisible; }
+			} );
+		} );
+	}
 
 	/**
 	 * Generic tabbed-section controller shared by the admin pages.

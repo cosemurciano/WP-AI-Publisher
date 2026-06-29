@@ -246,6 +246,26 @@ class Admin {
 
 
 	/**
+	 * Read the category selection posted by the idea form.
+	 *
+	 * The checklist submits an array of term IDs in $_POST['tax_input']['category'].
+	 * A legacy comma-separated string (older tag-box markup) is still accepted and
+	 * passed through unchanged for Content_Ideas to resolve.
+	 *
+	 * @return array<int,int>|string
+	 */
+	private function read_posted_category_ids() {
+		if ( ! isset( $_POST['tax_input']['category'] ) ) {
+			return array();
+		}
+		$raw = wp_unslash( $_POST['tax_input']['category'] );
+		if ( is_array( $raw ) ) {
+			return array_values( array_filter( array_map( 'absint', $raw ) ) );
+		}
+		return sanitize_text_field( (string) $raw );
+	}
+
+	/**
 	 * Handle content idea creation.
 	 *
 	 * @return void
@@ -260,7 +280,7 @@ class Admin {
 		$creation_mode = sanitize_key( wp_unslash( $_POST['wpai_creation_mode'] ?? '' ) );
 		$scheduled_at  = ( 'schedule' === $creation_mode ) ? sanitize_text_field( wp_unslash( $_POST['wpai_scheduled_at'] ?? '' ) ) : '';
 
-		$posted_categories = isset( $_POST['tax_input']['category'] ) ? sanitize_text_field( wp_unslash( $_POST['tax_input']['category'] ) ) : '';
+		$posted_categories = $this->read_posted_category_ids();
 		$idea_id = $this->content_ideas->create_idea(
 			array(
 				'topic'            => sanitize_textarea_field( wp_unslash( $_POST['topic'] ?? '' ) ),
@@ -341,7 +361,7 @@ class Admin {
 		$idea_id = absint( $_POST['idea_id'] ?? 0 );
 		check_admin_referer( 'wpai_publisher_update_content_idea_' . $idea_id );
 
-		$posted_categories = isset( $_POST['tax_input']['category'] ) ? sanitize_text_field( wp_unslash( $_POST['tax_input']['category'] ) ) : '';
+		$posted_categories = $this->read_posted_category_ids();
 		$result = $this->content_ideas->update_idea(
 			$idea_id,
 			array(
