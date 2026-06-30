@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.84**
+Versione corrente: **0.5.85**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.85
+- Telegram: scoperta automatica della Chat ID — il bot risponde con l'ID a `/id` o `/start` (e a qualsiasi chat non autorizzata). Nuova sezione Impostazioni → Telegram → "Chat ID viste di recente" con pulsante "Aggiungi" che compila il campo delle chat autorizzate. Non serve più cercare l'ID con bot esterni.
 
 ### 0.5.84
 - Idee contenuto: pulsante "Nuova idea contenuto" blu più evidente, "Importazione massiva" spostato a destra. Nessun pulsante "Crea bozza" attivo quando la bozza è "In coda"/in elaborazione. Telegram: anche le bozze da idee programmate arrivano per la revisione (come quelle dell'import massivo).

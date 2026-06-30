@@ -48,6 +48,8 @@ $wpai_options = array(
 	'wpai_publisher_db_schema_version',
 	'wpai_publisher_default_article_type_rows_created',
 	'wpai_publisher_default_article_types_created',
+	'wpai_publisher_bulk_import_notify',
+	'wpai_publisher_telegram_seen_chats',
 );
 
 foreach ( $wpai_options as $wpai_option ) {

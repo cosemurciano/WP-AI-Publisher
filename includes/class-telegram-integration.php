@@ -29,6 +29,7 @@ class Telegram_Integration {
 	const REST_NAMESPACE = 'wp-ai-publisher/v1';
 	const REST_ROUTE     = '/telegram';
 	const CRON_HOOK      = 'wpai_publisher_telegram_process_idea';
+	const SEEN_OPTION    = 'wpai_publisher_telegram_seen_chats';
 
 	/**
 	 * Content ideas service.
@@ -388,12 +389,40 @@ class Telegram_Integration {
 			return new WP_REST_Response( array( 'ok' => true, 'skipped' => 'empty_message' ), 200 );
 		}
 
+		// Remember the chat so the admin can authorize it from Settings without
+		// having to look up the ID manually.
+		$this->remember_seen_chat( $chat );
+
+		// Onboarding helper: reply with the chat ID for /id, /chatid, /start —
+		// even before the chat is authorized (that is how the ID is discovered).
+		$command = strtolower( ltrim( (string) strtok( $text, " @\n" ), '/' ) );
+		if ( '/' === substr( $text, 0, 1 ) && in_array( $command, array( 'id', 'chatid', 'start' ), true ) ) {
+			$this->send_message(
+				$chat_id,
+				sprintf(
+					/* translators: %s: chat ID. */
+					__( "🆔 Chat ID: %s\nIncolla questo ID in WP AI Publisher → Impostazioni → Telegram → “Chat ID autorizzate”.", 'wp-ai-publisher' ),
+					$chat_id
+				)
+			);
+			return new WP_REST_Response( array( 'ok' => true, 'replied' => 'chat_id' ), 200 );
+		}
+
 		if ( ! $this->chat_is_allowed( $chat_id ) ) {
 			$this->logger->warning( __( 'Messaggio Telegram da chat non autorizzata.', 'wp-ai-publisher' ), array( 'source' => 'telegram', 'event' => 'unauthorized_chat', 'chat_id' => $chat_id ) );
+			// Help onboarding: tell the user their (not yet authorized) chat ID.
+			$this->send_message(
+				$chat_id,
+				sprintf(
+					/* translators: %s: chat ID. */
+					__( "🔒 Questa chat non è ancora autorizzata.\n🆔 Chat ID: %s\nChiedi all’amministratore di aggiungerlo in WP AI Publisher → Impostazioni → Telegram.", 'wp-ai-publisher' ),
+					$chat_id
+				)
+			);
 			return new WP_REST_Response( array( 'ok' => true, 'skipped' => 'chat_not_allowed' ), 200 );
 		}
 
-		// Ignore bot commands like /start.
+		// Ignore other bot commands like /help.
 		if ( '/' === substr( $text, 0, 1 ) ) {
 			return new WP_REST_Response( array( 'ok' => true, 'skipped' => 'command' ), 200 );
 		}
@@ -428,6 +457,49 @@ class Telegram_Integration {
 		$this->maybe_reply( $chat_id, __( '✍️ Idea ricevuta! Sto generando la bozza, ti avviso appena è pronta.', 'wp-ai-publisher' ) );
 
 		return new WP_REST_Response( array( 'ok' => true, 'idea_created' => true, 'idea_id' => $idea_id ), 200 );
+	}
+
+	/**
+	 * Record a chat that contacted the bot, so the admin can authorize it from
+	 * Settings without looking up the ID manually. Keeps the 20 most recent.
+	 *
+	 * @param array<string,mixed> $chat Telegram chat object.
+	 * @return void
+	 */
+	private function remember_seen_chat( $chat ) {
+		$id = (string) ( $chat['id'] ?? '' );
+		if ( '' === $id ) {
+			return;
+		}
+
+		if ( ! empty( $chat['title'] ) ) {
+			$label = (string) $chat['title'];
+		} elseif ( ! empty( $chat['username'] ) ) {
+			$label = '@' . (string) $chat['username'];
+		} else {
+			$label = trim( (string) ( $chat['first_name'] ?? '' ) . ' ' . (string) ( $chat['last_name'] ?? '' ) );
+		}
+
+		$seen = get_option( self::SEEN_OPTION, array() );
+		$seen = is_array( $seen ) ? $seen : array();
+		$seen[ $id ] = array(
+			'id'    => $id,
+			'label' => sanitize_text_field( $label ),
+			'type'  => sanitize_key( (string) ( $chat['type'] ?? '' ) ),
+			'time'  => current_time( 'mysql' ),
+		);
+
+		if ( count( $seen ) > 20 ) {
+			uasort(
+				$seen,
+				static function ( $a, $b ) {
+					return strcmp( (string) ( $b['time'] ?? '' ), (string) ( $a['time'] ?? '' ) );
+				}
+			);
+			$seen = array_slice( $seen, 0, 20, true );
+		}
+
+		update_option( self::SEEN_OPTION, $seen, false );
 	}
 
 	/**
