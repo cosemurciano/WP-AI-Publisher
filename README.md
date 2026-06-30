@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.85**
+Versione corrente: **0.5.86**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.86
+- Telegram: guida dettagliata ampliata nella scheda Impostazioni → Telegram (trovare la Chat ID e quando serve, canali/gruppi, notifiche e revisione, modalità interattiva, risoluzione problemi).
 
 ### 0.5.85
 - Telegram: scoperta automatica della Chat ID — il bot risponde con l'ID a `/id` o `/start` (e a qualsiasi chat non autorizzata). Nuova sezione Impostazioni → Telegram → "Chat ID viste di recente" con pulsante "Aggiungi" che compila il campo delle chat autorizzate. Non serve più cercare l'ID con bot esterni.

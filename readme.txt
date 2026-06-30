@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.85
+Stable tag: 0.5.86
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -67,6 +67,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.86 =
+* Telegram: guida dettagliata ampliata nella scheda Impostazioni → Telegram. Aggiunte sezioni su come trovare la Chat ID e quando è (o non è) obbligatoria, invio a canali/gruppi (bot amministratore, ID negativo), notifiche automatiche e revisione delle bozze, modalità interattiva e risoluzione problemi.
 
 = 0.5.85 =
 * Telegram: scoperta automatica della Chat ID. Inviando /id (o /start) al bot, questo risponde con la Chat ID da incollare nelle impostazioni; se una chat non autorizzata scrive, riceve comunque il proprio ID. Nuova sezione Impostazioni → Telegram → "Chat ID viste di recente" che elenca le chat che hanno scritto al bot, con un pulsante "Aggiungi" che inserisce l'ID nel campo delle chat autorizzate (poi basta salvare). Non serve più cercare l'ID con bot esterni. Resta necessario avere almeno una Chat ID per le notifiche in uscita (bozza pronta).

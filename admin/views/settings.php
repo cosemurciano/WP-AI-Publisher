@@ -633,6 +633,42 @@ if ( isset( $_GET['wpai_notice'] ) ) {
 								<li><?php echo esc_html__( 'Un messaggio = una bozza. I messaggi che iniziano con “/” vengono ignorati. Tipologia e lingua sono quelle impostate qui.', 'wp-ai-publisher' ); ?></li>
 								<li><?php echo esc_html__( 'Il pulsante “Invia istruzioni su Telegram” recapita queste istruzioni d’uso alle Chat ID autorizzate.', 'wp-ai-publisher' ); ?></li>
 							</ul>
+
+							<p><strong><?php echo esc_html__( 'Chat ID: come trovarla e quando serve', 'wp-ai-publisher' ); ?></strong></p>
+							<ul style="margin-left:18px; list-style:disc;">
+								<li><?php echo wp_kses( __( 'Per scoprire l’ID, apri il bot su Telegram e invia <code>/id</code> (oppure <code>/start</code>): il bot risponde con la tua Chat ID. Funziona anche se la chat non è ancora autorizzata.', 'wp-ai-publisher' ), array( 'code' => array() ) ); ?></li>
+								<li><?php echo esc_html__( 'Ogni chat che scrive al bot compare in “Chat ID viste di recente” (qui sotto): clicca “Aggiungi” per inserirla tra le Chat ID autorizzate, poi salva.', 'wp-ai-publisher' ); ?></li>
+								<li><?php echo wp_kses( __( '<strong>Per ricevere</strong> (scrivere al bot per creare idee): la Chat ID NON è obbligatoria. Se lasci vuoto il campo, il bot accetta qualsiasi chat (sconsigliato per sicurezza).', 'wp-ai-publisher' ), array( 'strong' => array() ) ); ?></li>
+								<li><?php echo wp_kses( __( '<strong>Per le notifiche in uscita</strong> (avviso “bozza pronta” da importazione massiva o programmazione): serve <strong>almeno una</strong> Chat ID, perché in quel momento non c’è un messaggio a cui rispondere e il plugin deve sapere a chi inviare.', 'wp-ai-publisher' ), array( 'strong' => array() ) ); ?></li>
+								<li><?php echo wp_kses( __( 'Nota tecnica: un bot Telegram non può scrivere per primo a una chat che non gli ha mai scritto, né elencare le proprie chat. Serve sempre un primo messaggio in ingresso per conoscere l’ID.', 'wp-ai-publisher' ), array() ); ?></li>
+							</ul>
+
+							<p><strong><?php echo esc_html__( 'Inviare a un canale o gruppo', 'wp-ai-publisher' ); ?></strong></p>
+							<ul style="margin-left:18px; list-style:disc;">
+								<li><?php echo esc_html__( 'Aggiungi il bot come amministratore del canale/gruppo.', 'wp-ai-publisher' ); ?></li>
+								<li><?php echo wp_kses( __( 'La Chat ID di canali e gruppi è un numero <strong>negativo</strong> (es. <code>-1001234567890</code>). La ottieni pubblicando un messaggio nel canale (compare in “Chat ID viste di recente”) oppure dallo <code>@username</code> del canale.', 'wp-ai-publisher' ), array( 'strong' => array(), 'code' => array() ) ); ?></li>
+							</ul>
+
+							<p><strong><?php echo esc_html__( 'Notifiche automatiche e revisione', 'wp-ai-publisher' ); ?></strong></p>
+							<ul style="margin-left:18px; list-style:disc;">
+								<li><?php echo esc_html__( 'Le bozze generate dall’importazione massiva e dalle idee programmate vengono annunciate su Telegram, alle Chat ID autorizzate, con titolo e link per la revisione (l’avviso parte quando la bozza è completa di immagini).', 'wp-ai-publisher' ); ?></li>
+								<li><?php echo esc_html__( 'Le bozze restano sempre in stato “bozza”: non vengono pubblicate automaticamente. Il messaggio Telegram serve solo a segnalarle per la revisione.', 'wp-ai-publisher' ); ?></li>
+							</ul>
+
+							<p><strong><?php echo esc_html__( 'Modalità interattiva', 'wp-ai-publisher' ); ?></strong></p>
+							<ul style="margin-left:18px; list-style:disc;">
+								<li><?php echo esc_html__( 'Se attivi “Scelta interattiva”, dopo il tuo messaggio il bot chiede con dei pulsanti la Tipologia articolo, le categorie ed eventualmente i social su cui pubblicare, prima di generare.', 'wp-ai-publisher' ); ?></li>
+								<li><?php echo esc_html__( 'Se disattivata, la bozza viene generata subito con la Tipologia predefinita impostata qui e le categorie scelte dall’AI.', 'wp-ai-publisher' ); ?></li>
+							</ul>
+
+							<p><strong><?php echo esc_html__( 'Risoluzione problemi', 'wp-ai-publisher' ); ?></strong></p>
+							<ul style="margin-left:18px; list-style:disc;">
+								<li><?php echo esc_html__( 'Il bot non risponde: verifica che “Abilita Telegram” sia attivo, che il webhook risulti registrato (“Verifica stato webhook”) e che le costanti token/secret siano definite in wp-config.php.', 'wp-ai-publisher' ); ?></li>
+								<li><?php echo esc_html__( 'Messaggi ignorati: controlla che la chat sia tra le Chat ID autorizzate (o lascia il campo vuoto per accettare tutte).', 'wp-ai-publisher' ); ?></li>
+								<li><?php echo esc_html__( 'La bozza non arriva: WP-Cron deve essere attivo (la generazione è in background) e il server deve raggiungere api.telegram.org in HTTPS. Gli errori sono in Stato sistema → eventi “telegram”.', 'wp-ai-publisher' ); ?></li>
+								<li><?php echo wp_kses( __( 'Cambiando il dominio del sito, ri-registra il webhook (l’URL cambia). L’URL attuale è mostrato nel campo “URL webhook” qui sotto.', 'wp-ai-publisher' ), array() ); ?></li>
+							</ul>
+
 							<p class="description"><?php echo esc_html__( 'Requisiti: il sito deve essere raggiungibile pubblicamente (per ricevere il webhook), l’hosting deve consentire HTTPS in uscita verso api.telegram.org e WP-Cron deve essere attivo (la bozza è generata in background).', 'wp-ai-publisher' ); ?></p>
 						</div>
 					</details>
