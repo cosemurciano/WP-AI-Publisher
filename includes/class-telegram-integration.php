@@ -70,20 +70,21 @@ class Telegram_Integration {
 		// Notify only once the draft is fully assembled (images generated/inserted),
 		// not at creation time, to avoid announcing a draft that still contains
 		// unresolved image placeholders.
-		add_action( 'wpai_publisher_idea_draft_finalized', array( $this, 'notify_bulk_import_draft' ), 10, 2 );
+		add_action( 'wpai_publisher_idea_draft_finalized', array( $this, 'notify_flagged_draft' ), 10, 2 );
 	}
 
 	/**
-	 * Notify allowed Telegram chats when a bulk-imported idea's draft is ready.
+	 * Notify allowed Telegram chats when a flagged idea's draft is ready.
 	 *
-	 * Only ideas flagged by the bulk importer are announced; the flag is consumed
-	 * once the message is sent.
+	 * Announces drafts for ideas flagged for Telegram notification — both
+	 * bulk-imported ideas and ideas scheduled from the admin — so they arrive for
+	 * review. The flag is consumed once the message is sent.
 	 *
 	 * @param int $idea_id Idea ID.
 	 * @param int $post_id Draft post ID.
 	 * @return void
 	 */
-	public function notify_bulk_import_draft( $idea_id, $post_id ) {
+	public function notify_flagged_draft( $idea_id, $post_id ) {
 		$idea_id = absint( $idea_id );
 		$post_id = absint( $post_id );
 		if ( $idea_id <= 0 || $post_id <= 0 || ! class_exists( __NAMESPACE__ . '\\Bulk_Import' ) ) {
@@ -111,7 +112,7 @@ class Telegram_Integration {
 		$edit_link = admin_url( 'post.php?post=' . $post_id . '&action=edit' );
 		$text      = sprintf(
 			/* translators: 1: post title, 2: edit URL. */
-			__( "✅ Bozza creata (importazione massiva): %1\$s\n%2\$s", 'wp-ai-publisher' ),
+			__( "✅ Bozza creata e pronta per la revisione: %1\$s\n%2\$s", 'wp-ai-publisher' ),
 			'' !== $title ? $title : sprintf( __( 'Bozza #%d', 'wp-ai-publisher' ), $post_id ),
 			$edit_link
 		);

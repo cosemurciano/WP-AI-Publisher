@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.83**
+Versione corrente: **0.5.84**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.84
+- Idee contenuto: pulsante "Nuova idea contenuto" blu più evidente, "Importazione massiva" spostato a destra. Nessun pulsante "Crea bozza" attivo quando la bozza è "In coda"/in elaborazione. Telegram: anche le bozze da idee programmate arrivano per la revisione (come quelle dell'import massivo).
 
 ### 0.5.83
 - Ottimizzazione immagini generate dall'AI via editor WordPress (Imagick/GD, nessuna libreria esterna): ridimensionamento e conversione (WebP/JPEG) prima del salvataggio in Libreria media. Nuova sezione Impostazioni → Generazione AI → Ottimizzazione immagini (abilita, formato, larghezza max, qualità) con fallback WebP→JPEG→originale e indicatore di supporto del server.

@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.83
+Stable tag: 0.5.84
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -67,6 +67,11 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.84 =
+* Idee contenuto: il pulsante "Nuova idea contenuto" è ora un pulsante blu più evidente, mentre "Importazione massiva" è spostato a destra nella barra in alto.
+* Idee contenuto: quando una bozza è "In coda"/in elaborazione non viene più mostrato un pulsante "Crea bozza" attivo (la bozza è già in fase di creazione); resta solo l'indicatore di stato e "Processa job ora".
+* Telegram: anche le bozze generate da idee create tramite programmazione arrivano su Telegram per la revisione, come già avviene per quelle dell'importazione massiva.
 
 = 0.5.83 =
 * Ottimizzazione immagini generate dall'AI: le immagini (copertina e corpo) vengono ridimensionate e alleggerite prima di entrare nella Libreria media, usando l'editor immagini di WordPress (Imagick/GD) — nessuna libreria esterna. Nuova sezione Impostazioni → Generazione AI → Ottimizzazione immagini con: abilita/disabilita, formato di destinazione (WebP consigliato, JPEG, oppure mantieni l'originale), larghezza massima (default 1600px, proporzioni mantenute, mai ingrandite) e qualità (default 82). Conversione con fallback automatico (WebP → JPEG → formato originale) e indicatore del supporto WebP/JPEG del server. Riguarda solo le immagini generate dal plugin.

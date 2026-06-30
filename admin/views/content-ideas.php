@@ -86,9 +86,11 @@ $render_list = static function ( $items ) {
 };
 ?>
 <div class="wrap wpai-admin wpai-ideas-page">
-	<h1 class="wp-heading-inline"><?php echo esc_html__( 'Idee contenuto', 'wp-ai-publisher' ); ?></h1>
-	<button type="button" class="page-title-action" id="wpai-open-new-idea"><span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span> <?php echo esc_html__( 'Nuova idea contenuto', 'wp-ai-publisher' ); ?></button>
-	<a class="page-title-action" href="<?php echo esc_url( admin_url( 'admin.php?page=wp-ai-publisher-import-ideas' ) ); ?>"><span class="dashicons dashicons-upload" aria-hidden="true"></span> <?php echo esc_html__( 'Importazione massiva', 'wp-ai-publisher' ); ?></a>
+	<div class="wpai-ideas-toolbar">
+		<h1 class="wp-heading-inline"><?php echo esc_html__( 'Idee contenuto', 'wp-ai-publisher' ); ?></h1>
+		<button type="button" class="button button-primary wpai-new-idea-btn" id="wpai-open-new-idea"><span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span> <?php echo esc_html__( 'Nuova idea contenuto', 'wp-ai-publisher' ); ?></button>
+		<a class="page-title-action wpai-import-btn" href="<?php echo esc_url( admin_url( 'admin.php?page=wp-ai-publisher-import-ideas' ) ); ?>"><span class="dashicons dashicons-upload" aria-hidden="true"></span> <?php echo esc_html__( 'Importazione massiva', 'wp-ai-publisher' ); ?></a>
+	</div>
 	<hr class="wp-header-end">
 	<p class="wpai-lead"><?php echo esc_html__( 'Inserisci un’idea, scegli la Tipologia articolo e crea la bozza: l’AI genera l’articolo e il plugin lo salva come bozza WordPress (mai pubblicato automaticamente).', 'wp-ai-publisher' ); ?></p>
 
@@ -386,6 +388,14 @@ $render_list = static function ( $items ) {
 								<div class="wpai-actions__primary">
 									<?php if ( $draft_exists && $draft_edit_url ) : ?>
 										<a class="button button-primary button-small" href="<?php echo esc_url( $draft_edit_url ); ?>"><span class="dashicons dashicons-edit" aria-hidden="true"></span> <?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
+									<?php elseif ( 'processing' === $status ) : ?>
+										<span class="wpai-badge wpai-badge--info"><?php echo esc_html( $idea_status_label ); ?></span>
+										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+											<input type="hidden" name="action" value="wpai_publisher_process_idea_job_now" />
+											<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+											<?php wp_nonce_field( 'wpai_publisher_process_idea_job_now_' . $idea_id ); ?>
+											<?php submit_button( __( 'Processa job ora', 'wp-ai-publisher' ), 'secondary small', 'submit', false ); ?>
+										</form>
 									<?php elseif ( in_array( $status, array( 'new', 'scheduled', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) && ( ! $article_types_enabled || wpai_publisher_is_active_article_type_safe( absint( $idea->article_type_id ?? 0 ) ) ) ) : ?>
 										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 											<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
@@ -401,14 +411,6 @@ $render_list = static function ( $items ) {
 											<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
 											<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
 											<?php submit_button( __( 'Crea bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
-										</form>
-									<?php elseif ( 'processing' === $status ) : ?>
-										<span class="description"><?php echo esc_html( $idea_status_label ); ?></span>
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-											<input type="hidden" name="action" value="wpai_publisher_process_idea_job_now" />
-											<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
-											<?php wp_nonce_field( 'wpai_publisher_process_idea_job_now_' . $idea_id ); ?>
-											<?php submit_button( __( 'Processa job ora', 'wp-ai-publisher' ), 'secondary small', 'submit', false ); ?>
 										</form>
 									<?php endif; ?>
 								</div>
