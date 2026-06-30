@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.82
+Stable tag: 0.5.83
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -67,6 +67,9 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.83 =
+* Ottimizzazione immagini generate dall'AI: le immagini (copertina e corpo) vengono ridimensionate e alleggerite prima di entrare nella Libreria media, usando l'editor immagini di WordPress (Imagick/GD) — nessuna libreria esterna. Nuova sezione Impostazioni → Generazione AI → Ottimizzazione immagini con: abilita/disabilita, formato di destinazione (WebP consigliato, JPEG, oppure mantieni l'originale), larghezza massima (default 1600px, proporzioni mantenute, mai ingrandite) e qualità (default 82). Conversione con fallback automatico (WebP → JPEG → formato originale) e indicatore del supporto WebP/JPEG del server. Riguarda solo le immagini generate dal plugin.
 
 = 0.5.82 =
 * Idee contenuto: pagina ridisegnata. Il modulo "Nuova idea contenuto" non occupa più spazio in pagina: si apre in una finestra modale dal pulsante in alto a destra. Anche "Importazione massiva" è ora un pulsante in alto a destra (rimosso il pulsante flottante).

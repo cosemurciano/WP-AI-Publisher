@@ -64,6 +64,10 @@ if ( ! function_exists( 'wpai_publisher_default_settings' ) ) {
 			'openai_vector_store_ids'       => '',
 			'openai_responses_model'        => '',
 			'file_search_instruction'       => '',
+			'image_optimize_enabled'        => true,
+			'image_max_width'               => 1600,
+			'image_format'                  => 'webp',
+			'image_quality'                 => 82,
 			'telegram_enabled'              => false,
 			'telegram_allowed_chat_ids'     => '',
 			'telegram_article_type_id'      => 0,
@@ -143,6 +147,11 @@ if ( ! function_exists( 'wpai_publisher_normalize_settings' ) ) {
 		$settings['openai_vector_store_ids']       = sanitize_textarea_field( (string) ( $settings['openai_vector_store_ids'] ?? '' ) );
 		$settings['openai_responses_model']        = sanitize_text_field( (string) ( $settings['openai_responses_model'] ?? '' ) );
 		$settings['file_search_instruction']       = sanitize_textarea_field( (string) ( $settings['file_search_instruction'] ?? '' ) );
+		$settings['image_optimize_enabled']        = ! empty( $settings['image_optimize_enabled'] );
+		$settings['image_max_width']               = max( 0, min( 4096, absint( $settings['image_max_width'] ?? 1600 ) ) );
+		$wpai_img_format                           = (string) ( $settings['image_format'] ?? 'webp' );
+		$settings['image_format']                  = in_array( $wpai_img_format, array( 'keep', 'webp', 'jpeg' ), true ) ? $wpai_img_format : 'webp';
+		$settings['image_quality']                 = max( 1, min( 100, absint( $settings['image_quality'] ?? 82 ) ) );
 		$settings['telegram_enabled']              = ! empty( $settings['telegram_enabled'] );
 		$settings['telegram_allowed_chat_ids']     = sanitize_textarea_field( (string) ( $settings['telegram_allowed_chat_ids'] ?? '' ) );
 		$settings['telegram_article_type_id']      = absint( $settings['telegram_article_type_id'] ?? 0 );
