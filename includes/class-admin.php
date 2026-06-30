@@ -106,6 +106,7 @@ class Admin {
 		add_action( 'admin_post_wpai_publisher_approve_content_idea', array( $this, 'handle_approve_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_reject_content_idea', array( $this, 'handle_reject_content_idea' ) );
 		add_action( 'admin_post_wpai_publisher_create_draft_from_idea', array( $this, 'handle_create_draft_from_idea' ) );
+		add_action( 'admin_post_wpai_publisher_regenerate_draft_from_idea', array( $this, 'handle_regenerate_draft_from_idea' ) );
 		add_action( 'admin_post_wpai_publisher_process_idea_job_now', array( $this, 'handle_process_idea_job_now' ) );
 		add_action( 'admin_post_wpai_publisher_assign_article_type_to_idea', array( $this, 'handle_assign_article_type_to_idea' ) );
 		add_action( 'admin_post_wpai_publisher_update_content_idea', array( $this, 'handle_update_content_idea' ) );
@@ -525,6 +526,47 @@ class Admin {
 		}
 
 		$this->redirect_content_ideas( array( 'wpai_notice' => 'auto_draft_started', 'view_idea' => $idea_id, '_wpnonce' => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ) ) );
+	}
+
+	/**
+	 * Regenerate the draft for an idea, creating a brand-new draft.
+	 *
+	 * The previously created draft post is left intact in WordPress; this detaches
+	 * it from the idea and enqueues a fresh generation job, producing an
+	 * additional draft.
+	 *
+	 * @return void
+	 */
+	public function handle_regenerate_draft_from_idea() {
+		if ( ! current_user_can( wpai_publisher_capability() ) ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'insufficient_permissions' ) );
+		}
+
+		$idea_id = absint( $_POST['idea_id'] ?? 0 );
+		check_admin_referer( 'wpai_publisher_regenerate_draft_from_idea_' . $idea_id );
+
+		$idea = $this->content_ideas->get_idea( $idea_id );
+		if ( ! $idea ) {
+			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_not_found' ) );
+		}
+
+		// Detach the existing draft so a NEW one is created (old draft is kept).
+		$this->content_ideas->reset_draft_link( $idea_id );
+
+		$job = $this->job_queue->get_active_draft_job_for_idea( $idea_id );
+		if ( ! $job ) {
+			$job_id = $this->job_queue->create_job( 'generate_draft_from_idea', array( 'idea_id' => $idea_id, 'mode' => 'auto_draft' ), 5 );
+			if ( ! $job_id ) {
+				$this->content_ideas->mark_draft_failed( $idea_id, __( 'Impossibile creare il job di rigenerazione bozza.', 'wp-ai-publisher' ) );
+				$this->redirect_content_ideas( array( 'wpai_notice' => 'draft_creation_failed', 'wpai_step' => 'queue', 'wpai_error' => __( 'Impossibile creare il job di rigenerazione bozza.', 'wp-ai-publisher' ), 'view_idea' => $idea_id, '_wpnonce' => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ) ) );
+			}
+			$this->content_ideas->attach_job_to_idea( $idea_id, absint( $job_id ) );
+			$this->content_ideas->update_idea_status( $idea_id, 'processing' );
+			$this->logger->info( __( 'Job rigenerazione bozza creato.', 'wp-ai-publisher' ), array( 'source' => 'job_queue', 'event' => 'job_created', 'idea_id' => $idea_id, 'job_id' => absint( $job_id ), 'mode' => 'regenerate' ) );
+			$this->schedule_job_processor();
+		}
+
+		$this->redirect_content_ideas( array( 'wpai_notice' => 'draft_regeneration_started', 'view_idea' => $idea_id, '_wpnonce' => wp_create_nonce( 'wpai_publisher_view_content_idea_' . $idea_id ) ) );
 	}
 
 	public function handle_process_idea_job_now() {

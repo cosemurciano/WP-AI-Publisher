@@ -4,7 +4,7 @@ Tags: ai, publishing, admin, drafts, wordpress-ai
 Requires at least: 6.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.81
+Stable tag: 0.5.82
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -67,6 +67,12 @@ Sì, ma solo come bozza o contenuto in attesa di revisione dopo approvazione esp
 Il plugin prova a leggerli dal sistema AI di WordPress. Se l’integrazione attiva espone i modelli tramite funzioni, client o filtro `wpai_publisher_available_ai_models`, questi compaiono nel menu a tendina delle impostazioni.
 
 == Changelog ==
+
+= 0.5.82 =
+* Idee contenuto: pagina ridisegnata. Il modulo "Nuova idea contenuto" non occupa più spazio in pagina: si apre in una finestra modale dal pulsante in alto a destra. Anche "Importazione massiva" è ora un pulsante in alto a destra (rimosso il pulsante flottante).
+* Elenco "Ultime idee" a tutta larghezza, con colonna Azioni riorganizzata: un'azione principale evidente (Genera/Crea/Modifica bozza, Riprova, Processa job) più una barra di icone per le azioni secondarie (Modifica idea, Visualizza risultato, Rigenera bozza, Elimina).
+* Nuova azione "Rigenera bozza" sulle idee con bozza già creata: rigenera l'articolo e crea una NUOVA bozza, lasciando intatta quella precedente. La modifica dell'idea è ora possibile anche dopo la creazione della bozza.
+* Paginazione migliorata: indicatore "Pagina X di Y", conteggio idee e link Precedente/Successiva più chiari.
 
 = 0.5.81 =
 * Knowledge base OpenAI (file_search): la regola anti-plagio è ora modificabile da Impostazioni → Generazione AI → Knowledge base OpenAI (campo "Regola di riscrittura (anti-plagio)"). Si può personalizzare il testo dell'istruzione data all'AI su come usare i documenti/vector store dello storage OpenAI; lasciando il campo vuoto si usa il testo predefinito (mostrato come segnaposto). Resta disponibile anche il filtro wpai_publisher_file_search_system_instruction per gli sviluppatori.

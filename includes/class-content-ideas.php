@@ -609,6 +609,38 @@ class Content_Ideas {
 		);
 	}
 
+	/**
+	 * Detach the draft linked to an idea so a brand-new draft can be generated.
+	 *
+	 * Clears draft_post_id / draft_status / draft_error / job_id and resets the
+	 * idea to 'new'. The previously created WordPress draft post is NOT deleted —
+	 * regenerating produces an additional draft.
+	 *
+	 * @param int $id Idea ID.
+	 * @return bool
+	 */
+	public function reset_draft_link( $id ) {
+		global $wpdb;
+		$id = absint( $id );
+		if ( 0 === $id ) {
+			return false;
+		}
+		return false !== $wpdb->update(
+			$this->get_table_name(),
+			array(
+				'draft_post_id' => null,
+				'draft_status'  => null,
+				'draft_error'   => null,
+				'job_id'        => null,
+				'status'        => 'new',
+				'updated_at'    => current_time( 'mysql' ),
+			),
+			array( 'id' => $id ),
+			array( '%d', '%s', '%s', '%d', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
 	public function mark_stale_processing_ideas( $minutes = 15 ) {
 		global $wpdb;
 		$cutoff = gmdate( 'Y-m-d H:i:s', time() - max( 1, absint( $minutes ) ) * MINUTE_IN_SECONDS );
