@@ -122,13 +122,107 @@
 }
 
 /* Ultime idee: tabella compatta e a tutta larghezza */
-.wpai-ideas-table { width: 100%; table-layout: auto; }
+.wpai-ideas-table { width: 100%; max-width: none; table-layout: auto; }
 .wpai-ideas-table td,
 .wpai-ideas-table th { padding-top: 6px; padding-bottom: 6px; vertical-align: top; }
 .wpai-ideas-table td .description { margin: 2px 0 0; font-size: 11px; line-height: 1.4; }
 .wpai-ideas-table form { margin: 0; }
 .wpai-ideas-table .row-actions { padding: 2px 0 0; }
 .wpai-ideas-table .wpai-badge { white-space: nowrap; }
+
+/* Full-width list page: drop the shared status-table width cap. */
+.wpai-ideas-page .wpai-status-table { max-width: none; }
+
+/* Header action buttons (top-right) with icons. */
+.wpai-ideas-page .page-title-action .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	line-height: 1.4;
+	vertical-align: text-bottom;
+}
+.wpai-ideas-heading { margin-top: 8px; }
+
+/* Azioni cell: a clear primary action + a grouped icon toolbar. */
+.wpai-actions { display: flex; flex-direction: column; gap: 6px; }
+.wpai-actions__primary .button .dashicons {
+	font-size: 16px; width: 16px; height: 16px; line-height: 1.6; vertical-align: text-bottom;
+}
+.wpai-actions__icons { display: flex; flex-wrap: wrap; gap: 4px; }
+.wpai-actions__icons form { margin: 0; }
+.wpai-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+}
+.wpai-icon-btn .dashicons { font-size: 17px; width: 17px; height: 17px; }
+.wpai-icon-btn--danger { color: #b32d2e; }
+.wpai-icon-btn--danger:hover { color: #fff; background: #b32d2e; border-color: #b32d2e; }
+
+/* Pagination */
+.wpai-pagination { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.wpai-pagination__current { color: var(--wpai-muted); }
+.wpai-pagination .page-numbers {
+	display: inline-flex;
+	align-items: center;
+	min-width: 30px;
+	height: 30px;
+	padding: 0 8px;
+	justify-content: center;
+}
+.wpai-pagination .page-numbers.current {
+	background: #2271b1;
+	border-color: #2271b1;
+	color: #fff;
+	border-radius: 3px;
+}
+
+/* "Nuova idea" modal (native <dialog>). */
+dialog.wpai-modal {
+	width: min(720px, 94vw);
+	max-width: 94vw;
+	max-height: 90vh;
+	padding: 0;
+	border: 1px solid var(--wpai-border);
+	border-radius: 8px;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+	overflow: auto;
+}
+dialog.wpai-modal::backdrop { background: rgba(0, 0, 0, 0.5); }
+/* Fallback when showModal() is unavailable: center it manually. */
+dialog.wpai-modal.wpai-modal--fallback {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 100000;
+}
+.wpai-modal__head {
+	position: sticky;
+	top: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 14px 20px;
+	background: #fff;
+	border-bottom: 1px solid var(--wpai-border);
+}
+.wpai-modal__head h2 { margin: 0; font-size: 17px; }
+.wpai-modal__close {
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	color: var(--wpai-muted);
+	padding: 4px;
+	line-height: 1;
+}
+.wpai-modal__close:hover { color: #b32d2e; }
+.wpai-modal form { padding: 8px 20px 20px; }
+.wpai-modal .form-table th { width: 200px; }
 
 /* Dashboard stat boxes */
 .wpai-stats {

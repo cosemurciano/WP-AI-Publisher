@@ -21,6 +21,7 @@ $notices    = array(
 	'draft_created'            => array( 'success', __( 'Bozza creata correttamente.', 'wp-ai-publisher' ) ),
 	'auto_draft_started'       => array( 'success', __( 'La creazione della bozza è stata messa in coda.', 'wp-ai-publisher' ) ),
 	'full_article_generated'   => array( 'success', __( 'Articolo completo generato. Ora puoi approvare il contenuto e creare la bozza.', 'wp-ai-publisher' ) ),
+	'draft_regeneration_started' => array( 'success', __( 'Rigenerazione bozza avviata: verrà creata una nuova bozza. La bozza precedente resta disponibile.', 'wp-ai-publisher' ) ),
 	'full_article_failed'      => array( 'error', __( 'Non è stato possibile generare un articolo completo.', 'wp-ai-publisher' ) ),
 	'missing_full_article'     => array( 'warning', __( 'Genera prima l’articolo completo, poi crea la bozza.', 'wp-ai-publisher' ) ),
 	'draft_already_exists'     => array( 'warning', __( 'La bozza esiste già.', 'wp-ai-publisher' ) ),
@@ -84,8 +85,11 @@ $render_list = static function ( $items ) {
 	echo '</ul>';
 };
 ?>
-<div class="wrap wpai-admin">
-	<h1><?php echo esc_html__( 'Idee contenuto', 'wp-ai-publisher' ); ?></h1>
+<div class="wrap wpai-admin wpai-ideas-page">
+	<h1 class="wp-heading-inline"><?php echo esc_html__( 'Idee contenuto', 'wp-ai-publisher' ); ?></h1>
+	<button type="button" class="page-title-action" id="wpai-open-new-idea"><span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span> <?php echo esc_html__( 'Nuova idea contenuto', 'wp-ai-publisher' ); ?></button>
+	<a class="page-title-action" href="<?php echo esc_url( admin_url( 'admin.php?page=wp-ai-publisher-import-ideas' ) ); ?>"><span class="dashicons dashicons-upload" aria-hidden="true"></span> <?php echo esc_html__( 'Importazione massiva', 'wp-ai-publisher' ); ?></a>
+	<hr class="wp-header-end">
 	<p class="wpai-lead"><?php echo esc_html__( 'Inserisci un’idea, scegli la Tipologia articolo e crea la bozza: l’AI genera l’articolo e il plugin lo salva come bozza WordPress (mai pubblicato automaticamente).', 'wp-ai-publisher' ); ?></p>
 
 	<?php if ( isset( $notices[ $notice_key ] ) ) : ?>
@@ -97,8 +101,11 @@ $render_list = static function ( $items ) {
 		<?php endif; ?>
 	<?php endif; ?>
 
-	<section class="wpai-card">
-		<h2><?php echo esc_html__( 'Nuova idea contenuto', 'wp-ai-publisher' ); ?></h2>
+	<dialog id="wpai-new-idea-dialog" class="wpai-modal">
+		<div class="wpai-modal__head">
+			<h2><?php echo esc_html__( 'Nuova idea contenuto', 'wp-ai-publisher' ); ?></h2>
+			<button type="button" class="wpai-modal__close" id="wpai-close-new-idea" aria-label="<?php echo esc_attr__( 'Chiudi', 'wp-ai-publisher' ); ?>"><span class="dashicons dashicons-no-alt" aria-hidden="true"></span></button>
+		</div>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="wpai_publisher_create_content_idea" />
 			<?php wp_nonce_field( 'wpai_publisher_create_content_idea' ); ?>
@@ -175,11 +182,12 @@ $render_list = static function ( $items ) {
 				<button type="submit" name="wpai_creation_mode" value="create_draft" class="button button-primary" <?php disabled( $article_types_enabled && empty( $active_article_types ) ); ?>><?php echo esc_html__( 'Crea bozza', 'wp-ai-publisher' ); ?></button>
 				<button type="submit" name="wpai_creation_mode" value="schedule" class="button" <?php disabled( $article_types_enabled && empty( $active_article_types ) ); ?>><?php echo esc_html__( 'Programma', 'wp-ai-publisher' ); ?></button>
 				<button type="submit" name="wpai_creation_mode" value="save_only" class="button"><?php echo esc_html__( 'Salva solo idea', 'wp-ai-publisher' ); ?></button>
+				<button type="button" class="button button-link wpai-modal__cancel" id="wpai-cancel-new-idea"><?php echo esc_html__( 'Annulla', 'wp-ai-publisher' ); ?></button>
 			</p>
 		</form>
-	</section>
+	</dialog>
 
-	<h2><?php echo esc_html__( 'Ultime idee', 'wp-ai-publisher' ); ?></h2>
+	<h2 class="wpai-ideas-heading"><?php echo esc_html__( 'Ultime idee', 'wp-ai-publisher' ); ?></h2>
 
 	<?php
 	$wpai_f         = isset( $idea_filters ) && is_array( $idea_filters ) ? $idea_filters : array();
@@ -248,17 +256,21 @@ $render_list = static function ( $items ) {
 		$ideas_pages      = isset( $ideas_pages ) ? (int) $ideas_pages : 1;
 		$ideas_page_base  = remove_query_arg( array( 'view_idea', '_wpnonce', 'wpai_notice', 'wpai_step', 'wpai_error', 'wpai_debug' ) );
 		$render_ideas_nav = static function () use ( $ideas_total, $ideas_page, $ideas_pages, $ideas_page_base ) {
-			if ( $ideas_pages < 2 ) { return; }
-			echo '<div class="tablenav"><div class="tablenav-pages">';
-			echo '<span class="displaying-num">' . esc_html( sprintf( _n( '%s idea', '%s idee', $ideas_total, 'wp-ai-publisher' ), number_format_i18n( $ideas_total ) ) ) . '</span> ';
-			echo wp_kses_post( paginate_links( array(
-				'base'      => add_query_arg( 'paged', '%#%', $ideas_page_base ),
-				'format'    => '',
-				'current'   => $ideas_page,
-				'total'     => $ideas_pages,
-				'prev_text' => '‹',
-				'next_text' => '›',
-			) ) );
+			echo '<div class="tablenav"><div class="tablenav-pages wpai-pagination">';
+			echo '<span class="displaying-num">' . esc_html( sprintf( _n( '%s idea', '%s idee', $ideas_total, 'wp-ai-publisher' ), number_format_i18n( $ideas_total ) ) ) . '</span>';
+			if ( $ideas_pages >= 2 ) {
+				echo ' <span class="wpai-pagination__current">' . esc_html( sprintf( __( 'Pagina %1$s di %2$s', 'wp-ai-publisher' ), number_format_i18n( $ideas_page ), number_format_i18n( $ideas_pages ) ) ) . '</span> ';
+				echo wp_kses_post( (string) paginate_links( array(
+					'base'      => add_query_arg( 'paged', '%#%', $ideas_page_base ),
+					'format'    => '',
+					'current'   => $ideas_page,
+					'total'     => $ideas_pages,
+					'end_size'  => 1,
+					'mid_size'  => 2,
+					'prev_text' => '‹ ' . __( 'Precedente', 'wp-ai-publisher' ),
+					'next_text' => __( 'Successiva', 'wp-ai-publisher' ) . ' ›',
+				) ) );
+			}
 			echo '</div></div>';
 		};
 		$render_ideas_nav();
@@ -363,50 +375,67 @@ $render_list = static function ( $items ) {
 								<p class="description"><?php echo esc_html( sprintf( __( 'Ultimo errore: %s', 'wp-ai-publisher' ), (string) $idea->draft_error ) ); ?></p>
 							<?php endif; ?>
 						</td>
-						<td>
+						<td class="wpai-actions-cell">
 							<?php
 							$idea_output = ! empty( $idea->dry_run_output ) ? json_decode( (string) $idea->dry_run_output, true ) : array();
 							$has_full_article = is_array( $idea_output ) && ! empty( $idea_output['full_article']['html'] );
 							$status = sanitize_key( (string) $idea->status );
+							$edit_url = wp_nonce_url( admin_url( 'admin.php?page=wp-ai-publisher-content-ideas&edit_idea=' . $idea_id ), 'wpai_publisher_edit_content_idea_' . $idea_id );
 							?>
-							<?php if ( $draft_exists && $draft_edit_url ) : ?>
-								<a class="button button-primary button-small" href="<?php echo esc_url( $draft_edit_url ); ?>"><?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
-							<?php elseif ( in_array( $status, array( 'new', 'scheduled', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) && ( ! $article_types_enabled || wpai_publisher_is_active_article_type_safe( absint( $idea->article_type_id ?? 0 ) ) ) ) : ?>
-								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-									<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
-									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
-									<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
-									<?php submit_button( in_array( $status, array( 'draft_failed', 'timeout' ), true ) ? __( 'Riprova', 'wp-ai-publisher' ) : __( 'Genera bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
-								</form>
-							<?php elseif ( $article_types_enabled && in_array( $status, array( 'new', 'scheduled', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) ) : ?><span class="description"><?php echo esc_html__( 'Assegna prima una Tipologia articolo.', 'wp-ai-publisher' ); ?></span>
-							<?php elseif ( $has_full_article ) : ?>
-								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-									<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
-									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
-									<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
-									<?php submit_button( __( 'Crea bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
-								</form>
-							<?php elseif ( 'processing' === $status ) : ?>
-								<span class="description"><?php echo esc_html( $idea_status_label ); ?></span>
-								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-									<input type="hidden" name="action" value="wpai_publisher_process_idea_job_now" />
-									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
-									<?php wp_nonce_field( 'wpai_publisher_process_idea_job_now_' . $idea_id ); ?>
-									<?php submit_button( __( 'Processa job ora', 'wp-ai-publisher' ), 'secondary small', 'submit', false ); ?>
-								</form>
-							<?php endif; ?>
-							<div class="row-actions wpai-secondary-actions">
-								<?php if ( in_array( sanitize_key( (string) $idea->status ), array( 'new', 'scheduled', 'draft_failed', 'timeout', 'dry_run_failed' ), true ) ) : ?>
-									<?php $edit_url = wp_nonce_url( admin_url( 'admin.php?page=wp-ai-publisher-content-ideas&edit_idea=' . $idea_id ), 'wpai_publisher_edit_content_idea_' . $idea_id ); ?>
-									<a href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html__( 'Modifica', 'wp-ai-publisher' ); ?></a> |
-								<?php endif; ?>
-								<?php if ( ! empty( $idea->dry_run_output ) ) : ?><a href="<?php echo esc_url( $view_url ); ?>"><?php echo esc_html__( 'Visualizza risultato', 'wp-ai-publisher' ); ?></a><?php endif; ?>
-								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php echo esc_js( __( 'Eliminare questa idea? La bozza eventualmente collegata non verrà eliminata.', 'wp-ai-publisher' ) ); ?>');">
-									<input type="hidden" name="action" value="wpai_publisher_delete_content_idea" />
-									<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
-									<?php wp_nonce_field( 'wpai_publisher_delete_content_idea_' . $idea_id ); ?>
-									<button class="button-link delete" type="submit"><?php echo esc_html__( 'Elimina', 'wp-ai-publisher' ); ?></button>
-								</form>
+							<div class="wpai-actions">
+								<div class="wpai-actions__primary">
+									<?php if ( $draft_exists && $draft_edit_url ) : ?>
+										<a class="button button-primary button-small" href="<?php echo esc_url( $draft_edit_url ); ?>"><span class="dashicons dashicons-edit" aria-hidden="true"></span> <?php echo esc_html__( 'Modifica bozza', 'wp-ai-publisher' ); ?></a>
+									<?php elseif ( in_array( $status, array( 'new', 'scheduled', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) && ( ! $article_types_enabled || wpai_publisher_is_active_article_type_safe( absint( $idea->article_type_id ?? 0 ) ) ) ) : ?>
+										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+											<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
+											<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+											<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
+											<?php submit_button( in_array( $status, array( 'draft_failed', 'timeout' ), true ) ? __( 'Riprova', 'wp-ai-publisher' ) : __( 'Genera bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
+										</form>
+									<?php elseif ( $article_types_enabled && in_array( $status, array( 'new', 'scheduled', 'dry_run_failed', 'draft_failed', 'timeout' ), true ) ) : ?>
+										<span class="description"><?php echo esc_html__( 'Assegna prima una Tipologia articolo.', 'wp-ai-publisher' ); ?></span>
+									<?php elseif ( $has_full_article ) : ?>
+										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+											<input type="hidden" name="action" value="wpai_publisher_create_draft_from_idea" />
+											<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+											<?php wp_nonce_field( 'wpai_publisher_create_draft_from_idea_' . $idea_id ); ?>
+											<?php submit_button( __( 'Crea bozza', 'wp-ai-publisher' ), 'primary small', 'submit', false ); ?>
+										</form>
+									<?php elseif ( 'processing' === $status ) : ?>
+										<span class="description"><?php echo esc_html( $idea_status_label ); ?></span>
+										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+											<input type="hidden" name="action" value="wpai_publisher_process_idea_job_now" />
+											<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+											<?php wp_nonce_field( 'wpai_publisher_process_idea_job_now_' . $idea_id ); ?>
+											<?php submit_button( __( 'Processa job ora', 'wp-ai-publisher' ), 'secondary small', 'submit', false ); ?>
+										</form>
+									<?php endif; ?>
+								</div>
+
+								<div class="wpai-actions__icons">
+									<a class="button button-small wpai-icon-btn" href="<?php echo esc_url( $edit_url ); ?>" title="<?php echo esc_attr__( 'Modifica idea', 'wp-ai-publisher' ); ?>" aria-label="<?php echo esc_attr__( 'Modifica idea', 'wp-ai-publisher' ); ?>"><span class="dashicons dashicons-edit" aria-hidden="true"></span></a>
+
+									<?php if ( ! empty( $idea->dry_run_output ) ) : ?>
+										<a class="button button-small wpai-icon-btn" href="<?php echo esc_url( $view_url ); ?>" title="<?php echo esc_attr__( 'Visualizza risultato', 'wp-ai-publisher' ); ?>" aria-label="<?php echo esc_attr__( 'Visualizza risultato', 'wp-ai-publisher' ); ?>"><span class="dashicons dashicons-visibility" aria-hidden="true"></span></a>
+									<?php endif; ?>
+
+									<?php if ( $draft_exists ) : ?>
+										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Rigenerare la bozza? Verrà creata una NUOVA bozza; quella attuale resterà disponibile.', 'wp-ai-publisher' ) ); ?>');">
+											<input type="hidden" name="action" value="wpai_publisher_regenerate_draft_from_idea" />
+											<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+											<?php wp_nonce_field( 'wpai_publisher_regenerate_draft_from_idea_' . $idea_id ); ?>
+											<button type="submit" class="button button-small wpai-icon-btn" title="<?php echo esc_attr__( 'Rigenera bozza (ne crea una nuova)', 'wp-ai-publisher' ); ?>" aria-label="<?php echo esc_attr__( 'Rigenera bozza (ne crea una nuova)', 'wp-ai-publisher' ); ?>"><span class="dashicons dashicons-update" aria-hidden="true"></span></button>
+										</form>
+									<?php endif; ?>
+
+									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Eliminare questa idea? La bozza eventualmente collegata non verrà eliminata.', 'wp-ai-publisher' ) ); ?>');">
+										<input type="hidden" name="action" value="wpai_publisher_delete_content_idea" />
+										<input type="hidden" name="idea_id" value="<?php echo esc_attr( (string) $idea_id ); ?>" />
+										<?php wp_nonce_field( 'wpai_publisher_delete_content_idea_' . $idea_id ); ?>
+										<button type="submit" class="button button-small wpai-icon-btn wpai-icon-btn--danger" title="<?php echo esc_attr__( 'Elimina idea', 'wp-ai-publisher' ); ?>" aria-label="<?php echo esc_attr__( 'Elimina idea', 'wp-ai-publisher' ); ?>"><span class="dashicons dashicons-trash" aria-hidden="true"></span></button>
+									</form>
+								</div>
 							</div>
 						</td>
 					</tr>
@@ -588,21 +617,48 @@ $render_list = static function ( $items ) {
 		</section>
 	<?php endif; ?>
 
-	<a class="button button-primary wpai-fab" href="<?php echo esc_url( admin_url( 'admin.php?page=wp-ai-publisher-import-ideas' ) ); ?>" title="<?php echo esc_attr__( 'Importazione massiva di idee', 'wp-ai-publisher' ); ?>">
-		<span class="dashicons dashicons-upload" style="vertical-align:middle;"></span>
-		<?php echo esc_html__( 'Importazione massiva', 'wp-ai-publisher' ); ?>
-	</a>
 </div>
 <script>
 ( function () {
+	// Bulk select-all.
 	var all = document.getElementById( 'wpai-ideas-select-all' );
-	if ( ! all ) { return; }
-	all.addEventListener( 'change', function () {
-		document.querySelectorAll( '.wpai-idea-check' ).forEach( function ( c ) { c.checked = all.checked; } );
-	} );
+	if ( all ) {
+		all.addEventListener( 'change', function () {
+			document.querySelectorAll( '.wpai-idea-check' ).forEach( function ( c ) { c.checked = all.checked; } );
+		} );
+	}
+
+	// "Nuova idea contenuto" modal.
+	var dialog = document.getElementById( 'wpai-new-idea-dialog' );
+	var openBtn = document.getElementById( 'wpai-open-new-idea' );
+	if ( dialog && openBtn ) {
+		var open = function () {
+			if ( typeof dialog.showModal === 'function' ) {
+				dialog.showModal();
+			} else {
+				dialog.setAttribute( 'open', 'open' );
+				dialog.classList.add( 'wpai-modal--fallback' );
+			}
+			var first = dialog.querySelector( 'textarea, input, select' );
+			if ( first ) { try { first.focus(); } catch ( e ) {} }
+		};
+		var close = function () {
+			if ( typeof dialog.close === 'function' && dialog.open && ! dialog.classList.contains( 'wpai-modal--fallback' ) ) {
+				dialog.close();
+			} else {
+				dialog.removeAttribute( 'open' );
+				dialog.classList.remove( 'wpai-modal--fallback' );
+			}
+		};
+		openBtn.addEventListener( 'click', open );
+		[ 'wpai-close-new-idea', 'wpai-cancel-new-idea' ].forEach( function ( id ) {
+			var el = document.getElementById( id );
+			if ( el ) { el.addEventListener( 'click', close ); }
+		} );
+		// Click on the backdrop (the dialog element itself) closes it.
+		dialog.addEventListener( 'click', function ( e ) {
+			if ( e.target === dialog ) { close(); }
+		} );
+	}
 }() );
 </script>
-
-<style>
-.wpai-fab{position:fixed;right:28px;bottom:28px;z-index:9990;display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:24px;box-shadow:0 4px 16px rgba(0,0,0,.2);}
-</style>

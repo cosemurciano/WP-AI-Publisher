@@ -1,6 +1,6 @@
 # WP AI Publisher
 
-Versione corrente: **0.5.81**
+Versione corrente: **0.5.82**
 
 ## Assistente Guide AI 0.5.45
 
@@ -592,6 +592,9 @@ Anche con WordPress AI disponibile, il dry-run resta sicuro:
 - non modifica contenuti esistenti.
 
 ## Changelog
+
+### 0.5.82
+- Idee contenuto: pagina ridisegnata. Modulo "Nuova idea" in finestra modale (pulsante in alto a destra); "Importazione massiva" come pulsante in alto a destra. Elenco "Ultime idee" a tutta larghezza con colonna Azioni a icone (azione principale + barra icone: Modifica idea, Visualizza risultato, Rigenera bozza, Elimina). Nuova azione "Rigenera bozza" che crea una nuova bozza lasciando la precedente; idea modificabile anche dopo la creazione della bozza. Paginazione migliorata.
 
 ### 0.5.81
 - Knowledge base OpenAI (file_search): la regola anti-plagio è modificabile da Impostazioni → Generazione AI → Knowledge base OpenAI (campo "Regola di riscrittura"). Campo vuoto = testo predefinito (mostrato come segnaposto). Resta disponibile il filtro `wpai_publisher_file_search_system_instruction`.
