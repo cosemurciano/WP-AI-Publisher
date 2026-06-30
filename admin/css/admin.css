@@ -133,13 +133,32 @@
 /* Full-width list page: drop the shared status-table width cap. */
 .wpai-ideas-page .wpai-status-table { max-width: none; }
 
-/* Header action buttons (top-right) with icons. */
-.wpai-ideas-page .page-title-action .dashicons {
+/* Header toolbar: title + prominent "new idea" on the left, import on the right. */
+.wpai-ideas-toolbar {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin: 6px 0 4px;
+}
+.wpai-ideas-toolbar .wp-heading-inline { margin: 0; }
+.wpai-import-btn { margin-left: auto; }
+
+.wpai-ideas-page .page-title-action .dashicons,
+.wpai-new-idea-btn .dashicons {
 	font-size: 16px;
 	width: 16px;
 	height: 16px;
 	line-height: 1.4;
 	vertical-align: text-bottom;
+}
+
+/* Make the primary "new idea" button stand out a bit more. */
+.wpai-new-idea-btn.button-primary {
+	padding: 2px 14px;
+	height: auto;
+	min-height: 32px;
+	font-weight: 600;
 }
 .wpai-ideas-heading { margin-top: 8px; }
 

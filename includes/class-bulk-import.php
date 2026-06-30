@@ -605,11 +605,28 @@ class Bulk_Import {
 	}
 
 	private function flag_for_notify( $idea_id ) {
+		self::flag_idea_for_notify( $idea_id );
+	}
+
+	/**
+	 * Flag an idea so a Telegram message is sent when its draft is created.
+	 *
+	 * Shared entry point used by the bulk importer and by other flows (e.g. ideas
+	 * scheduled from the admin) that should also be announced on Telegram.
+	 *
+	 * @param int $idea_id Idea ID.
+	 * @return void
+	 */
+	public static function flag_idea_for_notify( $idea_id ) {
+		$idea_id = absint( $idea_id );
+		if ( $idea_id <= 0 ) {
+			return;
+		}
 		$list = get_option( self::NOTIFY_OPTION, array() );
 		if ( ! is_array( $list ) ) {
 			$list = array();
 		}
-		$list[] = absint( $idea_id );
+		$list[] = $idea_id;
 		update_option( self::NOTIFY_OPTION, array_values( array_unique( array_map( 'absint', $list ) ) ), false );
 	}
 }

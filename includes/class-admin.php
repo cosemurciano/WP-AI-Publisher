@@ -312,6 +312,11 @@ class Admin {
 			if ( wpai_publisher_article_types_enabled() && ! wpai_publisher_is_active_article_type_safe( absint( $_POST['article_type_id'] ?? 0 ) ) ) {
 				$this->redirect_content_ideas( array( 'wpai_notice' => 'missing_article_type', 'idea_id' => absint( $idea_id ) ) );
 			}
+			// Announce the resulting draft on Telegram (like bulk-imported ideas),
+			// so scheduled drafts also arrive for review when the cron creates them.
+			if ( class_exists( __NAMESPACE__ . '\\Bulk_Import' ) ) {
+				Bulk_Import::flag_idea_for_notify( absint( $idea_id ) );
+			}
 			$this->redirect_content_ideas( array( 'wpai_notice' => 'idea_scheduled', 'idea_id' => absint( $idea_id ) ) );
 		}
 
