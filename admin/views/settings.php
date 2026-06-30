@@ -277,6 +277,50 @@ if ( isset( $_GET['wpai_notice'] ) ) {
 				</div>
 
 				<div class="wpai-section">
+					<h2><?php echo esc_html__( 'Ottimizzazione immagini', 'wp-ai-publisher' ); ?></h2>
+					<p class="wpai-tab-intro"><?php echo esc_html__( 'Ridimensiona e alleggerisce le immagini generate dall’AI (copertina e corpo) prima di salvarle nella Libreria media, usando l’editor immagini di WordPress (Imagick/GD). Riguarda solo le immagini generate dal plugin.', 'wp-ai-publisher' ); ?></p>
+					<?php
+					$wpai_webp_ok = function_exists( 'wp_image_editor_supports' ) && wp_image_editor_supports( array( 'mime_type' => 'image/webp' ) );
+					$wpai_jpeg_ok = function_exists( 'wp_image_editor_supports' ) && wp_image_editor_supports( array( 'mime_type' => 'image/jpeg' ) );
+					?>
+					<table class="form-table" role="presentation">
+						<tbody>
+							<tr>
+								<th scope="row"><?php echo esc_html__( 'Abilita ottimizzazione', 'wp-ai-publisher' ); ?></th>
+								<td>
+									<label><input type="checkbox" name="wpai_publisher_settings[image_optimize_enabled]" value="1" <?php checked( ! empty( $settings['image_optimize_enabled'] ) ); ?>> <?php echo esc_html__( 'Ridimensiona e converti le immagini generate dall’AI.', 'wp-ai-publisher' ); ?></label>
+									<p class="description">
+										<?php echo esc_html__( 'Supporto del server:', 'wp-ai-publisher' ); ?>
+										<span class="<?php echo $wpai_webp_ok ? 'wpai-badge wpai-badge--ok' : 'wpai-badge wpai-badge--warning'; ?>">WebP <?php echo $wpai_webp_ok ? esc_html__( 'disponibile', 'wp-ai-publisher' ) : esc_html__( 'non disponibile', 'wp-ai-publisher' ); ?></span>
+										<span class="<?php echo $wpai_jpeg_ok ? 'wpai-badge wpai-badge--ok' : 'wpai-badge wpai-badge--warning'; ?>">JPEG <?php echo $wpai_jpeg_ok ? esc_html__( 'disponibile', 'wp-ai-publisher' ) : esc_html__( 'non disponibile', 'wp-ai-publisher' ); ?></span>
+										<?php if ( ! $wpai_webp_ok ) : ?><br><?php echo esc_html__( 'WebP non è supportato da questo server: se scegli WebP verrà usato JPEG come ripiego.', 'wp-ai-publisher' ); ?><?php endif; ?>
+									</p>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row"><label for="wpai-image-format"><?php echo esc_html__( 'Formato di destinazione', 'wp-ai-publisher' ); ?></label></th>
+								<td>
+									<select id="wpai-image-format" name="wpai_publisher_settings[image_format]">
+										<option value="webp" <?php selected( (string) ( $settings['image_format'] ?? 'webp' ), 'webp' ); ?>><?php echo esc_html__( 'WebP (consigliato, più leggero)', 'wp-ai-publisher' ); ?></option>
+										<option value="jpeg" <?php selected( (string) ( $settings['image_format'] ?? 'webp' ), 'jpeg' ); ?>><?php echo esc_html__( 'JPEG', 'wp-ai-publisher' ); ?></option>
+										<option value="keep" <?php selected( (string) ( $settings['image_format'] ?? 'webp' ), 'keep' ); ?>><?php echo esc_html__( 'Mantieni formato originale (solo ridimensiona)', 'wp-ai-publisher' ); ?></option>
+									</select>
+									<p class="description"><?php echo esc_html__( 'WebP/JPEG riducono molto il peso dei PNG. WebP mantiene la trasparenza; JPEG no. “Mantieni” riduce solo le dimensioni senza cambiare formato.', 'wp-ai-publisher' ); ?></p>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row"><label for="wpai-image-max-width"><?php echo esc_html__( 'Larghezza massima (px)', 'wp-ai-publisher' ); ?></label></th>
+								<td><input type="number" id="wpai-image-max-width" name="wpai_publisher_settings[image_max_width]" class="small-text" min="0" max="4096" step="1" value="<?php echo esc_attr( (string) ( $settings['image_max_width'] ?? 1600 ) ); ?>"><p class="description"><?php echo esc_html__( 'Le immagini più larghe vengono ridotte a questo valore (proporzioni mantenute, mai ingrandite). 0 = non ridimensionare. Consigliato 1280–1600.', 'wp-ai-publisher' ); ?></p></td>
+							</tr>
+							<tr>
+								<th scope="row"><label for="wpai-image-quality"><?php echo esc_html__( 'Qualità', 'wp-ai-publisher' ); ?></label></th>
+								<td><input type="number" id="wpai-image-quality" name="wpai_publisher_settings[image_quality]" class="small-text" min="1" max="100" step="1" value="<?php echo esc_attr( (string) ( $settings['image_quality'] ?? 82 ) ); ?>"><p class="description"><?php echo esc_html__( 'Qualità di compressione 1–100 (per WebP/JPEG). Consigliato 80–85: buon compromesso peso/qualità.', 'wp-ai-publisher' ); ?></p></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div class="wpai-section">
 					<h2><?php echo esc_html__( 'Knowledge base OpenAI (file_search)', 'wp-ai-publisher' ); ?></h2>
 					<p class="wpai-tab-intro"><?php echo esc_html__( 'Permette all’AI di ancorare gli articoli ai documenti caricati nel tuo storage OpenAI (Vector store) tramite la Responses API. Quando attivo e configurato, questo canale viene tentato per primo, con fallback automatico al canale AI di WordPress.', 'wp-ai-publisher' ); ?></p>
 

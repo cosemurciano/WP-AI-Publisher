@@ -1248,6 +1248,12 @@ class Content_Ideas {
 			return 0;
 		}
 
+		// Optionally downscale and convert (e.g. PNG → WebP) the generated master
+		// before WordPress derives its sub-sizes from it.
+		$optimized      = $this->optimize_generated_image( (string) $upload['file'], $mime );
+		$upload['file'] = $optimized['file'];
+		$mime           = $optimized['mime'];
+
 		$filetype   = wp_check_filetype( $upload['file'], null );
 		$attachment = array(
 			'post_mime_type' => ! empty( $filetype['type'] ) ? $filetype['type'] : $mime,
@@ -1271,6 +1277,91 @@ class Content_Ideas {
 			update_post_meta( (int) $attach_id, '_wp_attachment_image_alt', sanitize_text_field( $alt ) );
 		}
 		return (int) $attach_id;
+	}
+
+	/**
+	 * Optimize a freshly uploaded generated image: optionally downscale to a
+	 * maximum width and convert it to a lighter format (WebP/JPEG) using the
+	 * WordPress image editor (Imagick/GD) — no external library.
+	 *
+	 * Strictly non-blocking: returns the original file unchanged when the
+	 * feature is disabled, the editor is unavailable, or anything fails.
+	 *
+	 * @param string $file_path Absolute path to the uploaded file.
+	 * @param string $mime      Current mime type.
+	 * @return array{file:string,mime:string}
+	 */
+	private function optimize_generated_image( $file_path, $mime ) {
+		$result = array( 'file' => (string) $file_path, 'mime' => (string) $mime );
+
+		$settings = wpai_publisher_get_settings();
+		if ( empty( $settings['image_optimize_enabled'] ) ) {
+			return $result;
+		}
+		if ( '' === (string) $file_path || ! file_exists( $file_path ) ) {
+			return $result;
+		}
+		if ( ! function_exists( 'wp_get_image_editor' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/image.php';
+		}
+
+		$editor = wp_get_image_editor( $file_path );
+		if ( is_wp_error( $editor ) ) {
+			return $result;
+		}
+
+		// Downscale to the configured max width (keep aspect ratio, never upscale).
+		$max_width = absint( $settings['image_max_width'] ?? 0 );
+		if ( $max_width > 0 ) {
+			$size = $editor->get_size();
+			if ( is_array( $size ) && ! empty( $size['width'] ) && (int) $size['width'] > $max_width ) {
+				$editor->resize( $max_width, null, false );
+			}
+		}
+
+		// Resolve the target format with graceful fallback (WebP → JPEG → keep).
+		$requested   = (string) ( $settings['image_format'] ?? 'webp' );
+		$target_mime = (string) $mime;
+		if ( 'webp' === $requested && wp_image_editor_supports( array( 'mime_type' => 'image/webp' ) ) ) {
+			$target_mime = 'image/webp';
+		} elseif ( 'jpeg' === $requested && wp_image_editor_supports( array( 'mime_type' => 'image/jpeg' ) ) ) {
+			$target_mime = 'image/jpeg';
+		} elseif ( 'webp' === $requested && wp_image_editor_supports( array( 'mime_type' => 'image/jpeg' ) ) ) {
+			$target_mime = 'image/jpeg';
+		}
+
+		$quality = absint( $settings['image_quality'] ?? 82 );
+		if ( $quality >= 1 && $quality <= 100 ) {
+			$editor->set_quality( $quality );
+		}
+
+		$convert = ( $target_mime !== (string) $mime );
+		if ( $convert ) {
+			$dir  = dirname( $file_path );
+			$base = pathinfo( $file_path, PATHINFO_FILENAME );
+			$ext  = $this->mime_to_extension( $target_mime );
+			$dest = trailingslashit( $dir ) . $base . '.' . $ext;
+			if ( file_exists( $dest ) && $dest !== $file_path ) {
+				$dest = trailingslashit( $dir ) . $base . '-' . wp_rand( 1000, 9999 ) . '.' . $ext;
+			}
+			$saved = $editor->save( $dest, $target_mime );
+		} else {
+			$saved = $editor->save( $file_path, $target_mime );
+		}
+
+		if ( is_wp_error( $saved ) || empty( $saved['path'] ) ) {
+			return $result;
+		}
+
+		// Drop the original file when we converted to a new path.
+		if ( $convert && (string) $saved['path'] !== (string) $file_path && file_exists( $file_path ) ) {
+			wp_delete_file( $file_path );
+		}
+
+		return array(
+			'file' => (string) $saved['path'],
+			'mime' => (string) ( $saved['mime-type'] ?? $target_mime ),
+		);
 	}
 
 	/**

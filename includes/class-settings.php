@@ -72,6 +72,11 @@ class Settings {
 		$output['openai_vector_store_ids']       = isset( $input['openai_vector_store_ids'] ) ? sanitize_textarea_field( (string) $input['openai_vector_store_ids'] ) : $defaults['openai_vector_store_ids'];
 		$output['openai_responses_model']        = isset( $input['openai_responses_model'] ) ? sanitize_text_field( (string) $input['openai_responses_model'] ) : $defaults['openai_responses_model'];
 		$output['file_search_instruction']       = isset( $input['file_search_instruction'] ) ? sanitize_textarea_field( (string) $input['file_search_instruction'] ) : $defaults['file_search_instruction'];
+		$output['image_optimize_enabled']        = ! empty( $input['image_optimize_enabled'] );
+		$output['image_max_width']               = isset( $input['image_max_width'] ) ? max( 0, min( 4096, absint( $input['image_max_width'] ) ) ) : $defaults['image_max_width'];
+		$img_format                              = isset( $input['image_format'] ) ? sanitize_key( (string) $input['image_format'] ) : $defaults['image_format'];
+		$output['image_format']                  = in_array( $img_format, array( 'keep', 'webp', 'jpeg' ), true ) ? $img_format : $defaults['image_format'];
+		$output['image_quality']                 = isset( $input['image_quality'] ) ? max( 1, min( 100, absint( $input['image_quality'] ) ) ) : $defaults['image_quality'];
 		$output['telegram_enabled']              = ! empty( $input['telegram_enabled'] );
 		$output['telegram_allowed_chat_ids']     = isset( $input['telegram_allowed_chat_ids'] ) ? sanitize_textarea_field( (string) $input['telegram_allowed_chat_ids'] ) : $defaults['telegram_allowed_chat_ids'];
 		$output['telegram_article_type_id']      = isset( $input['telegram_article_type_id'] ) ? absint( $input['telegram_article_type_id'] ) : $defaults['telegram_article_type_id'];
