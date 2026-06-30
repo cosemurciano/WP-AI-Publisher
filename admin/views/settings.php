@@ -622,9 +622,9 @@ if ( isset( $_GET['wpai_notice'] ) ) {
 							<ol style="margin-left:18px;">
 								<li><?php echo wp_kses( __( 'Crea un bot con <strong>@BotFather</strong> su Telegram e copia il <em>token</em>.', 'wp-ai-publisher' ), array( 'strong' => array(), 'em' => array() ) ); ?></li>
 								<li><?php echo wp_kses( __( 'In <code>wp-config.php</code> aggiungi:<br><code>define( \'WPAIP_TELEGRAM_BOT_TOKEN\', \'123456:ABC...\' );</code><br><code>define( \'WPAIP_TELEGRAM_SECRET\', \'una-stringa-casuale-lunga\' );</code>', 'wp-ai-publisher' ), array( 'code' => array(), 'br' => array() ) ); ?></li>
-								<li><?php echo esc_html__( 'Scopri la tua Chat ID: scrivi al bot @userinfobot (ti risponde con il tuo ID), oppure invia un messaggio al tuo bot e leggi la Chat ID nei log (Stato sistema → eventi “telegram”).', 'wp-ai-publisher' ); ?></li>
-								<li><?php echo esc_html__( 'Qui sotto: spunta “Abilita Telegram”, incolla la/le Chat ID autorizzate, scegli la Tipologia articolo e la lingua, poi salva le impostazioni.', 'wp-ai-publisher' ); ?></li>
-								<li><?php echo esc_html__( 'Clicca “Registra webhook”, poi “Verifica stato webhook” per conferma.', 'wp-ai-publisher' ); ?></li>
+								<li><?php echo esc_html__( 'Spunta “Abilita Telegram”, salva, poi clicca “Registra webhook” e “Verifica stato webhook” per conferma.', 'wp-ai-publisher' ); ?></li>
+								<li><?php echo wp_kses( __( 'Scopri la tua Chat ID: apri il bot su Telegram e invia <code>/id</code> (il bot ti risponde con l’ID). L’ID comparirà anche qui sotto in “Chat ID viste di recente”, con un pulsante “Aggiungi”.', 'wp-ai-publisher' ), array( 'code' => array() ) ); ?></li>
+								<li><?php echo esc_html__( 'Aggiungi le Chat ID autorizzate, scegli la Tipologia articolo e la lingua, poi salva di nuovo le impostazioni.', 'wp-ai-publisher' ); ?></li>
 							</ol>
 							<p><strong><?php echo esc_html__( 'Uso quotidiano:', 'wp-ai-publisher' ); ?></strong></p>
 							<ul style="margin-left:18px; list-style:disc;">
@@ -659,7 +659,46 @@ if ( isset( $_GET['wpai_notice'] ) ) {
 							</tr>
 							<tr>
 								<th scope="row"><label for="wpai-tg-chats"><?php echo esc_html__( 'Chat ID autorizzate', 'wp-ai-publisher' ); ?></label></th>
-								<td><textarea id="wpai-tg-chats" name="wpai_publisher_settings[telegram_allowed_chat_ids]" rows="2" class="large-text code" placeholder="123456789, -1009876543210"><?php echo esc_textarea( (string) ( $settings['telegram_allowed_chat_ids'] ?? '' ) ); ?></textarea><p class="description"><?php echo esc_html__( 'Solo i messaggi da queste chat creano idee (separa con virgola/spazio/a capo). Lascia vuoto per accettare qualsiasi chat (sconsigliato).', 'wp-ai-publisher' ); ?></p></td>
+								<td><textarea id="wpai-tg-chats" name="wpai_publisher_settings[telegram_allowed_chat_ids]" rows="2" class="large-text code" placeholder="123456789, -1009876543210"><?php echo esc_textarea( (string) ( $settings['telegram_allowed_chat_ids'] ?? '' ) ); ?></textarea><p class="description"><?php echo esc_html__( 'Solo i messaggi da queste chat creano idee (separa con virgola/spazio/a capo). Lascia vuoto per accettare qualsiasi chat (sconsigliato). Servono per le notifiche in uscita (bozza pronta).', 'wp-ai-publisher' ); ?></p></td>
+							</tr>
+							<tr>
+								<th scope="row"><?php echo esc_html__( 'Chat ID viste di recente', 'wp-ai-publisher' ); ?></th>
+								<td>
+									<?php $wpai_tg_seen = function_exists( 'wpai_publisher_get_telegram_seen_chats' ) ? wpai_publisher_get_telegram_seen_chats() : array(); ?>
+									<?php if ( empty( $wpai_tg_seen ) ) : ?>
+										<p class="description"><?php echo wp_kses( __( 'Nessuna chat ancora rilevata. Apri il bot su Telegram e invia <code>/id</code> (o un qualsiasi messaggio): comparirà qui e il bot ti risponderà con la tua Chat ID. Poi aggiorna questa pagina.', 'wp-ai-publisher' ), array( 'code' => array() ) ); ?></p>
+									<?php else : ?>
+										<ul class="wpai-tg-seen" style="margin:0;display:flex;flex-direction:column;gap:6px;">
+											<?php foreach ( $wpai_tg_seen as $wpai_seen ) : ?>
+												<?php $wpai_seen_id = (string) ( $wpai_seen['id'] ?? '' ); if ( '' === $wpai_seen_id ) { continue; } ?>
+												<li style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+													<code><?php echo esc_html( $wpai_seen_id ); ?></code>
+													<?php if ( '' !== (string) ( $wpai_seen['label'] ?? '' ) ) : ?><span class="description" style="margin:0;"><?php echo esc_html( (string) $wpai_seen['label'] ); ?><?php echo '' !== (string) ( $wpai_seen['type'] ?? '' ) ? ' · ' . esc_html( (string) $wpai_seen['type'] ) : ''; ?></span><?php endif; ?>
+													<button type="button" class="button button-small wpai-tg-add" data-chat-id="<?php echo esc_attr( $wpai_seen_id ); ?>"><?php echo esc_html__( 'Aggiungi', 'wp-ai-publisher' ); ?></button>
+												</li>
+											<?php endforeach; ?>
+										</ul>
+										<p class="description"><?php echo esc_html__( '“Aggiungi” inserisce l’ID nel campo “Chat ID autorizzate” qui sopra: ricordati poi di salvare le impostazioni. L’elenco si aggiorna quando una chat scrive al bot (ricarica la pagina).', 'wp-ai-publisher' ); ?></p>
+										<script>
+										( function () {
+											var field = document.getElementById( 'wpai-tg-chats' );
+											if ( ! field ) { return; }
+											document.querySelectorAll( '.wpai-tg-add' ).forEach( function ( btn ) {
+												btn.addEventListener( 'click', function () {
+													var id = btn.getAttribute( 'data-chat-id' ) || '';
+													if ( ! id ) { return; }
+													var ids = field.value.split( /[\s,]+/ ).filter( function ( v ) { return v.length; } );
+													if ( ids.indexOf( id ) === -1 ) {
+														ids.push( id );
+														field.value = ids.join( ', ' );
+													}
+													field.focus();
+												} );
+											} );
+										}() );
+										</script>
+									<?php endif; ?>
+								</td>
 							</tr>
 							<tr>
 								<th scope="row"><label for="wpai-tg-type"><?php echo esc_html__( 'Tipologia articolo', 'wp-ai-publisher' ); ?></label></th>

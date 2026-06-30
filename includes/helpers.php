@@ -760,6 +760,29 @@ if ( ! function_exists( 'wpai_publisher_get_linkedin_access_token' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wpai_publisher_get_telegram_seen_chats' ) ) {
+	/**
+	 * Recently seen Telegram chats (chats that have written to the bot), most
+	 * recent first. Used to authorize chat IDs from Settings without a manual
+	 * lookup.
+	 *
+	 * @return array<string,array{id:string,label:string,type:string,time:string}>
+	 */
+	function wpai_publisher_get_telegram_seen_chats() {
+		$seen = get_option( 'wpai_publisher_telegram_seen_chats', array() );
+		if ( ! is_array( $seen ) ) {
+			return array();
+		}
+		uasort(
+			$seen,
+			static function ( $a, $b ) {
+				return strcmp( (string) ( $b['time'] ?? '' ), (string) ( $a['time'] ?? '' ) );
+			}
+		);
+		return $seen;
+	}
+}
+
 if ( ! function_exists( 'wpai_publisher_get_telegram_allowed_chat_ids' ) ) {
 	/**
 	 * Parse the configured allowed Telegram chat IDs.
